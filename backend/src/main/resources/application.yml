@@ -30,6 +30,12 @@ app:
     refresh-token-expiration-ms: 604800000
   cors:
     allowed-origins: http://localhost:3000
+  admin:
+    # Sem default de propósito, em nenhum profile: se não setadas, AdminBootstrapRunner
+    # pula a criação (WARN, não erro fatal) em vez de criar um admin com credencial
+    # previsível. Ver com.prx.cotacao.identidade.AdminBootstrapRunner.
+    bootstrap-email: ${ADMIN_BOOTSTRAP_EMAIL:#{null}}
+    bootstrap-password: ${ADMIN_BOOTSTRAP_PASSWORD:#{null}}
   whatsapp:
     verify-token: ${WHATSAPP_VERIFY_TOKEN:dev-verify-token}
     app-secret: ${WHATSAPP_APP_SECRET:e3a324c5e9060a6630208aafa8a87594}

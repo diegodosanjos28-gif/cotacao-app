@@ -24,4 +24,6 @@ public interface UsuarioRepository extends JpaRepository<Usuario, UUID> {
     List<Usuario> findByPapelOrderByCriadoEmDesc(Papel papel);
 
     long countByPapelAndAtivo(Papel papel, boolean ativo);
+
+    boolean existsByPapel(Papel papel);
 }
