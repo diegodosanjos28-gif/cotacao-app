@@ -1,0 +1,17 @@
+# Backend build
+backend/target/
+
+# Env files
+.env
+*.local
+
+# IDE
+.idea/
+*.iml
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+/docs/qa/scripts/

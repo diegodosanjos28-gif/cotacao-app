@@ -1,0 +1,67 @@
+# Configuração de testes de integração.
+# Aponta para container Docker Postgres local na porta 5555.
+# Para subir o container: docker run -d --name cotacao-test-db -e POSTGRES_USER=cotacao -e POSTGRES_PASSWORD=cotacao -e POSTGRES_DB=cotacao_dev -p 5555:5432 postgres:16-alpine
+#
+# ATENÇÃO — a senha de cotacao_app aqui TEM que ser a mesma de
+# src/main/resources/application-dev.yml (APP_DB_PASSWORD, default cotacao_app_dev).
+# Os testes e o app de dev compartilham o MESMO container e o MESMO role, e a senha só é
+# aplicada uma vez, pela migration V14 (placeholder app_db_password), na primeira
+# execução das migrations. Divergir os dois valores aqui não faz o role ter duas senhas:
+# quem rodar por último ganha, e o outro lado passa a levar
+# "FATAL: password authentication failed for user cotacao_app" — testes verdes e app de
+# dev sem subir, ou o contrário.
+
+spring:
+  datasource:
+    # Runtime (JPA/Hikari) — cotacao_app, sem BYPASSRLS. A senha vem da migration
+    # V14 (placeholder app_db_password abaixo), não existe até as migrations rodarem.
+    url: jdbc:postgresql://127.0.0.1:5555/cotacao_dev
+    username: cotacao_app
+    password: cotacao_app_dev
+    hikari:
+      maximum-pool-size: 5
+
+  jpa:
+    show-sql: false
+
+  flyway:
+    # Conexão admin (o role "cotacao" criado pelo POSTGRES_USER do container) — só
+    # para migrations.
+    url: jdbc:postgresql://127.0.0.1:5555/cotacao_dev
+    user: cotacao
+    password: cotacao
+    clean-disabled: false
+    placeholders:
+      app_db_password: cotacao_app_dev
+
+app:
+  jwt:
+    secret: test-secret-change-in-prod-needs-32-chars-minimum-x
+    access-token-expiration-ms: 900000
+    refresh-token-expiration-ms: 604800000
+  cors:
+    allowed-origins: http://localhost:3000
+  rate-limit:
+    # LoginRateLimiter é singleton por ApplicationContext, e o contexto default (sem
+    # @TestPropertySource) é compartilhado/cacheado por praticamente todas as classes
+    # de teste de integração deste pacote (@SpringBootTest + @ActiveProfiles("dev")
+    # sem overrides adicionais = mesma chave de cache de contexto). Isso significa que
+    # TODAS as chamadas reais a /auth/login e /auth/refresh feitas via MockMvc, em
+    # QUALQUER classe de teste que rode nesse contexto ao longo de uma suíte
+    # completa, disputam o MESMO balde de tentativas por IP (loopback do MockMvc) —
+    # o default de produção (20 tentativas / 60s, calibrado contra brute force real)
+    # é baixo demais para o volume agregado de uma suíte de testes crescendo com o
+    # tempo. Sem esta folga, testes sem relação nenhuma entre si (ex.:
+    # AdminTenantUsuarioFluxoIntegrationTest e SelecionarTenantIntegrationTest) falham
+    # de forma dependente de ordem/tempo de execução com 429, não por bug de verdade.
+    # AuthRateLimitIntegrationTest já usa a mesma técnica (via @TestPropertySource)
+    # para isolar o CENÁRIO de rate limit num contexto próprio — este override aqui é
+    # o equivalente para o contexto default, usado por todo o resto da suíte.
+    auth:
+      ip-max-attempts: 1000
+      ip-window-seconds: 60
+
+logging:
+  level:
+    com.prx.cotacao: INFO
+    org.flywaydb: INFO

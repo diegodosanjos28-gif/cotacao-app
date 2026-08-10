@@ -1,0 +1,958 @@
+# Nota (não faz parte do conteúdo colável): blocos pensados para colagem direta nos
+# campos web da Entrada de Dados, sem header. Para usar via /dev/whatsapp/simular
+# (canal WhatsApp real), prefixe manualmente LISTA_PRODUTOS\n (bloco LISTA BASE) ou
+# RESPOSTA_FORNECEDOR\n + nome do fornecedor (blocos FORNECEDOR) — ver seção 10.3 da
+# doc técnica e docs/qa/scripts/README.md.
+
+=== EXEMPLO 2 — LISTA BASE ===
+18un pettiz dori cebola 50g
+1dz pettis dori pimenta 50g
+1dz tubo recheado dori yogurte 70g
+1dz tubo recheado dori uva acido 70g
+1dz tubo recheado dori morango 70g
+1dz tubo recheado dori morango acido 70g
+1dp pescoço girafa dori yogurte
+1dp pescoço girafa dori morango
+1dp pescoço girafa dori framboesa
+1dp pescoço girafa dori bolete
+1dz bala bolete dori 100g
+1dz bala yogurte dori 100g
+1dz bala cola florestal 100g~
+6un bala dori hortelã mint 100g
+1dz bala coração florestal 100g~
+6un bala coffee florestal 100g~
+6un bal canela florestal 100g
+2cx mucilon multicereais sachet 360g
+2cx mucilon arroz aveia sachet 360g
+1cx mucilon arroz sachet 360g
+1cx filtro brigitta 103
+1cx filtro melitta 103
+1cx cafe iguaçu 200g
+1cx cafe iguaçu 169g
+1cx nescafé original sachet 40g
+3fd leite em po aurora sachet 400
+1dz oleo girassol 900ml
+1fd cuscuz sinhá 500g
+1cx fermento royal 100g
+6un fermento royal 250g
+1dz maizena 200g
+18un maiscerta 200g
+1fd farinha de rosca luzago
+1cx doriana s sal 500g
+5cx doriana c sal 500g
+5cx qualy c sal 500g
+6un acendedor sólido paraná 100g
+1cx vassoura bettanin original
+3un chuveiro simples
+1cx tucs churrasco
+1cx tucs bacon
+1cx tucs original
+1cx torrada bauducco original 142g
+1cx biscoito sol salt plus 360g
+1cx biscoito marilan far lactea 300g
+1cx biscoito marilan maizena choc 300g
+1cx biscoito marilan maria 300g
+1cx biscoito marilan cream cracker manteiga 300g
+2cx tortinhas marilan choc 300g
+2cx tortinhas marilan bauny 300g
+2cx tortinhas marilan bombom 300g
+1cx tortinhas marilan limão 300g
+1cx amanteigado marilan leite 280g
+1cx amanteigado marilan coco 280g
+1cx amanteigado marilan tradicional 280g
+1cx amanteigado marilan nata 280g
+1cx tortinhas marilan bauny 140g
+1dz massa lasanha dona benta 200g
+5fd massa +barata 500g
+1cx coco sococo 50g
+1cx coco sococo 100g
+3un nutella 700g
+1cx amendocrem 200g
+1cx creme leite zero lactose pitacanjuba tp 200g
+3cx creme de leite +barato tp 200g
+5cx creme de leite piracanjuba tp 200g
+2cx milho sachet
+1cx azeitona s caroço vale fertil sachet
+6un azeitona conserva c caroço vidro
+1cx pepino hemmer agridoce
+6un mostarda hellmanns supreme 250g
+2cx mostarda amarela konsumo 180g
+1cx mostarda amarela hemmer 200g
+1cx açucar sachet caravelas 5g
+1cx catchup dajuda sachet 7g
+3un ketchup heinz picles 397g
+3un ketchup heinz picante 397g
+3un ketchup heinz jalapeno 397g
+6un ketchup hellmanns supreme 390g
+2cx hellmanns sachet 1kg
+1dz maionese heinz 390g
+1dz maionese heinz 215g
+3un molho chuchar hellmanns queijo
+3un molho chuchar hellmanns cebola salsa
+6un maio hellmanns queijo 335g
+1cx shampoo dove hialuron-vit 190ml
+1cx shampoo dove reconst+amino 190ml
+1cx shampoo dove ultra cachos 190ml
+1cx shampoo dove nutrição tri 190ml
+1cx shampoo dove men 2em1 190ml
+1cx condicionador dove hialuron-vit 190ml
+1cx condicionador dove reconst+amino 190ml
+1cx shampoo pantene hidratação 200ml
+1cx shampoo pantene restauração 200ml
+1cx shampoo pantene bambu 200ml
+1cx shampoo pantene cachos 200ml
+1cx shampoo pantene colágeno 200ml
+1cx cond pantene colágeno 200ml
+1cx cond pantene cachos 200ml
+1cx cond pantene restauração 200ml
+1cx cond pantene hidratação 200ml
+1cx shampoo head shoulders limp prof 200ml
+1cx shampoo head shoulders menthol refresh 200ml
+1cx shampoo head shoulders hidratação 200ml
+1cx shampoo clear queda control 200ml
+1cx shampoo clear limp diária 2em1 200ml
+1cx shampoo clear hidratação intensea 200ml
+2un mascara capilar lola morte súbita 450g
+2un mascara capilar lola dream cream 450g
+2un mascara capilar lola meu cacho minha vida 450g
+2un mascara capilar elseve hidra hialu 300g
+2un mascara capilar elseve rep total 300g
+2un mascara capilar elseve glycolic gloss 300g
+2un mascara capilar pantene hidratação 270ml
+2un mascara capilar pantene restauração  270ml
+2un mascara capilar pantene colágeno 270ml
+2un mascara capilar pantene bambu 270ml
+6un loção nivea milk 200ml
+1cx cond neutrox 300ml tradicional
+2dp acetona encasa 100ml
+1dz francis luxo lavanda 90g
+1dz francis luxo jasmin 90g
+1cx deso rexona aero men active dry 150ml
+1cx deso rexona aero men xtracool 150ml
+1cx deso rexona aero men sem perfume 150ml
+1cx deso rexona aero men antibac invisible 150ml
+1cx deso rexona aero men invisible 150ml
+1cx deso rexona aero men sport defense 150ml
+1cx deso rexona aero men impacto 150ml
+1cx deso dove men aero cuidado total 150ml
+1cx deso dove men aero clean comfort 150ml
+1cx deso dove men aero extra fresh 150ml
+1cx deso dove men aero invisible dry 150ml
+1cx deso dove femi aero original 150ml
+1cx deso dove femi aero invisible dry 150ml
+1cx deso dove femi aero pepino chá verde 150ml
+1cx deso dove femi aero romã verbena 150ml
+6un fita crepe larga
+6un fita crepe 24mm
+2dz fita durex pequena
+1dz cortador unha pequeno
+1dz cortador unha grande
+1dz carga sensitive mach3 c2
+3un aparelho mach3 tradicional
+3dp agua oxi vol 40
+2dp agua oxi vol 30
+2dp agua oxi vol 20
+2dz pilha alcalina aaa c4
+2dz pilha alcalina aa c4
+2dz pilha normal aaa c4
+1dz pote paçoca santa helena 220g
+5dp barrinha cereal
+1dp choc shot branco 50g
+1dp prestigio maxi 90g
+1cx choc garoto (informar quais sabores tem)
+2dp choc nestle alpino duo 85
+2dp choc nestle suflair 80g
+2dp choc nestle suflair duo 80g
+3cx alcool 92 1L
+1cx alcool 70 1L
+1cx alcool 92 500ml
+6un kothrine 30ml
+3un veneno formiga seringa
+3cx qboa 2L
+1cx alvejante qboa lavanda 1L
+1cx qboa 1L
+2cx agua sanit suprema 1L
+2cx amaciante conc girando sol coco 500ml
+1cx amaciante conc puro carinho girando sol 500ml
+2cx amaciante conc girando sol coco 1L
+4cx amaciante baby soft toque carinho 2L
+2cx amaciante baby soft dark blue 2L
+1cx amaciante ype primavera 2L
+2cx amaciante ype aconchego 2L
+1cx sabão omo lvg pef 1.6kg
+3fd surf limão bicarbonato 800g
+1cx leite zero lactose piracanjuba 1L
+1cx sabão brilhante 1.8L
+1cx sabão omo liq lvg perf 900ml
+5cx det suprema 500ml
+5cx det ype 500ml
+1cx esponja unitário +barato
+6un esponja esfrebom salva unhas
+1dz esponja esfrebom não risca c4
+1cx sabão ype neutro 800g
+1cx sabão ype fru verm 160g
+1dz cif cremoso classico 350ml
+1cx veja x14 limp pesada 2em1 500ml
+1cx goiabada 300g~
+10fd agua da serra 2L
+6un espumante aurora moscatel
+3un espumante aurora zero alcool
+3un vinho zero alcool aurora cabernet
+2un bacardi carta blanca
+3un smirnoff 998ml
+2un campari 998ml
+1un steinhaeger doble w
+5un natu nobilis 1L
+3un quentão campo largo 750ml
+2bdj isqueiro bic grande
+4ct isqueiro bic pequeno
+5cx oleo soya 900ml
+1cx ioio crem mix
+1cx ioio crem chocolate
+1cx ioio crem morango
+1dz lampada led 40W
+
+=== EXEMPLO 2 — FORNECEDOR: TAF ===
+18un pettiz dori cebola 50g
+1dz pettis dori pimenta 50g
+1dz tubo recheado dori yogurte 70g 3,54
+1dz tubo recheado dori uva acido 70g
+1dz tubo recheado dori morango 70g 3,54
+1dz tubo recheado dori morango acido 70g
+1dp pescoço girafa dori yogurte 0,65
+1dp pescoço girafa dori morango 0,65
+1dp pescoço girafa dori framboesa
+1dp pescoço girafa dori bolete
+1dz bala bolete dori 100g
+1dz bala yogurte dori 100g
+1dz bala cola florestal 100g~
+6un bala dori hortelã mint 100g
+1dz bala coração florestal 100g~
+6un bala coffee florestal 100g~
+6un bal canela florestal 100g
+2cx mucilon multicereais sachet 360g
+2cx mucilon arroz aveia sachet 360g 9,31
+1cx mucilon arroz sachet 360g
+1cx filtro brigitta 103  3,27
+1cx filtro melitta 103  3,65
+1cx cafe iguaçu 200g 20,04
+1cx cafe iguaçu 169g
+1cx nescafé original sachet 40g 4,42
+3fd leite em po aurora sachet 400
+1dz oleo girassol 900ml vem 20   11,54
+1fd cuscuz sinhá 500g 2,21
+1cx fermento royal 100g 3,01
+6un fermento royal 250g 9,93
+1dz maizena 200g
+18un maiscerta 200g
+1fd farinha de rosca luzago
+1cx doriana s sal 500g 6,47
+5cx doriana c sal 500g 6,47
+5cx qualy c sal 500g
+6un acendedor sólido paraná 100g vem 10  3,50
+1cx vassoura bettanin original 11,06
+3un chuveiro simples
+1cx tucs churrasco 1,61
+1cx tucs bacon 1,61
+1cx tucs original 1,61
+1cx torrada bauducco original 142g 3,59
+1cx biscoito sol salt plus 360g 4,60
+1cx biscoito marilan far lactea 300g
+1cx biscoito marilan maizena choc 300g
+1cx biscoito marilan maria 300g
+1cx biscoito marilan cream cracker manteiga 300g
+2cx tortinhas marilan choc 300g
+2cx tortinhas marilan bauny 300g
+2cx tortinhas marilan bombom 300g
+1cx tortinhas marilan limão 300g
+1cx amanteigado marilan leite 280g
+1cx amanteigado marilan coco 280g
+1cx amanteigado marilan tradicional 280g
+1cx amanteigado marilan nata 280g
+1cx tortinhas marilan bauny 140g
+1dz massa lasanha dona benta 200g
+5fd massa +barata 500g
+1cx coco sococo 50g 4,19
+1cx coco sococo 100g 5,53
+3un nutella 700g 43,52
+1cx amendocrem 200g 12,00
+1cx creme leite zero lactose pitacanjuba tp 200g
+3cx creme de leite +barato tp 200g 2,29
+5cx creme de leite piracanjuba tp 200g 2,41
+2cx milho sachet 3,06
+1cx azeitona s caroço vale fertil sachet 3,58
+6un azeitona conserva c caroço vidro
+1cx pepino hemmer agridoce 200g 7,06
+440g 13,09
+6un mostarda hellmanns supreme 250g
+2cx mostarda amarela konsumo 180g 2,55
+1cx mostarda amarela hemmer 200g
+1cx açucar sachet caravelas 5g 22,68
+1cx catchup dajuda sachet 7g 21,66
+3un ketchup heinz picles 397g
+3un ketchup heinz picante 397g
+3un ketchup heinz jalapeno 397g
+6un ketchup hellmanns supreme 390g
+2cx hellmanns sachet 1kg
+1dz maionese heinz 390g 11,07
+1dz maionese heinz 215g 6,04
+3un molho chuchar hellmanns queijo
+3un molho chuchar hellmanns cebola salsa
+6un maio hellmanns queijo 335g
+1cx shampoo dove hialuron-vit 190ml
+1cx shampoo dove reconst+amino 190ml
+1cx shampoo dove ultra cachos 190ml
+1cx shampoo dove nutrição tri 190ml
+1cx shampoo dove men 2em1 190ml
+1cx condicionador dove hialuron-vit 190ml
+1cx condicionador dove reconst+amino 190ml
+1cx shampoo pantene hidratação 200ml 11,61
+1cx shampoo pantene restauração 200ml 11,61
+1cx shampoo pantene bambu 200ml 11,61
+1cx shampoo pantene cachos 200ml 11,67
+1cx shampoo pantene colágeno 200ml 11,86
+1cx cond pantene colágeno 200ml 150ml 11,57
+1cx cond pantene cachos 200ml 11,48
+1cx cond pantene restauração 200ml 11,48
+1cx cond pantene hidratação 200ml 11,48
+1cx shampoo head shoulders limp prof 200ml 12,58
+1cx shampoo head shoulders menthol refresh 200ml 12,58
+1cx shampoo head shoulders hidratação 200ml 12,58
+1cx shampoo clear queda control 200ml
+1cx shampoo clear limp diária 2em1 200ml
+1cx shampoo clear hidratação intensea 200ml
+2un mascara capilar lola morte súbita 450g
+2un mascara capilar lola dream cream 450g
+2un mascara capilar lola meu cacho minha vida 450g
+2un mascara capilar elseve hidra hialu 300g
+2un mascara capilar elseve rep total 300g
+2un mascara capilar elseve glycolic gloss 300g
+2un mascara capilar pantene hidratação 270ml 20,64
+2un mascara capilar pantene restauração  270ml 20,64
+2un mascara capilar pantene colágeno 270ml
+2un mascara capilar pantene bambu 270ml
+6un loção nivea milk 200ml 11,57
+1cx cond neutrox 300ml tradicional 8,28
+2dp acetona encasa 100ml
+1dz francis luxo lavanda 90g 2,85
+1dz francis luxo jasmin 90g 2,85
+1cx deso rexona aero men active dry 150ml
+1cx deso rexona aero men xtracool 150ml
+1cx deso rexona aero men sem perfume 150ml
+1cx deso rexona aero men antibac invisible 150ml
+1cx deso rexona aero men invisible 150ml
+1cx deso rexona aero men sport defense 150ml
+1cx deso rexona aero men impacto 150ml
+1cx deso dove men aero cuidado total 150ml
+1cx deso dove men aero clean comfort 150ml
+1cx deso dove men aero extra fresh 150ml
+1cx deso dove men aero invisible dry 150ml
+1cx deso dove femi aero original 150ml
+1cx deso dove femi aero invisible dry 150ml
+1cx deso dove femi aero pepino chá verde 150ml
+1cx deso dove femi aero romã verbena 150ml
+6un fita crepe larga 11,16
+6un fita crepe 24mm
+2dz fita durex pequena 0,76
+1dz cortador unha pequeno 2,39
+1dz cortador unha grande
+1dz carga sensitive mach3 c2   24,42
+3un aparelho mach3 tradicional 18,35
+3dp agua oxi vol 40   1,73
+2dp agua oxi vol 30 1,73
+2dp agua oxi vol 20 1,73
+2dz pilha alcalina aaa c4
+2dz pilha alcalina aa c4
+2dz pilha normal aaa c4   6,01
+1dz pote paçoca santa helena 220g
+5dp barrinha cereal 1,21
+1dp choc shot branco 50g 4,77
+1dp prestigio maxi 90g 6,63
+1cx choc garoto (informar quais sabores tem) 4,93
+Ao leite
+Bco negresco
+Castanha caju
+Branco
+Crunch
+Caju passas
+2dp choc nestle alpino duo 85
+2dp choc nestle suflair 80g 7,01
+2dp choc nestle suflair duo 80g 7,55
+3cx alcool 92 1L
+1cx alcool 70 1L
+1cx alcool 92 500ml
+6un kothrine 30ml 12,34
+3un veneno formiga seringa 11,08
+3cx qboa 2L 5,83
+1cx alvejante qboa lavanda 1L 3,00
+1cx qboa 1L 3,16
+2cx agua sanit suprema 1L 2,57
+2cx amaciante conc girando sol coco 500ml 7,85
+1cx amaciante conc puro carinho girando sol 500ml 7,85
+2cx amaciante conc girando sol coco 1L 14,83
+4cx amaciante baby soft toque carinho 2L 5,72
+2cx amaciante baby soft dark blue 2L 5,72
+1cx amaciante ype primavera 2L 8,04
+2cx amaciante ype aconchego 2L 8,04
+1cx sabão omo lvg pef 1.6kg
+3fd surf limão bicarbonato 800g
+1cx leite zero lactose piracanjuba 1L
+1cx sabão brilhante 1.8L
+1cx sabão omo liq lvg perf 900ml
+5cx det suprema 500ml 2,10
+5cx det ype 500ml 2,33
+1cx esponja unitário +barato 0,70 assolan
+6un esponja esfrebom salva unhas
+1dz esponja esfrebom não risca c4
+1cx sabão ype neutro 800g 12,13
+1cx sabão ype fru verm 160g
+1dz cif cremoso classico 350ml
+1cx veja x14 limp pesada 2em1 500ml 7,63
+1cx goiabada 300g~ 3,00
+10fd agua da serra 2L 5,49
+6un espumante aurora moscatel 36,26
+3un espumante aurora zero alcool
+3un vinho zero alcool aurora cabernet
+2un bacardi carta blanca
+3un smirnoff 998ml
+2un campari 998ml
+1un steinhaeger doble w
+5un natu nobilis 1L
+3un quentão campo largo 750ml
+2bdj isqueiro bic grande 4,13
+4ct isqueiro bic pequeno 3,43
+5cx oleo soya 900ml
+1cx ioio crem mix 2,99
+1cx ioio crem chocolate 2,99
+1cx ioio crem morango 2,99
+1dz lampada led 40W 11,47
+
+=== EXEMPLO 2 — FORNECEDOR: JORGE MOTTER ===
+18un pettiz dori cebola 50g
+1dz pettis dori pimenta 50g
+1dz tubo recheado dori yogurte 70g - 2,92
+1dz tubo recheado dori uva acido 70g - 2,92
+1dz tubo recheado dori morango 70g - 2,92
+1dz tubo recheado dori morango acido 70g - 2,92
+1dp pescoço girafa dori yogurte - 1,25
+1dp pescoço girafa dori morango - 1,25
+1dp pescoço girafa dori framboesa - 1,25
+1dp pescoço girafa dori bolete
+1dz bala bolete dori 100g - 2,59
+1dz bala yogurte dori 100g - 2,59
+1dz bala cola florestal 100g~
+6un bala dori hortelã mint 100g - 2,59
+1dz bala coração florestal 100g~
+6un bala coffee florestal 100g~
+6un bal canela florestal 100g
+2cx mucilon multicereais sachet 360g
+2cx mucilon arroz aveia sachet 360g
+1cx mucilon arroz sachet 360g - 9,59
+1cx filtro brigitta 103 - 2,89
+1cx filtro melitta 103 - 3,05
+1cx cafe iguaçu 200g
+1cx cafe iguaçu 169g
+1cx nescafé original sachet 40g
+3fd leite em po aurora sachet 400
+1dz oleo girassol 900ml
+1fd cuscuz sinhá 500g
+1cx fermento royal 100g - 2,99
+6un fermento royal 250g - 8,15
+1dz maizena 200g
+18un maiscerta 200g
+1fd farinha de rosca luzago
+1cx doriana s sal 500g
+5cx doriana c sal 500g
+5cx qualy c sal 500g
+6un acendedor sólido paraná 100g
+1cx vassoura bettanin original
+3un chuveiro simples
+1cx tucs churrasco
+1cx tucs bacon - 1,62
+1cx tucs original - 1,62
+1cx torrada bauducco original 142g - 4,49
+1cx biscoito sol salt plus 360g - 4,57
+1cx biscoito marilan far lactea 300g
+1cx biscoito marilan maizena choc 300g
+1cx biscoito marilan maria 300g
+1cx biscoito marilan cream cracker manteiga 300g - 4,73
+2cx tortinhas marilan choc 300g
+2cx tortinhas marilan bauny 300g
+2cx tortinhas marilan bombom 300g
+1cx tortinhas marilan limão 300g
+1cx amanteigado marilan leite 280g - 5,39
+1cx amanteigado marilan coco 280g
+1cx amanteigado marilan tradicional 280g
+1cx amanteigado marilan nata 280g - 5,87
+1cx tortinhas marilan bauny 140g
+1dz massa lasanha dona benta 200g
+5fd massa +barata 500g - 2,09
+1cx coco sococo 50g - 4,15
+1cx coco sococo 100g - 5,69
+3un nutella 700g
+1cx amendocrem 200g
+1cx creme leite zero lactose pitacanjuba tp 200g
+3cx creme de leite +barato tp 200g - 2,19
+5cx creme de leite piracanjuba tp 200g - 2,09
+2cx milho sachet
+1cx azeitona s caroço vale fertil sachet
+6un azeitona conserva c caroço vidro - 13,90 (vem com 12un)
+1cx pepino hemmer agridoce - 10,99
+6un mostarda hellmanns supreme 250g
+2cx mostarda amarela konsumo 180g
+1cx mostarda amarela hemmer 200g
+1cx açucar sachet caravelas 5g
+1cx catchup dajuda sachet 7g
+3un ketchup heinz picles 397g
+3un ketchup heinz picante 397g - 10,59 (mínimo 4un)
+3un ketchup heinz jalapeno 397g
+6un ketchup hellmanns supreme 390g
+2cx hellmanns sachet 1kg
+1dz maionese heinz 390g
+1dz maionese heinz 215g
+3un molho chuchar hellmanns queijo
+3un molho chuchar hellmanns cebola salsa
+6un maio hellmanns queijo 335g
+1cx shampoo dove hialuron-vit 190ml
+1cx shampoo dove reconst+amino 190ml
+1cx shampoo dove ultra cachos 190ml
+1cx shampoo dove nutrição tri 190ml
+1cx shampoo dove men 2em1 190ml
+1cx condicionador dove hialuron-vit 190ml
+1cx condicionador dove reconst+amino 190ml
+1cx shampoo pantene hidratação 200ml
+1cx shampoo pantene restauração 200ml
+1cx shampoo pantene bambu 200ml
+1cx shampoo pantene cachos 200ml
+1cx shampoo pantene colágeno 200ml - 11,90
+1cx cond pantene colágeno 200ml - 11,99
+1cx cond pantene cachos 200ml
+1cx cond pantene restauração 200ml
+1cx cond pantene hidratação 200ml
+1cx shampoo head shoulders limp prof 200ml
+1cx shampoo head shoulders menthol refresh 200ml - 11,89
+1cx shampoo head shoulders hidratação 200ml
+1cx shampoo clear queda control 200ml
+1cx shampoo clear limp diária 2em1 200ml
+1cx shampoo clear hidratação intensea 200ml
+2un mascara capilar lola morte súbita 450g
+2un mascara capilar lola dream cream 450g
+2un mascara capilar lola meu cacho minha vida 450g
+2un mascara capilar elseve hidra hialu 300g - 18,79
+2un mascara capilar elseve rep total 300g
+2un mascara capilar elseve glycolic gloss 300g - 18,79
+2un mascara capilar pantene hidratação 270ml - 16,75
+2un mascara capilar pantene restauração  270ml - 16,75
+2un mascara capilar pantene colágeno 270ml
+2un mascara capilar pantene bambu 270ml
+6un loção nivea milk 200ml
+1cx cond neutrox 300ml tradicional
+2dp acetona encasa 100ml
+1dz francis luxo lavanda 90g - 2,59
+1dz francis luxo jasmin 90g - 2,59
+1cx deso rexona aero men active dry 150ml
+1cx deso rexona aero men xtracool 150ml
+1cx deso rexona aero men sem perfume 150ml
+1cx deso rexona aero men antibac invisible 150ml
+1cx deso rexona aero men invisible 150ml
+1cx deso rexona aero men sport defense 150ml
+1cx deso rexona aero men impacto 150ml
+1cx deso dove men aero cuidado total 150ml
+1cx deso dove men aero clean comfort 150ml
+1cx deso dove men aero extra fresh 150ml
+1cx deso dove men aero invisible dry 150ml
+1cx deso dove femi aero original 150ml
+1cx deso dove femi aero invisible dry 150ml
+1cx deso dove femi aero pepino chá verde 150ml
+1cx deso dove femi aero romã verbena 150ml
+6un fita crepe larga - 5,69
+6un fita crepe 24mm - 5,69 (4%)
+2dz fita durex pequena - 1,29
+1dz cortador unha pequeno - 5,09
+1dz cortador unha grande
+1dz carga sensitive mach3 c2 - 17,75
+3un aparelho mach3 tradicional
+3dp agua oxi vol 40
+2dp agua oxi vol 30 - 1,97
+2dp agua oxi vol 20 - 1,19
+2dz pilha alcalina aaa c4 - 13,15
+2dz pilha alcalina aa c4 - 10,75 (4%)
+2dz pilha normal aaa c4
+1dz pote paçoca santa helena 220g
+5dp barrinha cereal
+1dp choc shot branco 50g
+1dp prestigio maxi 90g
+1cx choc garoto (informar quais sabores tem)
+2dp choc nestle alpino duo 85
+2dp choc nestle suflair 80g
+2dp choc nestle suflair duo 80g
+3cx alcool 92 1L
+1cx alcool 70 1L
+1cx alcool 92 500ml
+6un kothrine 30ml - 10,75 (vem display c/30)
+3un veneno formiga seringa - 10,39
+3cx qboa 2L - 4,99
+1cx alvejante qboa lavanda 1L - 3,05
+1cx qboa 1L - 2,77
+2cx agua sanit suprema 1L
+2cx amaciante conc girando sol coco 500ml - 7,55
+1cx amaciante conc puro carinho girando sol 500ml
+2cx amaciante conc girando sol coco 1L - 12,99
+4cx amaciante baby soft toque carinho 2L
+2cx amaciante baby soft dark blue 2L
+1cx amaciante ype primavera 2L
+2cx amaciante ype aconchego 2L
+1cx sabão omo lvg pef 1.6kg - 21,99
+3fd surf limão bicarbonato 800g
+1cx leite zero lactose piracanjuba 1L
+1cx sabão brilhante 1.8L
+1cx sabão omo liq lvg perf 900ml
+5cx det suprema 500ml
+5cx det ype 500ml - 2,05
+1cx esponja unitário +barato - 0,79
+6un esponja esfrebom salva unhas
+1dz esponja esfrebom não risca c4 - 5,79 c/3
+1cx sabão ype neutro 800g - 9,59
+1cx sabão ype fru verm 160g
+1dz cif cremoso classico 350ml
+1cx veja x14 limp pesada 2em1 500ml - 8,39
+1cx goiabada 300g~
+10fd agua da serra 2L
+6un espumante aurora moscatel - 23,59 (12%)
+3un espumante aurora zero alcool - 22,57 (12%)
+3un vinho zero alcool aurora cabernet
+2un bacardi carta blanca
+3un smirnoff 998ml - 35,44
+2un campari 998ml
+1un steinhaeger doble w - 48,59
+5un natu nobilis 1L
+3un quentão campo largo 750ml - 16,59
+2bdj isqueiro bic grande - 4,29
+4ct isqueiro bic pequeno - 3,09
+5cx oleo soya 900ml
+1cx ioio crem mix
+1cx ioio crem chocolate
+1cx ioio crem morango
+1dz lampada led 40W - 9,79 (4%)
+
+=== EXEMPLO 2 — FORNECEDOR: DEQUECH ===
+18un pettiz dori cebola 50g
+1dz pettis dori pimenta 50g
+1dz tubo recheado dori yogurte 70g
+1dz tubo recheado dori uva acido 70g
+1dz tubo recheado dori morango 70g
+1dz tubo recheado dori morango acido 70g
+1dp pescoço girafa dori yogurte
+1dp pescoço girafa dori morango
+1dp pescoço girafa dori framboesa
+1dp pescoço girafa dori bolete
+1dz bala bolete dori 100g
+1dz bala yogurte dori 100g
+1dz bala cola florestal 100g~
+6un bala dori hortelã mint 100g
+1dz bala coração florestal 100g~
+6un bala coffee florestal 100g~
+6un bal canela florestal 100g
+2cx mucilon multicereais sachet 360g
+2cx mucilon arroz aveia sachet 360g
+1cx mucilon arroz sachet 360g
+1cx filtro brigitta 103 R$4,25
+1cx filtro melitta 103 R$4,78
+1cx cafe iguaçu 200g
+1cx cafe iguaçu 169g R$20,38
+1cx nescafé original sachet 40g
+3fd leite em po aurora sachet 400
+1dz oleo girassol 900ml R$10,08
+1fd cuscuz sinhá 500g
+1cx fermento royal 100g
+6un fermento royal 250g
+1dz maizena 200g R$5,43
+18un maiscerta 200g
+1fd farinha de rosca luzago R$4,69
+1cx doriana s sal 500g
+5cx doriana c sal 500g
+5cx qualy c sal 500g
+6un acendedor sólido paraná 100g
+1cx vassoura bettanin original
+3un chuveiro simples
+1cx tucs churrasco
+1cx tucs bacon
+1cx tucs original
+1cx torrada bauducco original 142g
+1cx biscoito sol salt plus 360g R$4,88
+1cx biscoito marilan far lactea 300g
+1cx biscoito marilan maizena choc 300g
+1cx biscoito marilan maria 300g
+1cx biscoito marilan cream cracker manteiga 300g
+2cx tortinhas marilan choc 300g
+2cx tortinhas marilan bauny 300g
+2cx tortinhas marilan bombom 300g
+1cx tortinhas marilan limão 300g
+1cx amanteigado marilan leite 280g
+1cx amanteigado marilan coco 280g
+1cx amanteigado marilan tradicional 280g
+1cx amanteigado marilan nata 280g
+1cx tortinhas marilan bauny 140g
+1dz massa lasanha dona benta 200g R$2,99
+5fd massa +barata 500g R$2,69
+1cx coco sococo 50g
+1cx coco sococo 100g
+3un nutella 700g R$47,52
+1cx amendocrem 200g
+1cx creme leite zero lactose pitacanjuba tp 200g R$3,61
+3cx creme de leite +barato tp 200g R$1,99
+5cx creme de leite piracanjuba tp 200g R$2,04
+2cx milho sachet R$2,13
+1cx azeitona s caroço vale fertil sachet R$4,02
+6un azeitona conserva c caroço vidro R$15,28
+1cx pepino hemmer agridoce R$17,85
+6un mostarda hellmanns supreme 250g R$11,23
+2cx mostarda amarela konsumo 180g
+1cx mostarda amarela hemmer 200g R$8,42
+1cx açucar sachet caravelas 5g R$40,78
+1cx catchup dajuda sachet 7g R$18,02
+3un ketchup heinz picles 397g
+3un ketchup heinz picante 397g
+3un ketchup heinz jalapeno 397g
+6un ketchup hellmanns supreme 390g R$14,14
+2cx hellmanns sachet 1kg R$12,79
+1dz maionese heinz 390g R$11,94
+1dz maionese heinz 215g
+3un molho chuchar hellmanns queijo
+3un molho chuchar hellmanns cebola salsa
+6un maio hellmanns queijo 335g R$15,01
+1cx shampoo dove hialuron-vit 190ml
+1cx shampoo dove reconst+amino 190ml
+1cx shampoo dove ultra cachos 190ml
+1cx shampoo dove nutrição tri 190ml
+1cx shampoo dove men 2em1 190ml
+1cx condicionador dove hialuron-vit 190ml
+1cx condicionador dove reconst+amino 190ml
+1cx shampoo pantene hidratação 200ml
+1cx shampoo pantene restauração 200ml
+1cx shampoo pantene bambu 200ml
+1cx shampoo pantene cachos 200ml
+1cx shampoo pantene colágeno 200ml
+1cx cond pantene colágeno 200ml
+1cx cond pantene cachos 200ml
+1cx cond pantene restauração 200ml
+1cx cond pantene hidratação 200ml
+1cx shampoo head shoulders limp prof 200ml
+1cx shampoo head shoulders menthol refresh 200ml
+1cx shampoo head shoulders hidratação 200ml
+1cx shampoo clear queda control 200ml
+1cx shampoo clear limp diária 2em1 200ml
+1cx shampoo clear hidratação intensea 200ml
+2un mascara capilar lola morte súbita 450g
+2un mascara capilar lola dream cream 450g
+2un mascara capilar lola meu cacho minha vida 450g
+2un mascara capilar elseve hidra hialu 300g
+2un mascara capilar elseve rep total 300g
+2un mascara capilar elseve glycolic gloss 300g
+2un mascara capilar pantene hidratação 270ml
+2un mascara capilar pantene restauração  270ml
+2un mascara capilar pantene colágeno 270ml
+2un mascara capilar pantene bambu 270ml
+6un loção nivea milk 200ml
+1cx cond neutrox 300ml tradicional
+2dp acetona encasa 100ml
+1dz francis luxo lavanda 90g
+1dz francis luxo jasmin 90g
+1cx deso rexona aero men active dry 150ml
+1cx deso rexona aero men xtracool 150ml
+1cx deso rexona aero men sem perfume 150ml
+1cx deso rexona aero men antibac invisible 150ml
+1cx deso rexona aero men invisible 150ml
+1cx deso rexona aero men sport defense 150ml
+1cx deso rexona aero men impacto 150ml
+1cx deso dove men aero cuidado total 150ml
+1cx deso dove men aero clean comfort 150ml
+1cx deso dove men aero extra fresh 150ml
+1cx deso dove men aero invisible dry 150ml
+1cx deso dove femi aero original 150ml
+1cx deso dove femi aero invisible dry 150ml
+1cx deso dove femi aero pepino chá verde 150ml
+1cx deso dove femi aero romã verbena 150ml
+6un fita crepe larga
+6un fita crepe 24mm
+2dz fita durex pequena
+1dz cortador unha pequeno
+1dz cortador unha grande
+1dz carga sensitive mach3 c2
+3un aparelho mach3 tradicional
+3dp agua oxi vol 40
+2dp agua oxi vol 30
+2dp agua oxi vol 20
+2dz pilha alcalina aaa c4
+2dz pilha alcalina aa c4
+2dz pilha normal aaa c4
+1dz pote paçoca santa helena 220g
+5dp barrinha cereal
+1dp choc shot branco 50g
+1dp prestigio maxi 90g
+1cx choc garoto (informar quais sabores tem)
+2dp choc nestle alpino duo 85
+2dp choc nestle suflair 80g
+2dp choc nestle suflair duo 80g
+3cx alcool 92 1L R$7,13
+1cx alcool 70 1L R$6,22
+1cx alcool 92 500ml R$4,39
+6un kothrine 30ml
+3un veneno formiga seringa
+3cx qboa 2L R$6,31
+1cx alvejante qboa lavanda 1L
+1cx qboa 1L R$3,46
+2cx agua sanit suprema 1L
+2cx amaciante conc girando sol coco 500ml R$8,04
+1cx amaciante conc puro carinho girando sol 500ml
+2cx amaciante conc girando sol coco 1L R$14,26
+4cx amaciante baby soft toque carinho 2L R$6,11
+2cx amaciante baby soft dark blue 2L R$6,11
+1cx amaciante ype primavera 2L R$6,88
+2cx amaciante ype aconchego 2L R$6,88
+1cx sabão omo lvg pef 1.6kg
+3fd surf limão bicarbonato 800g
+1cx leite zero lactose piracanjuba 1L R$6,01
+1cx sabão brilhante 1.8L
+1cx sabão omo liq lvg perf 900ml
+5cx det suprema 500ml
+5cx det ype 500ml R$2,13
+1cx esponja unitário +barato
+6un esponja esfrebom salva unhas
+1dz esponja esfrebom não risca c4
+1cx sabão ype neutro 800g
+1cx sabão ype fru verm 160g
+1dz cif cremoso classico 350ml
+1cx veja x14 limp pesada 2em1 500ml
+1cx goiabada 300g R$3,86
+10fd agua da serra 2L
+6un espumante aurora moscatel
+3un espumante aurora zero alcool
+3un vinho zero alcool aurora cabernet
+2un bacardi carta blanca 700ml R$42,73, 980ml R$52,93
+3un smirnoff 998ml R$33,12
+2un campari 998ml R$58,03
+1un steinhaeger doble w R$51,27
+5un natu nobilis 1L
+3un quentão campo largo 750ml R$19,06
+2bdj isqueiro bic grande R$4,35
+4ct isqueiro bic pequeno R$2,59
+5cx oleo soya 900ml R$6,99
+1cx ioio crem mix
+1cx ioio crem chocolate
+1cx ioio crem morango
+1dz lampada led 40W
+
+=== EXEMPLO 2 — FORNECEDOR: DESTRO (bucha pra resolver) ===
+2cx mucilon multicereais sachet 360g = R$ 9,21
+2cx mucilon arroz aveia sachet 360g = R$ 9,21
+1cx mucilon arroz sachet 360g = R$ 9,21
+1cx filtro brigitta 103 = R$ 3,90
+1cx filtro melitta 103 = R$ 3,74
+1cx nescafé original sachet 40g = R$ 6,36
+1dz oleo girassol 900ml = R$ 16,54
+1cx fermento royal 100g = R$ 3,66
+6un fermento royal 250g = R$ 9,17
+1dz maizena 200g = R$ 4,73
+1cx vassoura bettanin original = R$ 12,27
+3un chuveiro simples = R$ 42,05
+1cx biscoito sol salt plus 360g = R$ 4,84
+1cx biscoito marilan maria 300g = R$ 5,22
+1cx biscoito marilan cream cracker manteiga 300g = R$ 4,81
+1cx amanteigado marilan leite 280g = R$ 5,78
+1dz massa lasanha dona benta 200g = R$ 2,84
+5fd massa +barata 500g = R$ 3,69
+1cx coco sococo 50g = R$ 3,43
+1cx coco sococo 100g = R$ 5,97
+3cx creme de leite +barato tp 200g = R$ 2,28
+5cx creme de leite piracanjuba tp 200g =  R$ 2,78
+2cx milho sachet = R$ 2,58
+6un azeitona conserva c caroço vidro 500g = R$ 19,86
+6un azeitona conserva c caroço vidro 200g = R$ 10,45
+1cx mostarda amarela hemmer 200g = R$ 8,98
+3un ketchup heinz picles 397g = R$ 11,59
+3un ketchup heinz picante 397g = R$ 11,36
+1dz maionese heinz 390g = R$ 10,29
+1dz maionese heinz 215g =  R$ 7,38
+6un maio hellmanns queijo 335g = R$ 10,16
+1cx shampoo dove hialuron-vit 190ml = R$ 14,71
+1cx shampoo dove reconst+amino 190ml = R$ 14,71
+1cx shampoo dove ultra cachos 190ml = R$ 14,71
+1cx shampoo dove nutrição tri 190ml = R$ 14,71
+1cx condicionador dove hialuron-vit 190ml = R$ 17,01
+1cx condicionador dove reconst+amino 190ml = R$ 17,01
+1cx shampoo pantene bambu 200ml = R$ 14,92
+1cx shampoo clear queda control 200ml = R$ 14,14
+1cx shampoo clear limp diária 2em1 200ml = R$ 14,14
+1cx shampoo clear hidratação intensea 200ml = R$ 14,14
+2un mascara capilar lola morte súbita 450g = R$ 50,08
+2un mascara capilar lola meu cacho minha vida 450g = R$ 27,95
+2un mascara capilar elseve glycolic gloss 300g = R$ 24,20
+2un mascara capilar pantene restauração  270ml = R$ 25,27
+6un loção nivea milk 200ml = R$ 12,74
+1cx cond neutrox 300ml tradicional = R$ 9,95
+1dz francis luxo lavanda 90g = R$ 3,16
+1dz francis luxo jasmin 90g = R$ 3,16
+1cx deso rexona aero men active dry 150ml = R$ 12,74
+1cx deso rexona aero men xtracool 150ml = R$ 12,74
+1cx deso rexona aero men sem perfume 150ml = R$ 12,74
+1cx deso rexona aero men antibac invisible 150ml = R$ 12,74
+1cx deso rexona aero men invisible 150ml = R$ 12,74
+1cx deso rexona aero men impacto 150ml = R$ 12,74
+1cx deso dove men aero cuidado total 150ml = R$ 14,79
+1cx deso dove men aero invisible dry 150ml = R$ 14,79
+1cx deso dove femi aero original 150ml = R$ 14,79
+1cx deso dove femi aero invisible dry 150ml = R$ 14,79
+1cx deso dove femi aero pepino chá verde 150ml = R$ 14,79
+1cx deso dove femi aero romã verbena 150ml = R$ 14,79
+6un fita crepe larga = R$ 8,58
+6un fita crepe 24mm = R$ 4,85
+2dz fita durex pequena = R$ 1,91
+1dz cortador unha pequeno = R$ 4,45
+1dz cortador unha grande = R$ 12,18
+1dz carga sensitive mach3 c2 = R$ 26,64
+3dp agua oxi vol 40 = R$ 1,82
+2dp agua oxi vol 30 = R$ 1,75
+2dp agua oxi vol 20 = R$ 1,77
+2dz pilha alcalina aaa c4 Philips = R$ 9,11
+2dz pilha alcalina aaa c4 Panasonic = R$ 11,52
+2dz pilha alcalina aa c4 Philips = R$ 8,11
+2dz pilha alcalina aa c4 Panasonic = R$ 10,65
+2dz pilha normal aaa c4 Panasonic = R$ 7,35
+1cx choc garoto (informar quais sabores tem)
+-Chocolate Garoto Branco 80g - Embalagem com 16 Unidades = R$ 5,73
+-Chocolate Garoto Crocante 25g - Embalagem com 30 Unidades = R$ 2,87
+-Chocolate Garoto Tablete Meio Amargo 80g - Embalagem com 16 Unidades = R$ 7,52
+-Chocolate Garoto Tablete Crocante 80g - Embalagem com 16 Unidades = R$ 7,52
+-Chocolate Garoto Recheado Serenata do Amor Tablete 90g - Embalagem com 14 Unidades = R$ 7,21
+-Chocolate Garoto Chocotrio Prestigio 90g - Embalagem com 12 Unidades = R$ 7,91
+-Chocolate Garoto Recheado Baton Tablete 90g - Embalagem com 14 Unidades = R$ 7,21
+-CHOCOLATE GAROTO TABLETE RECHEADO CROCANTE 14X90G = R$ 7,21
+2dp choc nestle suflair 80g = R$ 7,99
+2dp choc nestle suflair duo 80g = R$ 7,91
+1cx alcool 70 1L = R$ 6,66
+6un kothrine 30ml = R$ 12,15
+3un veneno formiga seringa = R$ 6,51
+1cx amaciante ype primavera 2L = R$ 9,24
+2cx amaciante ype aconchego 2L = R$ 9,24
+1cx sabão omo lvg pef 1.6kg = R$ 21,13
+5cx det ype 500ml = R$ 2,71
+1cx esponja unitário +barato = R$ 0,77
+1cx sabão ype neutro 800g = R$ 11,04
+1dz cif cremoso classico 250ml = R$ 7,90
+1dz cif cremoso classico 450ml = R$ 12,37
+1cx goiabada 300g = R$ 3,38
+6un espumante aurora moscatel = R$ 36,99
+3un espumante aurora zero álcool = R$ 28,12
+3un smirnoff 998ml = R$ 48,70
+5un natu nobilis 1L = R$ 63,86
+2bdj isqueiro bic grande = R$ 4,08
+4ct isqueiro bic pequeno = R$ 3,64
+1cx ioio crem mix = R$ 3,21
+1cx ioio crem chocolate = R$ 3,02
+1cx ioio crem morango = R$ 3,10
+1dz lampada led 40W = R$ 12,82
+
+=== EXEMPLO 2 — FORNECEDOR: PEDRO MUFFATO ===
+
+

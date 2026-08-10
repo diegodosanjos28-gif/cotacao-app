@@ -1,0 +1,354 @@
+# Nota (não faz parte do conteúdo colável): blocos pensados para colagem direta nos
+# campos web da Entrada de Dados, sem header. Para usar via /dev/whatsapp/simular
+# (canal WhatsApp real), prefixe manualmente LISTA_PRODUTOS\n (bloco LISTA BASE) ou
+# RESPOSTA_FORNECEDOR\n + nome do fornecedor (blocos FORNECEDOR) — ver seção 10.3 da
+# doc técnica e docs/qa/scripts/README.md.
+
+=== EXEMPLO 1 — LISTA BASE ===
+4 un white horse 500 ml
+4 un passaporte 1 litro
+1 cx Natasha
+1 cx milho verde fugini sachê
+3 un maionese Hemmer bisnaga 670 g
+6 un maionese Heinz bisnaga 215 g
+6 un mostarda escura Hemmer bisnaga 200 g
+1 fd sal realta fino
+3 cx Óleo coamo
+20 kg feijão preto caldao
+3 fd Flocão sinha
+20 kg farinha super 10 caldao
+1 fd farinha Sônia
+20 kg trigo dona benta tradicional 1 kg
+6 un creme de leite Piracanjuba zero lactose
+1 cx mistura condensada Mococa
+12 un coador de pano p
+1 cx café com leite sachê três corações
+6 un Nescafé vidro tradição 100 g
+12 un café Iguaçu lata tradicional 200 g
+12 un leite em pó Piracanjuba 400 g
+5 fd açúcar da barra 1 kg
+1 fd trigo dona benta 5 kg
+2 cx margarina Doriana 500 g com sal
+1 fd papel higiênico dueto com 4 vervet
+1 fd papel higiênico dueto com 4 neutro
+1 fd papel higiênico dueto com 4 neutro
+1 fd papel higiênico dueto com 12 neutro
+1 fd papel higiênico dueto com 12 vervet
+1 fd papel higiênico dueto com 12 perfumado
+6 un Rollon Rexona v 8
+2 dz sabonete flor de Ypê
+2 dz sabonete Palmolive 85 g
+3 un shampoo clear limpeza profunda
+1 dz sorriso tripla limpeza completa
+1 dz colgate mpa 90 g
+6 un soda castica rodo química 1 kg
+6 un sodabel 1 kg 99
+20 un fósforo Fiat lux 200 palitos
+1 cx álcool araucária 92 1 litro
+1 cx detergente gota limpa neutro 500 ml
+1 cx sabão em barra neutro unitário Ypê
+3 un coala chá branco
+1 cx pinho sol original 500 ml
+1 cx desinfetante suprema Pinho
+1 cx desinfetante suprema oceânic
+1 fd sabão em pó surt coco
+2 fd sabão assim sachê bicarbonato
+1 cx omo lavagem perfeita 800 g
+2 cx sabão assim micelar caixa
+2 cx sabão assim bicarbonato caixa
+2 cx Q boa 2 litros
+1 cx Amaciante YPÊ aconchego
+1 cx Amaciante YPÊ flor lilás
+1 cx sabão líquido brilhante
+12 un suco de uva  salton 500 ml
+
+=== EXEMPLO 1 — FORNECEDOR: TAF ===
+4 unidades white horse 500 ml
+4 unidades passaporte 1 litro  44.90
+1 cx Natasha  18.99
+1 cx milho verde fugini sachê
+3 unidades maionese Hemmer bisnaga 670 g
+6 unidades maionese Heinz bisnaga 215 g  8.99
+6 unidades mostarda escura Hemmer bisnaga 200 g
+1 fardo sal realta fino
+3 cx Óleo coamo  7.99
+20 kg feijão preto caldao   6.70
+3 fardos Flocão sinha  1.79
+20 kg farinha super 10 caldao  4.51
+1 fardo farinha Sônia
+20 kg  trigo dona benta tradicional 1 kg
+6 unidades creme de leite Piracanjuba zero lactose  3.73
+1 cx mistura condensada Mococa
+12 unidades coador de pano p
+1 cx café com leite sachê três corações
+6 unidades Nescafé vidro tradição 100 g
+12 unidades café Iguaçu lata tradicional 200 g
+12 unidades leite em pó Piracanjuba 400 g  15.19
+5 fardos açúcar da barra 1 kg  3.19
+1 fardo trigo dona benta 5 kg
+2 cx margarina Doriana 500 g com sal
+1 fardo papel higiênico dueto com 4 vervet  4.29
+1 fardo papel higiênico dueto com 4 neutro  4.29
+1 fardo papel higiênico dueto com 4 neutro   4.29
+1 fardo papel higiênico dueto com 12 neutro  12.69
+1 fardo papel higiênico dueto com 12 vervet  12.69
+1 fardo papel higiênico dueto com 12 perfumado  12.69
+6 unidades Rollon Rexona v 8
+2 dúzias sabonete flor de Ypê
+2 dúzias sabonete Palmolive 85 g
+3 unidades shampoo clear limpeza profunda
+1 dúzia sorriso tripla limpeza completa
+1 dúzia colgate mpa 90 g
+6 unidades soda castica rodo química 1 kg
+6 unidades sodabel 1 kg 99
+20 unidades fósforo Fiat lux 200 palitos
+1 cx álcool araucária 92 1 litro
+1 cx detergente gota limpa neutro 500 ml
+1 cx sabão em barra neutro unitário Ypê
+3 unidades coala chá branco
+1 cx pinho sol original 500 ml
+1 cx desinfetante suprema Pinho
+1 cx desinfetante suprema oceânic
+1 fardo sabão em pó surt coco
+2 fardos sabão assim sachê bicarbonato   5.47
+1 cx omo lavagem perfeita 800 g  12.99
+2 cx sabão assim micelar caixa
+2 cx sabão assim bicarbonato caixa
+2 cx Q boa 2 litros   5.99
+1 cx Amaciante YPÊ aconchego
+1 cx Amaciante YPÊ flor lilás
+1 cx sabão líquido8 brilhante
+12 unidades suco de uva  salton 500 ml  8.79
+
+=== EXEMPLO 1 — FORNECEDOR: JORGE MOTTER ===
+4 unidades white horse 500 ml
+4 unidades passaporte 1 litro 45,46
+1 cx Natasha
+1 cx milho verde fugini sachê
+3 unidades maionese Hemmer bisnaga 670 g
+6 unidades maionese Heinz bisnaga 215 g
+6 unidades mostarda escura Hemmer bisnaga 200 g
+1 fardo sal realta fino
+3 cx Óleo coamo 7,59
+20 kg feijão preto caldao 7,39
+3 fardos Flocão sinha 1,64
+20 kg farinha super 10 caldao
+1 fardo farinha Sônia
+20 kg  trigo dona benta tradicional 1 kg 3,90
+6 unidades creme de leite Piracanjuba zero lactose
+1 cx mistura condensada Mococa 3,76
+12 unidades coador de pano p 2,15
+1 cx café com leite sachê três corações
+6 unidades Nescafé vidro tradição 100 g
+12 unidades café Iguaçu lata tradicional 200 g 26,81
+12 unidades leite em pó Piracanjuba 400 g 16,46
+5 fardos açúcar da barra 1 kg 3,63
+1 fardo trigo dona benta 5 kg 18,24
+2 cx margarina Doriana 500 g com sal 7,72
+1 fardo papel higiênico dueto com 4 vervet 4,54
+1 fardo papel higiênico dueto com 4 neutro 4,44
+1 fardo papel higiênico dueto com 4 neutro 4,61
+1 fardo papel higiênico dueto com 12 neutro 13,20
+1 fardo papel higiênico dueto com 12 vervet 13,59
+1 fardo papel higiênico dueto com 12 perfumado 13,59
+6 unidades Rollon Rexona v 8
+2 dúzias sabonete flor de Ypê 1,54
+2 dúzias sabonete Palmolive 85 g
+3 unidades shampoo clear limpeza profunda
+1 dúzia sorriso tripla limpeza completa
+1 dúzia colgate mpa 90 g
+6 unidades soda castica rodo química 1 kg
+6 unidades sodabel 1 kg 21,26
+20 unidades fósforo Fiat lux 200 palitos 3,33
+1 cx álcool araucária 92 1 litro
+1 cx detergente gota limpa neutro 500 ml
+1 cx sabão em barra neutro unitário Ypê 3,38
+3 unidades coala chá branco 11,14
+1 cx pinho sol original 500 ml
+1 cx desinfetante suprema Pinho 5,19
+1 cx desinfetante suprema oceânic 5,19
+1 fardo sabão em pó surt coco
+2 fardos sabão assim sachê bicarbonato
+1 cx omo lavagem perfeita 800 g
+2 cx sabão assim micelar caixa
+2 cx sabão assim bicarbonato caixa
+2 cx Q boa 2 litros 5,99
+1 cx Amaciante YPÊ aconchego 7,59
+1 cx Amaciante YPÊ flor lilás 7,59
+1 cx sabão líquido brilhante
+12 unidades suco de uva  salton 500 ml
+
+=== EXEMPLO 1 — FORNECEDOR: DEQUECH ===
+4 unidades white horse 500 ml R$120,90
+4 unidades passaporte 1 litro
+1 cx Natasha R$22,90
+1 cx milho verde fugini sachê
+3 unidades maionese Hemmer bisnaga 670 g
+6 unidades maionese Heinz bisnaga 215 g R$
+6 unidades mostarda escura Hemmer bisnaga 200 g R$9,26
+1 fardo sal realta fino
+3 cx Óleo coamo R$7,10
+20 kg feijão preto caldao R$ 6,99
+3 fardos Flocão sinha R$1,79
+20 kg farinha super 10 caldao
+1 fardo farinha Sônia
+20 kg  trigo dona benta tradicional 1 kg R$3,52
+6 unidades creme de leite Piracanjuba zero lactose R$3,39
+1 cx mistura condensada Mococa
+12 unidades coador de pano p
+1 cx café com leite sachê três corações
+6 unidades Nescafé vidro tradição 160 g R$23,77
+12 unidades café Iguaçu lata tradicional 160 g R$19,99
+12 unidades leite em pó Piracanjuba 400 g R$15,25
+5 fardos açúcar da barra 1 kg R$3,49
+1 fardo trigo dona benta 5 kg R$14,99
+2 cx margarina Doriana 500 g com sal
+1 fardo papel higiênico dueto com 4 vervet R$4,43
+1 fardo papel higiênico dueto com 4 neutro R$4,43
+1 fardo papel higiênico dueto com 4 neutro R$4,43
+1 fardo papel higiênico dueto com 12 neutro R$12,90
+1 fardo papel higiênico dueto com 12 vervet R$12,90
+1 fardo papel higiênico dueto com 12 perfumado R$12,90
+6 unidades Rollon Rexona v 8
+2 dúzias sabonete flor de Ypê R$1,47
+2 dúzias sabonete Palmolive 85 g
+3 unidades shampoo clear limpeza profunda
+1 dúzia sorriso tripla limpeza completa
+1 dúzia colgate mpa 90 g
+6 unidades soda castica rodo química 1 kg
+6 unidades sodabel 1 kg 99
+20 unidades fósforo Fiat lux 200 palitos R$2,99
+1 cx álcool araucária 92 1 litro R$6,99
+1 cx detergente gota limpa neutro 500 ml R$1,84
+1 cx sabão em barra neutro unitário Ypê R$2,99
+3 unidades coala chá branco R$8,99
+1 cx pinho sol original 500 ml R$8,99
+1 cx desinfetante suprema Pinho
+1 cx desinfetante suprema oceânic
+1 fardo sabão em pó surt coco
+2 fardos sabão assim sachê bicarbonato R$4,39
+1 cx omo lavagem perfeita 800 g
+2 cx sabão assim micelar caixa
+2 cx sabão assim bicarbonato caixa
+2 cx Q boa 2 litros R$6,19
+1 cx Amaciante YPÊ aconchego R$6,75
+1 cx Amaciante YPÊ flor lilás R$6,75
+1 cx sabão líquido brilhante
+12 unidades suco de uva  salton 500 ml
+
+=== EXEMPLO 1 — FORNECEDOR: DESTRO ===
+4 unidades white horse 500 ml
+4 unidades passaporte 1 litro..
+1 cx Natasha
+1 cx milho verde fugini sachê
+3 unidades maionese Hemmer bisnaga 670 g
+6 unidades maionese Heinz bisnaga 215 g...5.99
+6 unidades mostarda escura Hemmer bisnaga 200 g
+1 fardo sal realta fino
+3 cx Óleo coamo...7.56
+20 kg feijão preto caldao
+3 fardos Flocão sinha...1.75
+20 kg farinha super 10 caldao
+1 fardo farinha Sônia
+20 kg  trigo dona benta tradicional 1 kg
+6 unidades creme de leite Piracanjuba zero lactose
+1 cx mistura condensada Mococa...3.00
+12 unidades coador de pano p...2.88
+1 cx café com leite sachê três corações
+6 unidades Nescafé vidro tradição 100 g...17.99
+12 unidades café Iguaçu lata tradicional 200 g...22.99
+12 unidades leite em pó Piracanjuba 400 g
+5 fardos açúcar da barra 1 kg
+1 fardo trigo dona benta 5 kg
+2 cx margarina Doriana 500 g com sal...6.39
+1 fardo papel higiênico dueto com 4 vervet
+1 fardo papel higiênico dueto com 4 neutro...4.49
+1 fardo papel higiênico dueto com 4 neutro
+1 fardo papel higiênico dueto com 12 neutro...12.90
+1 fardo papel higiênico dueto com 12 vervet
+1 fardo papel higiênico dueto com 12 perfumado
+6 unidades Rollon Rexona v 8
+2 dúzias sabonete flor de Ypê...1.39
+2 dúzias sabonete Palmolive 85 g...1.89
+3 unidades shampoo clear limpeza profunda
+1 dúzia sorriso tripla limpeza completa...2.79
+1 dúzia colgate mpa 90 g...4,35
+6 unidades soda castica rodo química 1 kg
+6 unidades sodabel 1 kg 99...20,62
+20 unidades fósforo Fiat lux 200 palitos..3,47
+1 cx álcool araucária 92 1 litro
+1 cx detergente gota limpa neutro 500 ml
+1 cx sabão em barra neutro unitário Ypê...2,59
+3 unidades coala chá branco ...9,90
+1 cx pinho sol original 500 ml...6,29
+1 cx desinfetante suprema Pinho 2L...5,25
+1 cx desinfetante suprema oceânic
+1 fardo sabão em pó surt coco
+2 fardos sabão assim sachê bicarbonato...4,90
+1 cx omo lavagem perfeita 800 g
+2 cx sabão assim micelar caixa...5,29
+2 cx sabão assim bicarbonato caixa...5,29
+2 cx Q boa 2 litros...5,79
+1 cx Amaciante YPÊ aconchego...7,50
+1 cx Amaciante YPÊ flor lilás...7,50
+1 cx sabão líquido brilhante
+12 unidades suco de uva  salton 500 ml
+
+=== EXEMPLO 1 — FORNECEDOR: PEDRO MUFFATO ===
+4 unidades white horse 500 ml XX
+4 unidades passaporte 1 litro  42,89
+1 cx Natasha XX
+1 cx milho verde fugini sachê 2,59
+3 unidades maionese  Hemmer bisnaga 670 g XX
+6 unidades maionese Heinz bisnaga 215 g 7,69
+6 unidades mostarda escura Hemmer bisnaga 200 g XX
+1 fardo sal realta fino XX
+3 cx Óleo coamo 6,89
+20 kg feijão preto caldao XX
+3 fardos Flocão sinha 1,49
+20 kg farinha super 10 caldao XX
+1 fardo farinha Sônia XX
+20 kg  trigo dona benta tradicional 1 kg 3,89
+6 unidades creme de leite Piracanjuba zero lactose 2,99
+1 cx mistura condensada Mococa 3,59
+12 unidades coador de pano p 2,19
+1 cx café com leite sachê três corações XX
+6 unidades Nescafé vidro tradição 100 g XX
+12 unidades café Iguaçu lata tradicional 200 g 21,89
+12 unidades leite em pó Piracanjuba 400 g 14,89
+5 fardos açúcar da barra 1 kg XX
+1 fardo trigo dona benta 5 kg XX
+2 cx margarina Doriana 500 g com sal XX
+1 fardo papel higiênico dueto com 4 vervet 4,49
+1 fardo papel higiênico dueto com 4 neutro 4,49
+1 fardo papel higiênico dueto com 4 neutro 4,49
+1 fardo papel higiênico dueto com 12 neutro 12,29
+1 fardo papel higiênico dueto com 12 vervet 12,29
+1 fardo papel higiênico dueto com 12 perfumado 12,29
+6 unidades Rollon Rexona v 8 6,99
+2 dúzias sabonete flor de Ypê 1,29
+2 dúzias sabonete Palmolive 85 g 1,84
+3 unidades shampoo clear limpeza profunda 12,99
+1 dúzia sorriso tripla limpeza completa 2,89
+1 dúzia colgate mpa 90 g 4,29
+6 unidades soda castica rodo química 1 kg 13,69
+6 unidades sodabel 1 kg 99 20,89
+20 unidades fósforo Fiat lux 200 palitos 2,89
+1 cx álcool araucária 92 1 litro XX
+1 cx detergente gota limpa neutro 500 ml 1,79 SOMENTE CRISTAL
+1 cx sabão em barra neutro unitário Ypê 2,99
+3 unidades coala chá branco 9,49
+1 cx pinho sol original 500 ml 5,89
+1 cx desinfetante suprema Pinho XX
+1 cx desinfetante suprema oceânic XX
+1 fardo sabão em pó surt coco XX
+2 fardos sabão assim sachê bicarbonato 4,29
+1 cx omo lavagem perfeita 800 g XX
+2 cx sabão assim micelar caixa 5,39
+2 cx sabão assim bicarbonato caixa 5,39
+2 cx Q boa 2 litros 5,99
+1 cx Amaciante YPÊ aconchego 7,49
+1 cx Amaciante YPÊ flor lilás 7,49
+1 cx sabão líquido brilhante 26,99 3L
+12 unidades suco de uva  salton 500 ml XX
+

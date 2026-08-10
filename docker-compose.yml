@@ -1,0 +1,64 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${DB_NAME:-cotacao_dev}
+      POSTGRES_USER: ${DB_USER:-cotacao}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-cotacao}
+    # Sem porta exposta ao host por padrão — só a rede interna do compose precisa
+    # falar com o banco. Para acessar via DBeaver/SSH tunnel, descomente:
+    # ports:
+    #   - "${DB_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-cotacao} -d ${DB_NAME:-cotacao_dev}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-cotacao_dev}
+      DB_USER: ${DB_USER:-cotacao}
+      DB_PASSWORD: ${DB_PASSWORD:-cotacao}
+      APP_DB_USER: ${APP_DB_USER:-cotacao_app}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:-cotacao_app_dev}
+      JWT_SECRET: ${JWT_SECRET}
+      WHATSAPP_VERIFY_TOKEN: ${WHATSAPP_VERIFY_TOKEN}
+      WHATSAPP_APP_SECRET: ${WHATSAPP_APP_SECRET}
+      WHATSAPP_ACCESS_TOKEN: ${WHATSAPP_ACCESS_TOKEN}
+      WHATSAPP_PHONE_NUMBER_ID: ${WHATSAPP_PHONE_NUMBER_ID}
+      WHATSAPP_ENVIO_HABILITADO: ${WHATSAPP_ENVIO_HABILITADO:-false}
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8080}
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:

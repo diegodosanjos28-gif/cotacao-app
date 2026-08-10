@@ -1,0 +1,498 @@
+# Nota (não faz parte do conteúdo colável): blocos pensados para colagem direta nos
+# campos web da Entrada de Dados, sem header. Para usar via /dev/whatsapp/simular
+# (canal WhatsApp real), prefixe manualmente LISTA_PRODUTOS\n (bloco LISTA BASE) ou
+# RESPOSTA_FORNECEDOR\n + nome do fornecedor (blocos FORNECEDOR) — ver seção 10.3 da
+# doc técnica e docs/qa/scripts/README.md.
+
+=== EXEMPLO 3 — LISTA BASE ===
+1 cx margarina 500 g delícia
+3 cx vinagre heinig
+1 fardo sal realta
+3 cx oleo Coamo
+1 cx maionese Hellmann's sache 200 g
+1 cx maionese Hellmann's pote 500 g
+1 cx maionese Hemmer sache 200 g
+6 unidades mostarda escura bisnaga Hemmer 200 g
+1 cx ketchup Hemmer bisnaga 320 g
+3 cx Óleo soya
+1 fardo polenta sinhá
+1 fardo polentina
+1 fardo farinha Sônia
+30 unidades farinha super 10
+12 unidades molho de tomate Heinz sache
+12 unidades molho de tomate Hemmer sache
+12 unidades extrato de tomate olé copo 260 g
+12 unidades extrato de tomate olé copo 190 g
+10 kg feijão caldao carioca
+30 kg feijão preto caldo
+10 kg feijão vermelho caldao
+3 cx molho quero sache tradicional
+1 cx tucs queijo
+2 fardos trigo dona benta 1 kg
+24 unid leite de coco menina 200 ml
+6 unidades creme de leite Piracanjuba zero lactose
+1 fardo trigo dona benta 5 kg tradicional
+12 unidades filtro permanente 103
+12 unidades leite em pó Piracanjuba 200 g
+1 cx leite ninho
+5 fardos açúcar da barra 1 kg
+1 fardo ararutinha neve
+1 display fermento dona benta 10 g
+1 cx detergente gota limpa maçã 1 litro
+1 cx detergente gota limpa cristal 1 litro
+3 unidades condicionador Seda cachos definidos
+4 dúzias sabonete flor de Ypê
+2 dúzias sabonete Palmolive 85 g
+12 unidades creme skala
+3 unidades aerosol Rexona Power dry
+6 unidades aerosol Axe dark
+6 unidades aerosol Axe marine
+6 unidades aerosol Axe musk
+1 cx omo líquido lavagem perfeita
+1 cx brilhante líquido
+1 cx Amaciante confort concentrado frescor intenso
+1 cx alvejante Q boa 1 litro lavanda
+3 cx Q boa 1 litro
+2 cx Q boa 2 litros
+1 cx sabão assim micelar caixa
+1 cx sabão assim bicarbonato caixa
+1 cx sabão tixam maciez 800 g caixa
+1 fardo sabão assim sachê bicarbonato
+1 fardo sabão surf coco
+1 fardo sabão surf lavanda
+1 fardo sabão assim flor de Lis
+6 unidades coala orquídea Negra
+6 unidades coala algodão
+6 unidades coala chá branco
+6 unidades nugget liquido preto
+36 unidades ultra gripe cabeça móvel
+36 unidades ultra gripe cabeça fica
+36 unidades proback
+1 almofada assolam
+1 almofada Bombril
+1f dueto perfumado com 12
+1f dueto velvet com 4
+1f dueto perfumado com 4
+
+=== EXEMPLO 3 — FORNECEDOR: CERNUTTI ===
+1 cx margarina 500 g delícia 8,99
+3 cx vinagre heinig 1,89
+1 fardo sal realta
+1 fardo sal Diana 2,79
+1 fardo sal Zizo 1,39
+3 cx oleo Coamo 6,99
+1 cx maionese Hellmann's sache 200 g 4,49
+1 cx maionese Hellmann's pote 500 g 7,99
+Maionese salada 500g 4,99
+1 cx maionese Hemmer sache 200 g
+Maionese 180g fugini 2,99
+6 unidades mostarda escura bisnaga konsumo 180g 2,79
+1 cx ketchup Hemmer bisnaga 320 g 7,99
+3 cx Óleo soya 7,29
+1 fardo polenta sinhá 2,49
+1 fardo polentina 3,99
+1 fardo farinha de mandioca Edna 7,29
+30 unidades farinha super 10
+12 unidades molho de tomate bonare sache 1,29
+12 unidades molho de tomate oderisch 1,19 sache
+12 unidades extrato de tomate oderisch copo 260 g 3,49
+12 unidades extrato de tomate olé copo 190 g 2,99
+10 kg feijão caldao carioca 9,90
+30 kg feijão preto caldão 6,49
+10 kg feijão vermelho caldao 10,49
+3 cx molho Olé sache tradicional 1,99
+1 cx tucs queijo 1,99
+2 fardos trigo dona benta 1 kg 3,99
+24 unid leite de coco menina 200 ml 3,99
+Leite de coco Nordeste 200ml 2,99
+6 unidades creme de leite Piracanjuba zero lactose
+1 fardo trigo Dom Pedro 5 kg tradicional 13,90
+12 unidades filtro cernutti reutilizável 103 3,99
+12 unidades leite em pó composto triângulo 200 g 4,49
+1 cx leite ninho 17,90
+5 fardos açúcar da barra 1 kg 3,19
+1 fardo ararutinha neve 4,29
+1 display fermento dona benta 10 g 0,99
+1 cx detergente gota limpa maçã 1 litro
+1 cx detergente gota limpa cristal 1 litro
+3 unidades condicionador Seda cachos definidos
+4 dúzias sabonete flor de Ypê 1,89
+2 dúzias sabonete Palmolive 85 g 2,79
+12 unidades creme skala
+3 unidades aerosol Rexona Power dry
+6 unidades aerosol Axe black 8,99
+6 unidades aerosol Axe marine 8,99
+6 unidades aerosol Axe musk
+1 cx omo líquido lavagem perfeita
+1 cx brilhante líquido
+1 cx Amaciante confort concentrado frescor intenso
+1 cx alvejante Q boa 1 litro lavanda
+3 cx Q boa 1 litro
+2 cx Q boa 2 litros
+1 cx sabão assim micelar sachê 800g 4,99
+1 cx sabão assim bicarbonato sache 400g 2,99
+1 cx sabão tixam maciez 800 g caixa
+1 fardo sabão assim sachê bicarbonato
+1 fardo sabão surf coco
+1 fardo sabão surf lavanda
+1 fardo sabão assim flor de Lis
+6 unidades coala orquídea Negra 9,90
+6 unidades coala algodão 9,90
+6 unidades coala chá branco 9,90
+6 unidades nugget pasta preto 17,90
+36 unidades ultra gripe cabeça móvel 2,99
+36 unidades ultra gripe cabeça fica 2,99
+36 unidades proback 1,99
+1 almofada assolam 1,99
+1 almofada Bombril 2,49
+1f dueto perfumado com 12 17,49
+1f dueto velvet com 4 4,99
+1f dueto perfumado com 4 4,99
+
+=== EXEMPLO 3 — FORNECEDOR: RWR ATACADO ===
+1 cx margarina 500 g delícia
+3 cx vinagre heinig  1.99
+1 fardo sal realta
+3 cx oleo Coamo
+1 cx maionese Hellmann's sache 200 g. 4.79
+1 cx maionese Hellmann's pote 500 g. 7.99
+1 cx maionese Hemmer sache 200 g. 4.49
+6 unidades mostarda escura bisnaga Hemmer 200 g. 8.79
+1 cx ketchup Hemmer bisnaga 320 g. 8.29
+3 cx Óleo soya  7.69
+1 fardo polenta sinhá 2.00
+1 fardo polentina. 3.79
+1 fardo farinha Sônia 5.65
+30 unidades farinha super 10.
+12 unidades molho de tomate Heinz sache
+12 unidades molho de tomate Hemmer sache 2.59
+12 unidades extrato de tomate olé copo 260 g. 3.59
+12 unidades extrato de tomate olé copo 190 g  2.82
+10 kg feijão caldao carioca
+30 kg feijão preto caldo
+10 kg feijão vermelho caldao
+3 cx molho quero sache tradicional
+1 cx tucs queijo 1.80
+2 fardos trigo dona benta 1 kg   4.20
+24 unid leite de coco menina 200 ml. 2.86
+6 unidades creme de leite Piracanjuba zero lactose  2.92
+1 fardo trigo dona benta 5 kg tradicional
+12 unidades filtro permanente 103
+12 unidades leite em pó Piracanjuba 200 g.
+1 cx leite ninho
+5 fardos açúcar da barra 1 kg
+1 fardo ararutinha neve
+1 display fermento dona benta 10 g
+1 cx detergente gota limpa maçã 1 litro
+1 cx detergente gota limpa cristal 1 litro 3.89
+3 unidades condicionador Seda cachos definidos
+4 dúzias sabonete flor de Ypê  1.46
+2 dúzias sabonete Palmolive 85 g  1.88
+12 unidades creme skala
+3 unidades aerosol Rexona Power dry  13.59
+6 unidades aerosol Axe dark 9.35
+6 unidades aerosol Axe marine
+6 unidades aerosol Axe musk
+1 cx omo líquido lavagem perfeita
+1 cx brilhante líquido
+1 cx Amaciante confort concentrado frescor intenso
+1 cx alvejante Q boa 1 litro lavanda
+3 cx Q boa 1 litro  3.10
+2 cx Q boa 2 litros   6.01
+1 cx sabão assim micelar caixa  5.99
+1 cx sabão assim bicarbonato caixa 5.99
+1 cx sabão tixam maciez 800 g caixa. 8.76
+1 fardo sabão assim sachê bicarbonato  4.99
+1 fardo sabão surf coco
+1 fardo sabão surf lavanda
+1 fardo sabão assim flor de Lis
+6 unidades coala orquídea Negra  9.59
+6 unidades coala algodão
+6 unidades coala chá branco
+6 unidades nugget liquido preto
+36 unidades ultra gripe cabeça móvel  2.70
+36 unidades ultra gripe cabeça fica 2.42 C2 3 lâminas
+36 unidades proback 1.49
+1 almofada assolam  2.29
+1 almofada Bombril. 1.95
+1f dueto perfumado com 12
+1f dueto velvet com 4. 4.72
+1f dueto perfumado com 4. 4.72
+
+=== EXEMPLO 3 — FORNECEDOR: DEQUECH ===
+1 cx margarina 500 g delícia - R$ 6,83
+3 cx vinagre heinig - R$ 2,12
+1 fardo sal realta
+3 cx oleo Coamo - R$ 6,83
+1 cx maionese Hellmann's sache 200 g
+1 cx maionese Hellmann's pote 500 g R$7,99
+1 cx maionese Hemmer sache 200 g
+6 unidades mostarda escura bisnaga Hemmer 200 g - R$9,42
+1 cx ketchup Hemmer bisnaga 320 g - R$7,25
+3 cx Óleo soya - R$7,30
+1 fardo polenta sinhá - R$3,20
+1 fardo polentina - R$ 2,33
+1 fardo farinha Sônia
+30 unidades farinha super 10
+12 unidades molho de tomate Heinz sache
+12 unidades molho de tomate Hemmer sache
+12 unidades extrato de tomate olé copo 260 g
+12 unidades extrato de tomate olé copo 190 g
+10 kg feijão caldao carioca - R$9,90
+30 kg feijão preto caldao - R$6,99
+10 kg feijão vermelho caldao - R$11,25
+3 cx molho quero sache tradicional
+1 cx tucs queijo
+2 fardos trigo dona benta 1 kg - R$3,49
+24 unid leite de coco menina 200 ml - R$2,98
+6 unidades creme de leite Piracanjuba zero lactose - R$3,40
+1 fardo trigo dona benta 5 kg tradicional - R$14,99
+12 unidades filtro permanente 103
+12 unidades leite em pó Piracanjuba 200 g
+1 cx leite ninho
+5 fardos açúcar da barra 1 kg - R$3,49
+1 fardo ararutinha neve - R$4,69
+1 display fermento dona benta 10 g - R$7,68
+1 cx detergente gota limpa maçã 1 litro - R$3,58
+1 cx detergente gota limpa cristal 1 litro - R$3,58
+3 unidades condicionador Seda cachos definidos
+4 dúzias sabonete flor de Ypê - R$1,47
+2 dúzias sabonete Palmolive 85 g
+12 unidades creme skala
+3 unidades aerosol Rexona Power dry
+6 unidades aerosol Axe dark
+6 unidades aerosol Axe marine
+6 unidades aerosol Axe musk
+1 cx omo líquido lavagem perfeita
+1 cx brilhante líquido
+1 cx Amaciante confort concentrado frescor intenso
+1 cx alvejante Q boa 1 litro lavanda - R$
+3 cx Q boa 1 litro - R$3,19
+2 cx Q boa 2 litros - R$5,81
+1 cx sabão assim micelar caixa com 1,600kg - R$11,29
+1 cx sabão assim bicarbonato caixa 1,600kg - R$11,29
+1 cx sabão tixam maciez 800 g caixa - R$7,75
+1 fardo sabão assim sachê bicarbonato 1,600kg - R$10,99
+1 fardo sabão surf coco -
+1 fardo sabão surf lavanda
+1 fardo sabão assim flor de Lis
+6 unidades coala orquídea Negra
+6 unidades coala algodão - R$9,49
+6 unidades coala chá branco - R$9,49
+6 unidades nugget liquido preto
+36 unidades ultra gripe cabeça móvel
+36 unidades ultra gripe cabeça fica
+36 unidades proback
+1 almofada assolam - R$1,75
+1 almofada Bombril - R$1,89
+1f dueto perfumado com 12 - R$12,88
+1f dueto velvet com 4 - R$4,37
+1f dueto perfumado com 4 - R$4,37
+
+=== EXEMPLO 3 — FORNECEDOR: DESTRO ===
+1 cx margarina 500 g delícia..6,49
+3 cx vinagre heinig
+1 fardo sal realta
+3 cx oleo Coamo...7,56
+1 cx maionese Hellmann's sache 200 g
+1 cx maionese Hellmann's pote 500 g
+1 cx maionese Hemmer sache 200 g
+6 unidades mostarda escura bisnaga Hemmer 200 g
+1 cx ketchup Hemmer bisnaga 320 g
+3 cx Óleo soya
+1 fardo polenta sinhá...2,13
+1 fardo polentina..3,98
+1 fardo farinha Sônia
+30 unidades farinha super 10
+12 unidades molho de tomate Heinz sache..2,30
+12 unidades molho de tomate Hemmer sache
+12 unidades extrato de tomate olé copo 260 g...3,58
+12 unidades extrato de tomate olé copo 190 g...2,87
+10 kg feijão caldao carioca
+30 kg feijão preto caldo
+10 kg feijão vermelho caldao
+3 cx molho quero sache tradicional...1,35
+1 cx tucs queijo...1,59
+2 fardos trigo dona benta 1 kg
+24 unid leite de coco menina 200 ml...2,79
+6 unidades creme de leite Piracanjuba zero lactose
+1 fardo trigo dona benta 5 kg tradicional
+12 unidades filtro permanente 103...4,69
+12 unidades leite em pó Piracanjuba 200 g
+1 cx leite ninho 380g Instantâneo...21,90
+5 fardos açúcar da barra 1 kg
+1 fardo ararutinha neve
+1 display fermento dona benta 10 g ..3,15
+1 cx detergente gota limpa maçã 1 litro
+1 cx detergente gota limpa cristal 1 litro
+3 unidades condicionador Seda cachos definidos
+4 dúzias sabonete flor de Ypê
+2 dúzias sabonete Palmolive 85 g
+12 unidades creme skala
+3 unidades aerosol Rexona Power dry
+6 unidades aerosol Axe dark
+6 unidades aerosol Axe marine
+6 unidades aerosol Axe musk
+1 cx omo líquido lavagem perfeita
+1 cx brilhante líquido
+1 cx Amaciante confort concentrado frescor intenso
+1 cx alvejante Q boa 1 litro lavanda
+3 cx Q boa 1 litro
+2 cx Q boa 2 litros
+1 cx sabão assim micelar caixa
+1 cx sabão assim bicarbonato caixa
+1 cx sabão tixam maciez 800 g caixa
+1 fardo sabão assim sachê bicarbonato
+1 fardo sabão surf coco
+1 fardo sabão surf lavanda
+1 fardo sabão assim flor de Lis
+6 unidades coala orquídea Negra
+6 unidades coala algodão
+6 unidades coala chá branco
+6 unidades nugget liquido preto
+36 unidades ultra gripe cabeça móvel
+36 unidades ultra gripe cabeça fica
+36 unidades proback
+1 almofada assolam
+1 almofada Bombril
+1f dueto perfumado com 12
+1f dueto velvet com 4
+1f dueto perfumado com 4
+
+=== EXEMPLO 3 — FORNECEDOR: JORGE MOTTER ===
+1 cx margarina 500 g delícia 7,61
+3 cx vinagre heinig 2,17
+1 fardo sal realta
+3 cx oleo Coamo 7,59
+1 cx maionese Hellmann's sache 200 g
+1 cx maionese Hellmann's pote 500 g 9,86
+1 cx maionese Hemmer sache 200 g
+6 unidades mostarda escura bisnaga Hemmer 200 g
+1 cx ketchup Hemmer bisnaga 320 g
+3 cx Óleo soya 8,41
+1 fardo polenta sinhá
+1 fardo polentina quaker 4,29 e sinhá 1,98
+1 fardo farinha Sônia
+30 unidades farinha super 10
+12 unidades molho de tomate Heinz sache
+12 unidades molho de tomate Hemmer sache
+12 unidades extrato de tomate olé copo 260 g 3,59
+12 unidades extrato de tomate olé copo 190 g 2,87
+10 kg feijão caldao carioca 10,83
+30 kg feijão preto caldo
+10 kg feijão vermelho caldao 11,46
+3 cx molho quero sache tradicional
+1 cx tucs queijo 1,77
+2 fardos trigo dona benta 1 kg 3,90
+24 unid leite de coco menina 200 ml 3,98
+6 unidades creme de leite Piracanjuba zero lactose
+1 fardo trigo dona benta 5 kg tradicional 18,24
+12 unidades filtro permanente 103
+12 unidades leite em pó Piracanjuba 200 g 8,39
+1 cx leite ninho 20,54
+5 fardos açúcar da barra 1 kg 3,63
+1 fardo ararutinha neve 4,64
+1 display fermento dona benta 10 g 1,00
+1 cx detergente gota limpa maçã 1 litro
+1 cx detergente gota limpa cristal 1 litro
+3 unidades condicionador Seda cachos definidos
+4 dúzias sabonete flor de Ypê 1,54
+2 dúzias sabonete Palmolive 85 g
+12 unidades creme skala 8,96
+3 unidades aerosol Rexona Power dry
+6 unidades aerosol Axe dark
+6 unidades aerosol Axe marine
+6 unidades aerosol Axe musk
+1 cx omo líquido lavagem perfeita
+1 cx brilhante líquido
+1 cx Amaciante confort concentrado frescor intenso
+1 cx alvejante Q boa 1 litro lavanda
+3 cx Q boa 1 litro 3,41
+2 cx Q boa 2 litros
+1 cx sabão assim micelar caixa
+1 cx sabão assim bicarbonato caixa
+1 cx sabão tixam maciez 800 g caixa
+1 fardo sabão assim sachê bicarbonato
+1 fardo sabão surf coco
+1 fardo sabão surf lavanda
+1 fardo sabão assim flor de Lis
+6 unidades coala orquídea Negra 11,14
+6 unidades coala algodão 11,14
+6 unidades coala chá branco 11,14
+6 unidades nugget liquido preto
+36 unidades ultra gripe cabeça móvel
+36 unidades ultra gripe cabeça fica 2,42
+36 unidades proback 1,53
+1 almofada assolam 2,22
+1 almofada Bombril 2,09
+1f dueto perfumado com 12 13,29
+1f dueto velvet com 4 4,52
+1f dueto perfumado com 4 4,52
+
+=== EXEMPLO 3 — FORNECEDOR: IRMAOS MUFFATO ===
+1 cx margarina 500 g delícia - 5,99
+3 cx vinagre heinig
+1 fardo sal realta
+3 cx oleo Coamo
+1 cx maionese Hellmann's sache 200 g
+1 cx maionese Hellmann's pote 500 g
+1 cx maionese Hemmer sache 200 g
+6 unidades mostarda escura bisnaga Hemmer 200 g
+1 cx ketchup Hemmer bisnaga 320 g
+3 cx Óleo soya
+1 fardo polenta sinhá -
+1 fardo polentina - 3,78
+1 fardo farinha Sônia
+30 unidades farinha super 10
+12 unidades molho de tomate Heinz sache
+12 unidades molho de tomate Hemmer sache
+12 unidades extrato de tomate olé copo 260 g
+12 unidades extrato de tomate olé copo 190 g
+10 kg feijão caldao carioca
+30 kg feijão preto caldo
+10 kg feijão vermelho caldao
+3 cx molho quero sache tradicional - 1,43
+1 cx tucs queijo - 1,67
+2 fardos trigo dona benta 1 kg -
+24 unid leite de coco menina 200 ml - 3,39
+6 unidades creme de leite Piracanjuba zero lactose
+1 fardo trigo dona benta 5 kg tradicional
+12 unidades filtro permanente 103 -
+12 unidades leite em pó Piracanjuba 200 g
+1 cx leite ninho - 17,97
+5 fardos açúcar da barra 1 kg
+1 fardo ararutinha neve
+1 display fermento dona benta 10 g -
+1 cx detergente gota limpa maçã 1 litro
+1 cx detergente gota limpa cristal 1 litro
+3 unidades condicionador Seda cachos definidos
+4 dúzias sabonete flor de Ypê - 1,43
+2 dúzias sabonete Palmolive 85 g  - 2,07
+12 unidades creme skala
+3 unidades aerosol Rexona Power dry
+6 unidades aerosol Axe dark
+6 unidades aerosol Axe marine
+6 unidades aerosol Axe musk
+1 cx omo líquido lavagem perfeita
+1 cx brilhante líquido
+1 cx Amaciante confort concentrado frescor intenso
+1 cx alvejante Q boa 1 litro lavanda
+3 cx Q boa 1 litro - 2,77
+2 cx Q boa 2 litros
+1 cx sabão assim micelar caixa - 5,87
+1 cx sabão assim bicarbonato caixa - 5,87
+1 cx sabão tixam maciez 800 g caixa - 7,98
+1 fardo sabão assim sachê bicarbonato - 4,87
+1 fardo sabão surf coco
+1 fardo sabão surf lavanda
+1 fardo sabão assim flor de Lis
+6 unidades coala orquídea Negra
+6 unidades coala algodão -
+6 unidades coala chá branco - 8,87
+6 unidades nugget liquido preto
+36 unidades ultra gripe cabeça móvel - 5,27
+36 unidades ultra gripe cabeça fica - 5,27
+36 unidades proback
+1 almofada assolam - 1,37
+1 almofada Bombril - 1,77
+

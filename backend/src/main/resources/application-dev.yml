@@ -1,0 +1,44 @@
+spring:
+  datasource:
+    # Conexão de runtime (JPA/Hikari) — usada por TODAS as queries de negócio.
+    # Deve ser sempre cotacao_app (role sem BYPASSRLS criado em V10), nunca o role
+    # admin: só assim o RLS de V10__rls_policies.sql é realmente avaliado pelo
+    # Postgres em vez de ser ignorado por uma conexão superuser.
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5555}/${DB_NAME:cotacao_dev}
+    username: ${APP_DB_USER:cotacao_app}
+    password: ${APP_DB_PASSWORD:cotacao_app_dev}
+    hikari:
+      maximum-pool-size: 5
+
+  jpa:
+    show-sql: false
+
+  flyway:
+    # Conexão separada, usada só para rodar migrations (precisa de privilégio pra
+    # criar tabelas/roles/policies) — nunca usada pelas queries da aplicação.
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5555}/${DB_NAME:cotacao_dev}
+    user: ${DB_USER:cotacao}
+    password: ${DB_PASSWORD:cotacao}
+    clean-disabled: false
+    placeholders:
+      app_db_password: ${APP_DB_PASSWORD:cotacao_app_dev}
+
+app:
+  jwt:
+    secret: ${JWT_SECRET:dev-secret-change-in-prod-needs-32-chars-minimum}
+    access-token-expiration-ms: 900000
+    refresh-token-expiration-ms: 604800000
+  cors:
+    allowed-origins: http://localhost:3000
+  whatsapp:
+    verify-token: ${WHATSAPP_VERIFY_TOKEN:dev-verify-token}
+    app-secret: ${WHATSAPP_APP_SECRET:e3a324c5e9060a6630208aafa8a87594}
+    access-token: ${WHATSAPP_ACCESS_TOKEN:dev-access-token}
+    phone-number-id: ${WHATSAPP_PHONE_NUMBER_ID:000000000000000}
+    graph-api-base-url: ${WHATSAPP_GRAPH_API_BASE_URL:https://graph.facebook.com/v20.0}
+    envio-habilitado: ${WHATSAPP_ENVIO_HABILITADO:false}
+
+logging:
+  level:
+    com.prx.cotacao: DEBUG
+    org.flywaydb: INFO

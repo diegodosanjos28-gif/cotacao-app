@@ -1,0 +1,26 @@
+// Unidades reconhecidas pelo parser de lista (ParserListaProdutosService,
+// PADRAO_PRINCIPAL) — única fonte usada tanto no guia de formatação quanto em
+// qualquer seletor de unidade no app, pra nunca desalinhar do que o backend aceita.
+export const UNIDADES = [
+  "un",
+  "fd",
+  "cx",
+  "pct",
+  "kg",
+  "g",
+  "ml",
+  "lt",
+  "dz",
+  "galao",
+  "fr",
+  "gf",
+  "lata",
+  "pt",
+  "sc",
+  "rl",
+  "ta",
+  "bandej",
+  "disp",
+  "kit",
+  "cento",
+] as const;

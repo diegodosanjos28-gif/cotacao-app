@@ -1,0 +1,436 @@
+import {
+  AdicionarFornecedorCotacaoRequest,
+  AdicionarItemCotacaoRequest,
+  ComparativoItemResponse,
+  ConfirmarRespostaRequest,
+  Cotacao,
+  CotacaoFornecedorResponse,
+  EditarItemCotacaoRequest,
+  Fornecedor,
+  FornecedorRequest,
+  HistoricoPrecoProduto,
+  ImportarTextoItemResponse,
+  ItemListaResponse,
+  ItemRespostaResponse,
+  MapaCompraResponse,
+  MensagemResponse,
+  Page,
+  PreviewRespostaResponse,
+  ProblemDetail,
+  Produto,
+  ResetSenhaResponse,
+  ResolverAvisoResponse,
+  Tenant,
+  TenantRequest,
+  TenantStatus,
+  TokenResponse,
+  CenarioSelecionado,
+  UsuarioAdmin,
+  UsuarioAdminRequest,
+  UsuarioTelefone,
+  UsuarioTelefoneRequest,
+} from "./types";
+import { getAccessToken, getRefreshToken, isAccessTokenExpiringSoon, logout, setTokens } from "./auth";
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
+
+export class ApiError extends Error {
+  status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.status = status;
+  }
+}
+
+let refreshInFlight: Promise<boolean> | null = null;
+
+async function tryRefresh(): Promise<boolean> {
+  const refreshToken = getRefreshToken();
+  if (!refreshToken) return false;
+
+  // Evita disparar múltiplos /auth/refresh em paralelo quando várias chamadas
+  // batem em 401 ao mesmo tempo — todas esperam a mesma promise.
+  if (!refreshInFlight) {
+    refreshInFlight = (async () => {
+      try {
+        const res = await fetch(`${API_URL}/auth/refresh`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ refreshToken }),
+        });
+        if (!res.ok) return false;
+        const tokens: TokenResponse = await res.json();
+        setTokens(tokens.accessToken, tokens.refreshToken);
+        return true;
+      } catch {
+        return false;
+      } finally {
+        refreshInFlight = null;
+      }
+    })();
+  }
+  return refreshInFlight;
+}
+
+async function request<T>(path: string, options: RequestInit = {}, retry = true): Promise<T> {
+  // Renovação proativa: se o access token está perto de expirar, renova antes de
+  // mandar a requisição em vez de esperar bater 401 — reduz a janela em que uma
+  // chamada legítima falha por expiração. `retry=false` marca uma chamada que já é
+  // o retry pós-refresh (ou o próprio /auth/refresh), então não reavalia de novo.
+  if (retry && getRefreshToken() && isAccessTokenExpiringSoon()) {
+    await tryRefresh();
+  }
+
+  const token = getAccessToken();
+  const headers = new Headers(options.headers);
+  if (!(options.body instanceof FormData)) {
+    headers.set("Content-Type", "application/json");
+  }
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+
+  const res = await fetch(`${API_URL}${path}`, { ...options, headers });
+
+  if (res.status === 401 && retry && getRefreshToken()) {
+    const refreshed = await tryRefresh();
+    if (refreshed) return request<T>(path, options, false);
+    logout();
+    throw new ApiError("Sessão expirada", 401);
+  }
+
+  if (!res.ok) {
+    const problem: ProblemDetail | null = await res.json().catch(() => null);
+    throw new ApiError(problem?.detail ?? res.statusText, res.status);
+  }
+
+  if (res.status === 204) return undefined as T;
+  return res.json();
+}
+
+// ── Auth ──────────────────────────────────────────────────────────────────
+
+export function login(email: string, senha: string): Promise<TokenResponse> {
+  return request<TokenResponse>("/auth/login", {
+    method: "POST",
+    body: JSON.stringify({ email, senha }),
+  });
+}
+
+// tenantId null = sair do modo navegação, voltar ao painel admin puro. Só ADMIN_PRX
+// pode chamar (backend valida via @PreAuthorize).
+export function selecionarTenant(tenantId: string | null): Promise<TokenResponse> {
+  return request<TokenResponse>("/auth/selecionar-tenant", {
+    method: "POST",
+    body: JSON.stringify({ tenantId }),
+  });
+}
+
+// ── Cotações ──────────────────────────────────────────────────────────────
+
+export function listarCotacoes(page = 0, size = 20): Promise<Page<Cotacao>> {
+  return request<Page<Cotacao>>(`/cotacoes?page=${page}&size=${size}&sort=criadoEm,desc`);
+}
+
+export function buscarCotacao(id: string): Promise<Cotacao> {
+  return request<Cotacao>(`/cotacoes/${id}`);
+}
+
+export function criarCotacao(titulo: string): Promise<Cotacao> {
+  return request<Cotacao>("/cotacoes", {
+    method: "POST",
+    body: JSON.stringify({ titulo }),
+  });
+}
+
+export function finalizarCotacao(id: string, cenario: CenarioSelecionado): Promise<Cotacao> {
+  return request<Cotacao>(`/cotacoes/${id}/finalizar?cenario=${cenario}`, { method: "POST" });
+}
+
+export function enviarLista(cotacaoId: string, texto: string): Promise<ItemListaResponse[]> {
+  return request<ItemListaResponse[]>(`/cotacoes/${cotacaoId}/lista`, {
+    method: "POST",
+    body: JSON.stringify({ texto }),
+  });
+}
+
+export function buscarLista(cotacaoId: string): Promise<ItemListaResponse[]> {
+  return request<ItemListaResponse[]>(`/cotacoes/${cotacaoId}/lista`);
+}
+
+// Botão "Concluir ajuste e seguir para conferência" da tela Ajuste de Lista (Fase 3
+// WhatsApp) — vira lista_revisada=TRUE sem tocar status/canal_origem.
+export function concluirAjusteLista(cotacaoId: string): Promise<Cotacao> {
+  return request<Cotacao>(`/cotacoes/${cotacaoId}/lista/concluir-ajuste`, { method: "POST" });
+}
+
+// Preview: roda parser + matching + classificação, NÃO persiste nada — só marca
+// cotacao_fornecedor como PROCESSADO. Persistência de fato é confirmarResposta.
+export function enviarResposta(
+  cotacaoId: string,
+  fornecedorId: string,
+  texto: string,
+): Promise<PreviewRespostaResponse> {
+  return request<PreviewRespostaResponse>(`/cotacoes/${cotacaoId}/fornecedores/${fornecedorId}/resposta`, {
+    method: "POST",
+    body: JSON.stringify({ texto }),
+  });
+}
+
+// Reconstrói o texto já persistido de uma resposta que nunca passou pelo preview
+// (hoje, só o caminho WhatsApp — WhatsappRespostaFornecedorService persiste direto).
+// Alimentar esse texto de volta em enviarResposta reabre a Conferência normalmente.
+export function buscarRespostaPersistida(
+  cotacaoId: string,
+  fornecedorId: string,
+): Promise<{ texto: string }> {
+  return request<{ texto: string }>(`/cotacoes/${cotacaoId}/fornecedores/${fornecedorId}/resposta-persistida`);
+}
+
+// "Cancelar Conferência" (achado do usuário, 2026-08-04): apaga a resposta já
+// persistida deste fornecedor pra esta cotação e volta cotacao_fornecedor.status pra
+// PENDENTE — sem isso, "Conferir resposta do fornecedor" reconstruiria a mesma
+// resposta cancelada no próximo clique (ver buscarRespostaPersistida).
+export function cancelarRespostaFornecedor(cotacaoId: string, fornecedorId: string): Promise<void> {
+  return request<void>(`/cotacoes/${cotacaoId}/fornecedores/${fornecedorId}/resposta`, {
+    method: "DELETE",
+  });
+}
+
+export function confirmarResposta(
+  cotacaoId: string,
+  fornecedorId: string,
+  dados: ConfirmarRespostaRequest,
+): Promise<ItemRespostaResponse[]> {
+  return request<ItemRespostaResponse[]>(`/cotacoes/${cotacaoId}/fornecedores/${fornecedorId}/confirmar`, {
+    method: "POST",
+    body: JSON.stringify(dados),
+  });
+}
+
+// ── Fornecedores da cotação (fluxo sequencial) ──────────────────────────────
+
+export function listarFornecedoresDaCotacao(cotacaoId: string): Promise<CotacaoFornecedorResponse[]> {
+  return request<CotacaoFornecedorResponse[]>(`/cotacoes/${cotacaoId}/fornecedores`);
+}
+
+export function adicionarFornecedorNaCotacao(
+  cotacaoId: string,
+  dados: AdicionarFornecedorCotacaoRequest,
+): Promise<CotacaoFornecedorResponse> {
+  return request<CotacaoFornecedorResponse>(`/cotacoes/${cotacaoId}/fornecedores`, {
+    method: "POST",
+    body: JSON.stringify(dados),
+  });
+}
+
+export function resolverAviso(
+  cotacaoId: string,
+  cpfId: string,
+  embalagemQtd: number,
+): Promise<ResolverAvisoResponse> {
+  return request<ResolverAvisoResponse>(`/cotacoes/${cotacaoId}/avisos/${cpfId}/resolver`, {
+    method: "POST",
+    body: JSON.stringify({ embalagemQtd }),
+  });
+}
+
+export function comparativo(cotacaoId: string): Promise<ComparativoItemResponse[]> {
+  return request<ComparativoItemResponse[]>(`/cotacoes/${cotacaoId}/comparativo`);
+}
+
+export function editarItemCotacao(
+  cotacaoId: string,
+  cotacaoProdutoId: string,
+  dados: EditarItemCotacaoRequest,
+): Promise<void> {
+  return request<void>(`/cotacoes/${cotacaoId}/produtos/${cotacaoProdutoId}`, {
+    method: "PATCH",
+    body: JSON.stringify(dados),
+  });
+}
+
+export function removerItemCotacao(cotacaoId: string, cotacaoProdutoId: string): Promise<void> {
+  return request<void>(`/cotacoes/${cotacaoId}/produtos/${cotacaoProdutoId}`, {
+    method: "DELETE",
+  });
+}
+
+// Grid Unificado (Prompt 12) — botão "+ Adicionar Produto".
+export function adicionarItemCotacao(
+  cotacaoId: string,
+  dados: AdicionarItemCotacaoRequest,
+): Promise<ItemListaResponse> {
+  return request<ItemListaResponse>(`/cotacoes/${cotacaoId}/produtos`, {
+    method: "POST",
+    body: JSON.stringify(dados),
+  });
+}
+
+// Modal "Colar do WhatsApp" (Prompt 12) — sempre-append, nunca substitui itens já no
+// grid (ver CotacaoListaService.importarTexto no backend).
+export function importarTextoCotacao(cotacaoId: string, texto: string): Promise<ImportarTextoItemResponse[]> {
+  return request<ImportarTextoItemResponse[]>(`/cotacoes/${cotacaoId}/produtos/importar-texto`, {
+    method: "POST",
+    body: JSON.stringify({ texto }),
+  });
+}
+
+export function mapaCompra(cotacaoId: string, cenario: CenarioSelecionado): Promise<MapaCompraResponse> {
+  return request<MapaCompraResponse>(`/cotacoes/${cotacaoId}/mapa?cenario=${cenario}`);
+}
+
+export function mensagemFornecedor(
+  cotacaoId: string,
+  fornecedorId: string,
+  cenario: CenarioSelecionado,
+): Promise<MensagemResponse> {
+  return request<MensagemResponse>(`/cotacoes/${cotacaoId}/fornecedores/${fornecedorId}/mensagem?cenario=${cenario}`);
+}
+
+// ── Ajuste manual da distribuição do Mapa de Compra ──────────────────────────
+
+export function moverItemMapa(cotacaoId: string, cotacaoProdutoId: string, fornecedorId: string): Promise<void> {
+  return request<void>(`/cotacoes/${cotacaoId}/mapa/itens/${cotacaoProdutoId}?fornecedorId=${fornecedorId}`, {
+    method: "PUT",
+  });
+}
+
+export function removerItemMapa(cotacaoId: string, cotacaoProdutoId: string): Promise<void> {
+  return request<void>(`/cotacoes/${cotacaoId}/mapa/itens/${cotacaoProdutoId}/remover`, {
+    method: "POST",
+  });
+}
+
+export function restaurarItemMapa(cotacaoId: string, cotacaoProdutoId: string): Promise<void> {
+  return request<void>(`/cotacoes/${cotacaoId}/mapa/itens/${cotacaoProdutoId}`, {
+    method: "DELETE",
+  });
+}
+
+export function restaurarCenarioMapa(cotacaoId: string): Promise<void> {
+  return request<void>(`/cotacoes/${cotacaoId}/mapa/ajustes`, {
+    method: "DELETE",
+  });
+}
+
+// ── Fornecedores ──────────────────────────────────────────────────────────
+
+export function listarFornecedores(): Promise<Fornecedor[]> {
+  return request<Fornecedor[]>("/fornecedores");
+}
+
+export function criarFornecedor(dados: FornecedorRequest): Promise<Fornecedor> {
+  return request<Fornecedor>("/fornecedores", { method: "POST", body: JSON.stringify(dados) });
+}
+
+export function atualizarFornecedor(id: string, dados: FornecedorRequest): Promise<Fornecedor> {
+  return request<Fornecedor>(`/fornecedores/${id}`, { method: "PUT", body: JSON.stringify(dados) });
+}
+
+export function inativarFornecedor(id: string): Promise<void> {
+  return request<void>(`/fornecedores/${id}`, { method: "DELETE" });
+}
+
+// ── Produtos ──────────────────────────────────────────────────────────────
+
+export function buscarProdutos(q?: string): Promise<Produto[]> {
+  const query = q ? `?q=${encodeURIComponent(q)}` : "";
+  return request<Produto[]>(`/produtos${query}`);
+}
+
+// ── Histórico de Preços ──────────────────────────────────────────────────
+
+export function historicoPrecos(): Promise<HistoricoPrecoProduto[]> {
+  return request<HistoricoPrecoProduto[]>("/historico-precos");
+}
+
+// ── Admin: Tenants ────────────────────────────────────────────────────────
+
+export function listarTenants(q?: string, status?: TenantStatus): Promise<Tenant[]> {
+  const params = new URLSearchParams();
+  if (q) params.set("q", q);
+  if (status) params.set("status", status);
+  const query = params.toString() ? `?${params.toString()}` : "";
+  return request<Tenant[]>(`/admin/tenants${query}`);
+}
+
+export function buscarTenant(id: string): Promise<Tenant> {
+  return request<Tenant>(`/admin/tenants/${id}`);
+}
+
+export function criarTenant(dados: TenantRequest): Promise<Tenant> {
+  return request<Tenant>("/admin/tenants", { method: "POST", body: JSON.stringify(dados) });
+}
+
+export function atualizarTenant(id: string, dados: TenantRequest): Promise<Tenant> {
+  return request<Tenant>(`/admin/tenants/${id}`, { method: "PUT", body: JSON.stringify(dados) });
+}
+
+// ── Admin: Usuários ───────────────────────────────────────────────────────
+
+export function listarUsuariosDoTenant(tenantId: string): Promise<UsuarioAdmin[]> {
+  return request<UsuarioAdmin[]>(`/admin/tenants/${tenantId}/usuarios`);
+}
+
+export function criarUsuarioDoTenant(tenantId: string, dados: UsuarioAdminRequest): Promise<UsuarioAdmin> {
+  return request<UsuarioAdmin>(`/admin/tenants/${tenantId}/usuarios`, {
+    method: "POST",
+    body: JSON.stringify(dados),
+  });
+}
+
+export function atualizarUsuarioDoTenant(
+  tenantId: string,
+  usuarioId: string,
+  dados: UsuarioAdminRequest,
+): Promise<UsuarioAdmin> {
+  return request<UsuarioAdmin>(`/admin/tenants/${tenantId}/usuarios/${usuarioId}`, {
+    method: "PUT",
+    body: JSON.stringify(dados),
+  });
+}
+
+export function resetarSenhaUsuario(tenantId: string, usuarioId: string): Promise<ResetSenhaResponse> {
+  return request<ResetSenhaResponse>(`/admin/tenants/${tenantId}/usuarios/${usuarioId}/reset-senha`, {
+    method: "POST",
+  });
+}
+
+// ── Admin: Administradores (ADMIN_PRX, sem tenant) ──────────────────────────
+
+export function listarAdministradores(): Promise<UsuarioAdmin[]> {
+  return request<UsuarioAdmin[]>("/admin/administradores");
+}
+
+export function criarAdministrador(dados: UsuarioAdminRequest): Promise<UsuarioAdmin> {
+  return request<UsuarioAdmin>("/admin/administradores", {
+    method: "POST",
+    body: JSON.stringify(dados),
+  });
+}
+
+export function atualizarAdministrador(usuarioId: string, dados: UsuarioAdminRequest): Promise<UsuarioAdmin> {
+  return request<UsuarioAdmin>(`/admin/administradores/${usuarioId}`, {
+    method: "PUT",
+    body: JSON.stringify(dados),
+  });
+}
+
+export function resetarSenhaAdministrador(usuarioId: string): Promise<ResetSenhaResponse> {
+  return request<ResetSenhaResponse>(`/admin/administradores/${usuarioId}/reset-senha`, {
+    method: "POST",
+  });
+}
+
+// ── Meus Telefones (WhatsApp) ────────────────────────────────────────────
+
+export function listarMeusTelefones(): Promise<UsuarioTelefone[]> {
+  return request<UsuarioTelefone[]>("/usuarios/me/telefones");
+}
+
+export function criarMeuTelefone(dados: UsuarioTelefoneRequest): Promise<UsuarioTelefone> {
+  return request<UsuarioTelefone>("/usuarios/me/telefones", { method: "POST", body: JSON.stringify(dados) });
+}
+
+export function removerMeuTelefone(id: string): Promise<void> {
+  return request<void>(`/usuarios/me/telefones/${id}`, { method: "DELETE" });
+}
