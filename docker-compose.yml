@@ -5,10 +5,6 @@ services:
       POSTGRES_DB: ${DB_NAME:-cotacao_dev}
       POSTGRES_USER: ${DB_USER:-cotacao}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-cotacao}
-    # Sem porta exposta ao host por padrão — só a rede interna do compose precisa
-    # falar com o banco. Para acessar via DBeaver/SSH tunnel, descomente:
-    # ports:
-    #   - "${DB_PORT:-5432}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -22,8 +18,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    ports:
-      - "8080:8080"
+    # ports removed — only Caddy talks to this now
     environment:
       SPRING_PROFILES_ACTIVE: dev
       DB_HOST: db
@@ -39,6 +34,8 @@ services:
       WHATSAPP_ACCESS_TOKEN: ${WHATSAPP_ACCESS_TOKEN}
       WHATSAPP_PHONE_NUMBER_ID: ${WHATSAPP_PHONE_NUMBER_ID}
       WHATSAPP_ENVIO_HABILITADO: ${WHATSAPP_ENVIO_HABILITADO:-false}
+      ADMIN_BOOTSTRAP_EMAIL: ${ADMIN_BOOTSTRAP_EMAIL}
+      ADMIN_BOOTSTRAP_PASSWORD: ${ADMIN_BOOTSTRAP_PASSWORD}
     depends_on:
       db:
         condition: service_healthy
@@ -55,10 +52,24 @@ services:
       dockerfile: Dockerfile
       args:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8080}
-    ports:
-      - "3000:3000"
+    # ports removed — only Caddy talks to this now
     depends_on:
       - backend
 
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - backend
+      - frontend
+
 volumes:
   pgdata:
+  caddy_data:
+  caddy_config:
