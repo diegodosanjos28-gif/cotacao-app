@@ -1,0 +1,5 @@
+{$CADDY_DOMAIN} {
+    @api path /auth/* /cotacoes/* /produtos/* /fornecedores/* /admin/* /whatsapp/* /dev/* /actuator/*
+    reverse_proxy @api backend:8080
+    reverse_proxy frontend:3000
+}
