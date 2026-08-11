@@ -11,7 +11,7 @@
     }
     reverse_proxy @rscQuery frontend:3000
 
-    @api path /auth /auth/* /cotacoes /cotacoes/* /produtos /produtos/* /fornecedores /fornecedores/* /admin /admin/* /whatsapp /whatsapp/* /dev /dev/* /actuator /actuator/*
+    @api path /auth /auth/* /cotacoes /cotacoes/* /produtos /produtos/* /fornecedores /fornecedores/* /admin /admin/* /usuarios /usuarios/* /whatsapp /whatsapp/* /dev /dev/* /actuator /actuator/*
     reverse_proxy @api backend:8080
 
     reverse_proxy frontend:3000
