@@ -1,16 +1,4 @@
 {$CADDY_DOMAIN} {
-    @rsc {
-        header RSC *
-    }
-    reverse_proxy @rsc frontend:3000
-
-    @rscQuery {
-        query _rsc=*
-    }
-    reverse_proxy @rscQuery frontend:3000
-
-    @api path /auth /auth/* /cotacoes /cotacoes/* /produtos /produtos/* /fornecedores /fornecedores/* /admin /admin/* /usuarios /usuarios/* /whatsapp /whatsapp/* /dev /dev/* /actuator /actuator/* /historico-precos /historico-precos/*
-    reverse_proxy @api backend:8080
-
+    reverse_proxy /api/* backend:8080
     reverse_proxy frontend:3000
 }

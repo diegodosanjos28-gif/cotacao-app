@@ -1,3 +1,10 @@
+# Aplica a todos os profiles (dev/prod herdam este base application.yml) — o Caddy
+# roteia por prefixo fixo /api/* pro backend, resto pro frontend Next.js, sem precisar
+# de allowlist de path nenhuma.
+server:
+  servlet:
+    context-path: /api
+
 spring:
   datasource:
     # Conexão de runtime (JPA/Hikari) — usada por TODAS as queries de negócio.
