@@ -135,11 +135,11 @@ class WhatsappRespostaFornecedorServiceTest {
     }
 
     private UUID processarLista(String texto) {
-        return comoTenant(() -> listaService.processar(usuarioId, texto));
+        return comoTenant(() -> listaService.processar(usuarioId, texto)).cotacaoId();
     }
 
     private UUID processarResposta(String texto) {
-        return comoTenant(() -> respostaService.processar(usuarioId, texto));
+        return comoTenant(() -> respostaService.processar(usuarioId, texto)).cotacaoId();
     }
 
     private CotacaoFornecedor unicoCotacaoFornecedor(UUID cotacaoId) {

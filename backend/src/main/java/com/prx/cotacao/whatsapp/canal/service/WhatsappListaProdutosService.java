@@ -1,15 +1,18 @@
 package com.prx.cotacao.whatsapp.canal.service;
 
+import com.prx.cotacao.cotacao.core.dto.ItemListaResponse;
 import com.prx.cotacao.cotacao.core.enums.CanalOrigem;
 import com.prx.cotacao.cotacao.core.entity.Cotacao;
 import com.prx.cotacao.cotacao.core.service.CotacaoListaService;
 import com.prx.cotacao.cotacao.core.repository.CotacaoRepository;
 import com.prx.cotacao.cotacao.core.enums.CotacaoStatus;
+import com.prx.cotacao.whatsapp.canal.dto.ResultadoProcessamentoLista;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -43,10 +46,11 @@ public class WhatsappListaProdutosService {
      * TenantAuditEntityListener na criação da cotação nova.
      */
     @Transactional
-    public UUID processar(UUID usuarioId, String texto) {
+    public ResultadoProcessamentoLista processar(UUID usuarioId, String texto) {
         Cotacao cotacao = buscarCotacaoEmAndamento(usuarioId).orElseGet(() -> criarCotacao(usuarioId));
-        cotacaoListaService.processarLista(cotacao.getId(), texto);
-        return cotacao.getId();
+        List<ItemListaResponse> itens = cotacaoListaService.processarLista(cotacao.getId(), texto);
+        int itensReconhecidos = (int) itens.stream().filter(ItemListaResponse::matched).count();
+        return new ResultadoProcessamentoLista(cotacao.getId(), itens.size(), itensReconhecidos);
     }
 
     private java.util.Optional<Cotacao> buscarCotacaoEmAndamento(UUID usuarioId) {

@@ -7,12 +7,13 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
+import java.util.List;
 import java.util.Map;
 
 /**
- * Envio via Meta Cloud API (POST /{phone-number-id}/messages). Quando
- * {@code app.whatsapp.envio-habilitado=false} (default dev/test), só loga a mensagem
- * que enviaria — dispensa credenciais Meta válidas em dev/test.
+ * Envio via Meta Cloud API (POST /{phone-number-id}/messages, {@code type=template}).
+ * Quando {@code app.whatsapp.envio-habilitado=false} (default dev/test), só loga a
+ * mensagem que enviaria — dispensa credenciais Meta válidas em dev/test.
  */
 @Component
 public class MetaWhatsappGraphClient implements WhatsappMessageSender {
@@ -36,16 +37,25 @@ public class MetaWhatsappGraphClient implements WhatsappMessageSender {
     }
 
     @Override
-    public void enviar(String numeroDestino, String texto) {
+    public void enviarTemplate(String numeroDestino, String nomeTemplateMeta, String idioma,
+                                List<String> parametrosPosicionais) {
         if (!envioHabilitado) {
-            log.info("[WhatsApp envio desabilitado] destino={}", TelefoneLogUtils.mascarar(numeroDestino));
+            log.info("[WhatsApp envio desabilitado] destino={}, template={}",
+                    TelefoneLogUtils.mascarar(numeroDestino), nomeTemplateMeta);
             return;
         }
+        Map<String, Object> language = Map.of("code", idioma);
+        Map<String, Object> template = parametrosPosicionais.isEmpty()
+                ? Map.of("name", nomeTemplateMeta, "language", language)
+                : Map.of("name", nomeTemplateMeta, "language", language, "components", List.of(
+                        Map.of("type", "body", "parameters", parametrosPosicionais.stream()
+                                .map(p -> Map.of("type", "text", "text", p))
+                                .toList())));
         Map<String, Object> body = Map.of(
                 "messaging_product", "whatsapp",
                 "to", numeroDestino,
-                "type", "text",
-                "text", Map.of("body", texto));
+                "type", "template",
+                "template", template);
         try {
             restClient.post()
                     .uri("/{phoneNumberId}/messages", phoneNumberId)
@@ -55,7 +65,8 @@ public class MetaWhatsappGraphClient implements WhatsappMessageSender {
         } catch (RuntimeException e) {
             // Falha no envio do recibo não pode derrubar o processamento do webhook —
             // a mensagem já foi processada (item já criado/anexado); só o recibo falhou.
-            log.warn("Falha ao enviar recibo WhatsApp: destino={}", TelefoneLogUtils.mascarar(numeroDestino), e);
+            log.warn("Falha ao enviar template WhatsApp: destino={}, template={}",
+                    TelefoneLogUtils.mascarar(numeroDestino), nomeTemplateMeta, e);
         }
     }
 }

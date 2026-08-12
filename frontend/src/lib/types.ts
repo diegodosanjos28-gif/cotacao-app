@@ -414,6 +414,29 @@ export interface ResetSenhaResponse {
   senha: string;
 }
 
+export type ResultadoTemplateMensagem = "SUCESSO" | "ERRO";
+
+export interface TemplateMensagem {
+  id: string;
+  tenantId: string;
+  resultado: ResultadoTemplateMensagem;
+  nomeTemplateMeta: string;
+  idioma: string;
+  conteudo: string | null;
+  descricaoParametros: string | null;
+  ativo: boolean;
+  criadoEm: string;
+}
+
+export interface TemplateMensagemRequest {
+  resultado: ResultadoTemplateMensagem;
+  nomeTemplateMeta: string;
+  idioma: string;
+  conteudo?: string | null;
+  descricaoParametros?: string | null;
+  ativo?: boolean | null;
+}
+
 export interface UsuarioTelefone {
   id: string;
   numeroWhatsapp: string;

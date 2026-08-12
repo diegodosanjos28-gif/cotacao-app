@@ -1,5 +1,7 @@
 package com.prx.cotacao.whatsapp.webhook.service;
 
+import com.prx.cotacao.notificacao.ContextoNotificacao;
+import com.prx.cotacao.notificacao.MensageriaService;
 import com.prx.cotacao.shared.tenant.TenantContext;
 import com.prx.cotacao.whatsapp.canal.service.ClassificadorMensagemWhatsapp;
 import com.prx.cotacao.whatsapp.canal.service.IdentificacaoWhatsappService;
@@ -10,11 +12,11 @@ import com.prx.cotacao.whatsapp.canal.dto.TelefoneLogUtils;
 import com.prx.cotacao.whatsapp.canal.enums.TipoMensagemWhatsapp;
 import com.prx.cotacao.whatsapp.canal.service.WhatsappListaProdutosService;
 import com.prx.cotacao.whatsapp.canal.service.WhatsappRespostaFornecedorService;
-import com.prx.cotacao.whatsapp.envio.WhatsappMessageSender;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -59,28 +61,28 @@ public class WhatsappWebhookService {
 
     private static final Logger log = LoggerFactory.getLogger(WhatsappWebhookService.class);
 
-    private static final String RECIBO_FORMATO_NAO_RECONHECIDO =
-            "⚠️ Não consegui identificar o formato da sua mensagem. Comece com LISTA_PRODUTOS ou RESPOSTA_FORNECEDOR na primeira linha.";
-
     private final IdentificacaoWhatsappService identificacaoService;
     private final IdempotenciaWhatsappService idempotenciaService;
     private final ClassificadorMensagemWhatsapp classificador;
     private final WhatsappListaProdutosService listaService;
     private final WhatsappRespostaFornecedorService respostaFornecedorService;
-    private final WhatsappMessageSender messageSender;
+    private final MensageriaService mensageriaService;
+    private final NotificacaoParametrosFactory parametrosFactory;
 
     public WhatsappWebhookService(IdentificacaoWhatsappService identificacaoService,
                                    IdempotenciaWhatsappService idempotenciaService,
                                    ClassificadorMensagemWhatsapp classificador,
                                    WhatsappListaProdutosService listaService,
                                    WhatsappRespostaFornecedorService respostaFornecedorService,
-                                   WhatsappMessageSender messageSender) {
+                                   MensageriaService mensageriaService,
+                                   NotificacaoParametrosFactory parametrosFactory) {
         this.identificacaoService = identificacaoService;
         this.idempotenciaService = idempotenciaService;
         this.classificador = classificador;
         this.listaService = listaService;
         this.respostaFornecedorService = respostaFornecedorService;
-        this.messageSender = messageSender;
+        this.mensageriaService = mensageriaService;
+        this.parametrosFactory = parametrosFactory;
     }
 
     public void processar(WhatsappWebhookPayload payload) {
@@ -146,35 +148,27 @@ public class WhatsappWebhookService {
         Optional<ResultadoClassificacao> classificacao = classificador.classificar(mensagem.texto());
         if (classificacao.isEmpty()) {
             log.info("Mensagem WhatsApp com formato não reconhecido: messageId={}", mensagem.messageId());
-            messageSender.enviar(mensagem.numeroOrigem(), RECIBO_FORMATO_NAO_RECONHECIDO);
+            mensageriaService.enviarMensagemErro(new ContextoNotificacao(
+                    tenantId, mensagem.numeroOrigem(), parametrosFactory.paraFormatoDesconhecido()));
             return;
         }
 
         TipoMensagemWhatsapp tipo = classificacao.get().tipo();
         String corpo = classificacao.get().corpo();
-        String textoRecibo;
         try {
-            UUID cotacaoId = switch (tipo) {
-                case LISTA_PRODUTOS -> listaService.processar(usuarioId, corpo);
-                case RESPOSTA_FORNECEDOR -> respostaFornecedorService.processar(usuarioId, corpo);
+            Map<String, String> parametros = switch (tipo) {
+                case LISTA_PRODUTOS -> parametrosFactory.paraListaSucesso(listaService.processar(usuarioId, corpo));
+                case RESPOSTA_FORNECEDOR ->
+                        parametrosFactory.paraRespostaSucesso(respostaFornecedorService.processar(usuarioId, corpo));
             };
-            textoRecibo = montarReciboSucesso(tipo, cotacaoId);
+            mensageriaService.enviarMensagemSucesso(new ContextoNotificacao(tenantId, mensagem.numeroOrigem(), parametros));
         } catch (RuntimeException e) {
             log.warn("Falha ao processar mensagem WhatsApp: messageId={}, tipo={}", mensagem.messageId(), tipo, e);
-            textoRecibo = "⚠️ Não consegui processar sua mensagem. Um operador vai verificar em breve.";
+            Map<String, String> parametros = switch (tipo) {
+                case LISTA_PRODUTOS -> parametrosFactory.paraListaErro();
+                case RESPOSTA_FORNECEDOR -> parametrosFactory.paraRespostaErro();
+            };
+            mensageriaService.enviarMensagemErro(new ContextoNotificacao(tenantId, mensagem.numeroOrigem(), parametros));
         }
-
-        messageSender.enviar(mensagem.numeroOrigem(), textoRecibo);
-    }
-
-    private String montarReciboSucesso(TipoMensagemWhatsapp tipo, UUID cotacaoId) {
-        return switch (tipo) {
-            case LISTA_PRODUTOS -> "✅ Lista recebida e adicionada à sua cotação.";
-            // "Registrada" seria incorreto a partir do Prompt 15 (unificação Web/
-            // WhatsApp): o webhook nunca persiste a resposta sozinho, só gera um
-            // preview aguardando confirmação explícita do operador na Conferência —
-            // mesmo sem nenhuma divergência.
-            case RESPOSTA_FORNECEDOR -> "✅ Resposta do fornecedor recebida, aguardando conferência do operador.";
-        };
     }
 }

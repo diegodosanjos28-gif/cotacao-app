@@ -25,6 +25,8 @@ import {
   TenantStatus,
   TokenResponse,
   CenarioSelecionado,
+  TemplateMensagem,
+  TemplateMensagemRequest,
   UsuarioAdmin,
   UsuarioAdminRequest,
   UsuarioTelefone,
@@ -392,6 +394,30 @@ export function atualizarUsuarioDoTenant(
 export function resetarSenhaUsuario(tenantId: string, usuarioId: string): Promise<ResetSenhaResponse> {
   return request<ResetSenhaResponse>(`/admin/tenants/${tenantId}/usuarios/${usuarioId}/reset-senha`, {
     method: "POST",
+  });
+}
+
+// ── Admin: Templates de Mensagens ────────────────────────────────────────────
+
+export function listarTemplatesMensagem(tenantId: string): Promise<TemplateMensagem[]> {
+  return request<TemplateMensagem[]>(`/admin/tenants/${tenantId}/templates-mensagem`);
+}
+
+export function criarTemplateMensagem(tenantId: string, dados: TemplateMensagemRequest): Promise<TemplateMensagem> {
+  return request<TemplateMensagem>(`/admin/tenants/${tenantId}/templates-mensagem`, {
+    method: "POST",
+    body: JSON.stringify(dados),
+  });
+}
+
+export function atualizarTemplateMensagem(
+  tenantId: string,
+  templateId: string,
+  dados: TemplateMensagemRequest,
+): Promise<TemplateMensagem> {
+  return request<TemplateMensagem>(`/admin/tenants/${tenantId}/templates-mensagem/${templateId}`, {
+    method: "PUT",
+    body: JSON.stringify(dados),
   });
 }
 

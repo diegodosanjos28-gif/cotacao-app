@@ -8,12 +8,14 @@ import com.prx.cotacao.identidade.entity.Usuario;
 import com.prx.cotacao.identidade.repository.UsuarioRepository;
 import com.prx.cotacao.identidade.entity.UsuarioTelefoneAutorizado;
 import com.prx.cotacao.identidade.repository.UsuarioTelefoneAutorizadoRepository;
+import com.prx.cotacao.notificacao.ContextoNotificacao;
+import com.prx.cotacao.notificacao.MensageriaService;
 import com.prx.cotacao.shared.tenant.TenantContext;
-import com.prx.cotacao.whatsapp.envio.WhatsappMessageSender;
 import com.prx.cotacao.whatsapp.webhook.service.WhatsappAssinaturaValidator;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -31,8 +33,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.mockito.ArgumentMatchers.contains;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -67,7 +67,7 @@ class WhatsappWebhookControllerIntegrationTest {
     @Autowired private UsuarioTelefoneAutorizadoRepository telefoneRepository;
     @Autowired private TransactionTemplate tx;
     @Autowired private JdbcTemplate jdbc;
-    @SpyBean private WhatsappMessageSender messageSender;
+    @SpyBean private MensageriaService mensageriaService;
 
     private static final AtomicInteger SEQ = new AtomicInteger();
 
@@ -178,8 +178,12 @@ class WhatsappWebhookControllerIntegrationTest {
         assertEquals(0, totalFornecedores);
 
         // O "from" da Meta chega sem o "+" (ver payloadTexto) — é esse formato que
-        // acaba em mensagem.numeroOrigem() e, por sua vez, no destino do envio.
-        verify(messageSender).enviar(eq(numeroA.substring(1)), contains("consegui identificar o formato"));
+        // acaba em mensagem.numeroOrigem() e, por sua vez, no destinatário do
+        // ContextoNotificacao repassado à porta de mensageria.
+        ArgumentCaptor<ContextoNotificacao> captor = ArgumentCaptor.forClass(ContextoNotificacao.class);
+        verify(mensageriaService).enviarMensagemErro(captor.capture());
+        assertEquals(numeroA.substring(1), captor.getValue().destinatario());
+        assertEquals("Desconhecido", captor.getValue().parametros().get("tipoMensagem"));
     }
 
     // ── Checklist #2: lista sem cotação em andamento → cria nova ───────────────

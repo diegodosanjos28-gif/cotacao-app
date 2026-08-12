@@ -1,6 +1,8 @@
 package com.prx.cotacao.whatsapp.envio;
 
-/** Confirmação mínima de recebimento (doc técnica, seção 10.7) — um recibo por entrada processada. */
+import java.util.List;
+
+/** Envio de mensagem WhatsApp via Meta Template API (doc técnica, seção 10.7). */
 public interface WhatsappMessageSender {
-    void enviar(String numeroDestino, String texto);
+    void enviarTemplate(String numeroDestino, String nomeTemplateMeta, String idioma, List<String> parametrosPosicionais);
 }

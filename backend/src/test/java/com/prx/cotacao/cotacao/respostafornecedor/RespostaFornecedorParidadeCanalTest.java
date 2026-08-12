@@ -194,7 +194,7 @@ class RespostaFornecedorParidadeCanalTest {
         // 4. Canal WhatsApp — deve reaproveitar a cotação em andamento (não criar uma
         // nova) e resolver o fornecedor pré-existente por matching de nome (não
         // duplicar fornecedor).
-        UUID cotacaoRetornadaPeloWhatsapp = comoTenant(() -> whatsappRespostaFornecedorService.processar(usuarioId, texto));
+        UUID cotacaoRetornadaPeloWhatsapp = comoTenant(() -> whatsappRespostaFornecedorService.processar(usuarioId, texto)).cotacaoId();
         assertEquals(cotacaoWhats, cotacaoRetornadaPeloWhatsapp,
                 "WhatsApp deve reaproveitar a cotação em andamento existente, não criar uma nova");
 

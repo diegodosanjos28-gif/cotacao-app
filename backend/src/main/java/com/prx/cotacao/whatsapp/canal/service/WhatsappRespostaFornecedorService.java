@@ -13,6 +13,7 @@ import com.prx.cotacao.cotacao.respostafornecedor.parser.dto.LinhaFornecedor;
 import com.prx.cotacao.cotacao.respostafornecedor.parser.service.ParserRespostaFornecedorService;
 import com.prx.cotacao.cotacao.respostafornecedor.parser.dto.ResultadoResposta;
 import com.prx.cotacao.cotacao.respostafornecedor.service.ConfirmacaoRespostaService;
+import com.prx.cotacao.whatsapp.canal.dto.ResultadoProcessamentoResposta;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -76,7 +77,7 @@ public class WhatsappRespostaFornecedorService {
     // (WhatsappWebhookService) garante que essa resolução acontece ANTES da primeira
     // consulta JPA da requisição (ver javadoc de IdentificacaoWhatsappService).
     @Transactional
-    public UUID processar(UUID usuarioId, String texto) {
+    public ResultadoProcessamentoResposta processar(UUID usuarioId, String texto) {
         ResultadoResposta resultado = parserResposta.parsear(texto);
         List<LinhaFornecedor> linhasValidas = resultado.linhas().stream().filter(l -> !l.ignorada()).toList();
 
@@ -97,7 +98,7 @@ public class WhatsappRespostaFornecedorService {
         log.info("Resposta de fornecedor via WhatsApp roteada para preview: cotacaoId={}, nomeFornecedor={}",
                 cotacaoId, resultado.nomeFornecedor());
 
-        return cotacaoId;
+        return new ResultadoProcessamentoResposta(cotacaoId, resultado.nomeFornecedor(), linhasValidas.size());
     }
 
     private List<CotacaoProduto> criarItensBaseDaResposta(UUID cotacaoId, List<LinhaFornecedor> linhas) {

@@ -9,15 +9,27 @@ import NavBar from "@/components/NavBar";
 import Card from "@/components/Card";
 import Modal from "@/components/Modal";
 import StatusBadge from "@/components/StatusBadge";
-import { buscarTenant, listarUsuariosDoTenant, resetarSenhaUsuario } from "@/lib/api";
+import { buscarTenant, listarTemplatesMensagem, listarUsuariosDoTenant, resetarSenhaUsuario } from "@/lib/api";
 import { formatarData } from "@/lib/format";
 import { getErrorMessage } from "@/lib/errors";
 import { useAsync } from "@/hooks/useAsync";
-import { UsuarioAdmin } from "@/lib/types";
+import { ResultadoTemplateMensagem, TemplateMensagem, UsuarioAdmin } from "@/lib/types";
 import TenantFormModal from "../components/TenantFormModal";
 import UsuarioFormModal from "./components/UsuarioFormModal";
+import TemplateMensagemFormModal from "./components/TemplateMensagemFormModal";
 
 const TH_CLASSE = "px-4 py-3 font-medium";
+
+const RESULTADOS_TEMPLATE: ResultadoTemplateMensagem[] = ["SUCESSO", "ERRO"];
+const LABEL_RESULTADO: Record<ResultadoTemplateMensagem, string> = {
+  SUCESSO: "Sucesso",
+  ERRO: "Erro",
+};
+
+interface VagaTemplate {
+  resultado: ResultadoTemplateMensagem;
+  existente: TemplateMensagem | null;
+}
 
 function SenhaGeradaModal({ senha, onClose }: { senha: string | null; onClose: () => void }) {
   return (
@@ -53,9 +65,16 @@ function TenantDetalheContent({ tenantId }: { tenantId: string }) {
     erro: erroUsuarios,
     setData: setUsuarios,
   } = useAsync(() => listarUsuariosDoTenant(tenantId), [tenantId], "Não foi possível carregar os usuários.");
+  const {
+    data: templates,
+    erro: erroTemplates,
+    setData: setTemplates,
+  } = useAsync(() => listarTemplatesMensagem(tenantId), [tenantId], "Não foi possível carregar os templates.");
 
+  const [abaAtiva, setAbaAtiva] = useState<"usuarios" | "templates">("usuarios");
   const [editarTenantAberto, setEditarTenantAberto] = useState(false);
   const [modalUsuario, setModalUsuario] = useState<{ usuario: UsuarioAdmin | null } | null>(null);
+  const [modalTemplate, setModalTemplate] = useState<VagaTemplate | null>(null);
   const [senhaGerada, setSenhaGerada] = useState<string | null>(null);
   const [resetando, setResetando] = useState<string | null>(null);
   const [erroReset, setErroReset] = useState<string | null>(null);
@@ -67,6 +86,14 @@ function TenantDetalheContent({ tenantId }: { tenantId: string }) {
       return existe ? lista.map((u) => (u.id === usuario.id ? usuario : u)) : [usuario, ...lista];
     });
     if (usuario.senhaGerada) setSenhaGerada(usuario.senhaGerada);
+  }
+
+  function onTemplateSalvo(template: TemplateMensagem) {
+    setTemplates((atual) => {
+      const lista = atual ?? [];
+      const existe = lista.some((t) => t.id === template.id);
+      return existe ? lista.map((t) => (t.id === template.id ? template : t)) : [template, ...lista];
+    });
   }
 
   async function onResetarSenha(usuario: UsuarioAdmin) {
@@ -82,7 +109,7 @@ function TenantDetalheContent({ tenantId }: { tenantId: string }) {
     }
   }
 
-  const colunas = useMemo<ColumnDef<UsuarioAdmin>[]>(
+  const colunasUsuarios = useMemo<ColumnDef<UsuarioAdmin>[]>(
     () => [
       {
         id: "email",
@@ -129,10 +156,75 @@ function TenantDetalheContent({ tenantId }: { tenantId: string }) {
     [resetando],
   );
 
-  const table = useReactTable({
+  const tableUsuarios = useReactTable({
     data: usuarios ?? [],
-    columns: colunas,
+    columns: colunasUsuarios,
     getRowId: (u) => u.id,
+    getCoreRowModel: getCoreRowModel(),
+  });
+
+  const vagasTemplate = useMemo<VagaTemplate[]>(
+    () =>
+      RESULTADOS_TEMPLATE.map((resultado) => ({
+        resultado,
+        existente: templates?.find((t) => t.resultado === resultado) ?? null,
+      })),
+    [templates],
+  );
+
+  const colunasTemplates = useMemo<ColumnDef<VagaTemplate>[]>(
+    () => [
+      {
+        id: "resultado",
+        header: "Resultado",
+        cell: ({ row }) => LABEL_RESULTADO[row.original.resultado],
+        meta: { headerClassName: TH_CLASSE, cellClassName: "px-4 py-3 font-medium text-t1" },
+      },
+      {
+        id: "nomeTemplateMeta",
+        header: "Nome do template (Meta)",
+        cell: ({ row }) => row.original.existente?.nomeTemplateMeta ?? "— não configurado —",
+        meta: { headerClassName: TH_CLASSE, cellClassName: "px-4 py-3" },
+      },
+      {
+        id: "idioma",
+        header: "Idioma",
+        cell: ({ row }) => row.original.existente?.idioma ?? "—",
+        meta: { headerClassName: TH_CLASSE, cellClassName: "px-4 py-3 text-t2" },
+      },
+      {
+        id: "status",
+        header: "Status",
+        cell: ({ row }) =>
+          row.original.existente ? (
+            <StatusBadge status={row.original.existente.ativo ? "ATIVO" : "INATIVO"} />
+          ) : (
+            <span className="text-t3">—</span>
+          ),
+        meta: { headerClassName: TH_CLASSE, cellClassName: "px-4 py-3" },
+      },
+      {
+        id: "acoes",
+        header: "Ações",
+        cell: ({ row }) => (
+          <button
+            type="button"
+            onClick={() => setModalTemplate(row.original)}
+            className="text-prx hover:underline"
+          >
+            {row.original.existente ? "Editar" : "Configurar"}
+          </button>
+        ),
+        meta: { headerClassName: TH_CLASSE, cellClassName: "px-4 py-3" },
+      },
+    ],
+    [],
+  );
+
+  const tableTemplates = useReactTable({
+    data: vagasTemplate,
+    columns: colunasTemplates,
+    getRowId: (v) => v.resultado,
     getCoreRowModel: getCoreRowModel(),
   });
 
@@ -184,42 +276,94 @@ function TenantDetalheContent({ tenantId }: { tenantId: string }) {
           </Card>
         )}
 
-        <div className="mt-8 flex items-center justify-between gap-4">
-          <h2 className="text-lg font-semibold tracking-tight text-t1">Usuários</h2>
+        <div className="mt-8 flex gap-2 border-b border-bdr">
           <button
             type="button"
-            onClick={() => setModalUsuario({ usuario: null })}
-            className="rounded-md bg-prx px-4 py-2 text-sm font-medium text-white hover:bg-prx-l"
+            onClick={() => setAbaAtiva("usuarios")}
+            className={`px-4 py-2 text-sm font-medium ${
+              abaAtiva === "usuarios" ? "border-b-2 border-prx text-prx" : "text-t2 hover:text-t1"
+            }`}
           >
-            + Novo usuário
+            Usuários
+          </button>
+          <button
+            type="button"
+            onClick={() => setAbaAtiva("templates")}
+            className={`px-4 py-2 text-sm font-medium ${
+              abaAtiva === "templates" ? "border-b-2 border-prx text-prx" : "text-t2 hover:text-t1"
+            }`}
+          >
+            Templates de Mensagens
           </button>
         </div>
 
-        {erroUsuarios && <p className="mt-2 text-sm text-er">{erroUsuarios}</p>}
-        {erroReset && <p className="mt-2 text-sm text-er">{erroReset}</p>}
+        {abaAtiva === "usuarios" && (
+          <>
+            <div className="mt-4 flex items-center justify-end gap-4">
+              <button
+                type="button"
+                onClick={() => setModalUsuario({ usuario: null })}
+                className="rounded-md bg-prx px-4 py-2 text-sm font-medium text-white hover:bg-prx-l"
+              >
+                + Novo usuário
+              </button>
+            </div>
 
-        <DataGrid
-          table={table}
-          wrapperClassName="mt-4 overflow-hidden rounded-lg border border-bdr"
-          tableClassName="w-full text-sm"
-          theadClassName="bg-surf text-left text-xs uppercase tracking-wide text-t3"
-          tbodyClassName="divide-y divide-bdr"
-          loading={usuarios === null}
-          loadingContent={
-            <tr>
-              <td colSpan={4} className="px-4 py-6 text-center text-t2">
-                Carregando...
-              </td>
-            </tr>
-          }
-          emptyContent={
-            <tr>
-              <td colSpan={4} className="px-4 py-6 text-center text-t2">
-                Nenhum usuário cadastrado neste tenant ainda.
-              </td>
-            </tr>
-          }
-        />
+            {erroUsuarios && <p className="mt-2 text-sm text-er">{erroUsuarios}</p>}
+            {erroReset && <p className="mt-2 text-sm text-er">{erroReset}</p>}
+
+            <DataGrid
+              table={tableUsuarios}
+              wrapperClassName="mt-4 overflow-hidden rounded-lg border border-bdr"
+              tableClassName="w-full text-sm"
+              theadClassName="bg-surf text-left text-xs uppercase tracking-wide text-t3"
+              tbodyClassName="divide-y divide-bdr"
+              loading={usuarios === null}
+              loadingContent={
+                <tr>
+                  <td colSpan={4} className="px-4 py-6 text-center text-t2">
+                    Carregando...
+                  </td>
+                </tr>
+              }
+              emptyContent={
+                <tr>
+                  <td colSpan={4} className="px-4 py-6 text-center text-t2">
+                    Nenhum usuário cadastrado neste tenant ainda.
+                  </td>
+                </tr>
+              }
+            />
+          </>
+        )}
+
+        {abaAtiva === "templates" && (
+          <>
+            <p className="mt-4 text-sm text-t2">
+              Confirmação enviada por WhatsApp após cada mensagem recebida — um template pra sucesso, outro pra erro.
+              O tipo da mensagem (lista de produtos, resposta de fornecedor ou desconhecido) entra como parâmetro
+              dentro do template escolhido.
+            </p>
+
+            {erroTemplates && <p className="mt-2 text-sm text-er">{erroTemplates}</p>}
+
+            <DataGrid
+              table={tableTemplates}
+              wrapperClassName="mt-4 overflow-hidden rounded-lg border border-bdr"
+              tableClassName="w-full text-sm"
+              theadClassName="bg-surf text-left text-xs uppercase tracking-wide text-t3"
+              tbodyClassName="divide-y divide-bdr"
+              loading={templates === null}
+              loadingContent={
+                <tr>
+                  <td colSpan={5} className="px-4 py-6 text-center text-t2">
+                    Carregando...
+                  </td>
+                </tr>
+              }
+            />
+          </>
+        )}
       </main>
 
       {tenant && (
@@ -237,6 +381,16 @@ function TenantDetalheContent({ tenantId }: { tenantId: string }) {
           tenantId={tenantId}
           usuario={modalUsuario.usuario}
           onSalvo={onUsuarioSalvo}
+        />
+      )}
+      {modalTemplate && (
+        <TemplateMensagemFormModal
+          open={modalTemplate !== null}
+          onClose={() => setModalTemplate(null)}
+          tenantId={tenantId}
+          resultado={modalTemplate.resultado}
+          template={modalTemplate.existente}
+          onSalvo={onTemplateSalvo}
         />
       )}
       <SenhaGeradaModal senha={senhaGerada} onClose={() => setSenhaGerada(null)} />

@@ -1,21 +1,27 @@
 # Documentação Técnica — Sistema de Cotação PRX
 
-**Versão:** 2.2
-**Data:** 10/08/2026 (sincronização com o código: módulo WhatsApp — seção 10 —
-implementado e funcional desde 09/08/2026, mas os marcadores de status desta doc
-(seção 0, seção 10, seção 12 Prompt 10, seção 13, tabela de endpoints §5) ainda diziam
-"não iniciado", desatualizados desde antes do Prompt 15. Corrigidos nesta revisão; o
-corpo da seção 10 em si já estava atualizado prompt a prompt e não mudou de conteúdo.
-v2.1 em 24/07/2026: catálogo de marcas por tenant, divergência comparativa por mediana
-no Comparativo, decisões "Adicionar à lista"/"Associar a outro item" para item extra,
+**Versão:** 2.3
+**Data:** 12/08/2026 (Prompt 18 — confirmação WhatsApp trocou de texto livre para
+Message Templates da Meta cadastrados por tenant, ver 10.7/10.8; correção de
+imprecisões pré-existentes encontradas durante esse trabalho, não introduzidas por
+ele: o Painel Admin PRX estava registrado como "não iniciado" nas seções 0/5/13 desde
+antes do Prompt 12, quando na verdade já está em produção há dias — corrigido nesta
+revisão; e o estado real do deploy em produção, seção 9, também estava defasado —
+Caddy/HTTPS e containerização do frontend já existem no repo, CI/CD continua não
+existindo)
+v2.2 em 10/08/2026: sincronização com o código do módulo WhatsApp (seção 10),
+implementado e funcional desde 09/08/2026 — o corpo da seção 10 já estava atualizado
+prompt a prompt e não mudou de conteúdo, só os marcadores de status. v2.1 em
+24/07/2026: catálogo de marcas por tenant, divergência comparativa por mediana no
+Comparativo, decisões "Adicionar à lista"/"Associar a outro item" para item extra,
 sinônimos de unidade na lista base — ver 3.2, 5, 6.4, 6.6, 6.8. v2.0 em 21/07/2026 já
 refletia o estado real do código; v1.0 em 02/07/2026 era o plano pré-construção)
 **Autor:** PRX (Nicolas)
-**Status:** Em implementação — v1 majoritariamente construído (web + WhatsApp prontos), prazo contratual 15/08/2026. Ver seção 0 para status de aceite por módulo.
+**Status:** Em implementação — v1 majoritariamente construído (web + WhatsApp + Admin PRX prontos), prazo contratual 15/08/2026. Ver seção 0 para status de aceite por módulo.
 
 ---
 
-## 0. Status de Aceite (21/07/2026)
+## 0. Status de Aceite (21/07/2026, tabela corrigida em 12/08 — ver nota abaixo)
 
 Snapshot do que está de fato construído e testado hoje, contra o escopo contratado da
 proposta comercial (v1 completo até 15/08/2026, incluindo o módulo WhatsApp). Para o
@@ -25,7 +31,7 @@ plano operacional dia-a-dia (prompts, gates, matriz de subagents), ver
 | Módulo | Status | Observação |
 |---|---|---|
 | Auth JWT + multi-tenancy (RLS) | ✅ Pronto | Access 15min + refresh 7d com rotação/replay detection; RLS dual-layer (Hibernate `@Filter` + policy Postgres); testes de isolamento cross-tenant passando (`MultiTenantIsolationTest`, `EmbalagemSnapshotIsolationTest`) |
-| Painel Admin PRX (`/admin/tenants`) | ❌ Não iniciado | Path reservado em `SecurityConfig` para o papel `ADMIN_PRX`, mas nenhum controller implementado — hoje não existe forma de cadastrar um segundo tenant pela API |
+| Painel Admin PRX (`/admin/tenants`) | ✅ Pronto (em produção) | **Correção 12/08: esta linha estava desatualizada desde antes do Prompt 12** — o painel já existe e está acessível em produção, não é mais um path reservado sem controller. CRUD de tenants, CRUD de administradores (`ADMIN_PRX`, sem tenant), e dentro do detalhe de cada tenant: CRUD de usuários (`OPERADOR_CLIENTE`) e, desde o Prompt 18, aba de Templates de Mensagem WhatsApp (ver 10.7/10.8). Bootstrap do primeiro `ADMIN_PRX` via env vars (`ADMIN_BOOTSTRAP_EMAIL`/`ADMIN_BOOTSTRAP_PASSWORD`). Gate único `.requestMatchers("/admin/**").hasRole("ADMIN_PRX")` em `SecurityConfig` |
 | Cadastro de fornecedores/produtos | ✅ Pronto | CRUD completo de fornecedores (soft-delete); produtos só GET/PUT via API — catálogo nasce do matching da lista (`CotacaoListaService`, corrigido 01/08: até então nada criava produto novo, catálogo nunca saía do zero, ver nota na seção 3.2) |
 | Entrada de lista de produtos | ✅ Pronto | Parser + upsert idempotente (reenviar a lista não duplica linha) |
 | Resposta de fornecedor + Conferência | ✅ Pronto | Fluxo **sequencial com gate**: um fornecedor por vez, resposta vira preview (não persiste), operador revisa no modal de Conferência (OK/Atenção/Revisar com motivo), só persiste em `/confirmar` — só então libera o próximo fornecedor. Reescrito por completo em 16/07 |
@@ -34,14 +40,17 @@ plano operacional dia-a-dia (prompts, gates, matriz de subagents), ver
 | Frontend (Dashboard, Entrada, Comparativo, Mapa, Alertas) | ✅ Pronto | Fiel ao protótipo `"COTA&TESTA - 14.07 - V5.html"`; sem SSR, JWT em localStorage |
 | Histórico de Preços (seção 11) | ✅ Pronto | Consulta derivada ao vivo (sem tabela nova) sobre `cotacao_produto_fornecedor`/`cotacao_produto`/`cotacao`/`produto` — ver nota de implementação em 11.4 |
 | Economia (seção 11) | ❌ Não iniciado | Nenhuma tabela, nenhum endpoint — tela do protótipo fica fora do v1 até este módulo ser priorizado |
-| **Módulo WhatsApp** (webhook, classificador, roteamento) | ✅ Pronto (09/08) | Webhook Meta com validação de assinatura HMAC + idempotência por `message_id`, classificador por marcador explícito com tolerância a erro de digitação (Levenshtein), roteamento lista/resposta com janela de 48h, matching fuzzy de fornecedor com criação automática `PENDENTE_DADOS`/`WHATSAPP_AUTO`, e desde o Prompt 15 compartilha o MESMO núcleo de persistência do canal Web (`RespostaFornecedorCoreService` — sempre preview + Conferência, nunca auto-confirma). Detalhe completo na seção 10 |
-| CI/CD + deploy em produção (droplet DigitalOcean) | ⚠️ Parcial | `docker-compose.yml` + `backend/Dockerfile` só cobrem o backend local; sem containerização do frontend, sem Caddy, sem GitHub Actions, sem stack de monitoramento (ver seção 9) |
+| **Módulo WhatsApp** (webhook, classificador, roteamento) | ✅ Pronto (09/08; confirmação por template desde 12/08) | Webhook Meta com validação de assinatura HMAC + idempotência por `message_id`, classificador por marcador explícito com tolerância a erro de digitação (Levenshtein), roteamento lista/resposta com janela de 48h, matching fuzzy de fornecedor com criação automática `PENDENTE_DADOS`/`WHATSAPP_AUTO`, e desde o Prompt 15 compartilha o MESMO núcleo de persistência do canal Web (`RespostaFornecedorCoreService` — sempre preview + Conferência, nunca auto-confirma). Desde o Prompt 18 (12/08), a confirmação de recebimento é enviada via Meta Message Template (antes era texto livre) — ver 10.7/10.8. Detalhe completo na seção 10 |
+| CI/CD + deploy em produção (droplet DigitalOcean) | ⚠️ Parcial | **Correção 12/08:** `docker-compose.yml` já orquestra backend + frontend (com `Dockerfile` próprio) + Caddy com HTTPS automático (`Caddyfile` na raiz, API prefixada em `/api`) — mais avançado do que a v2.2 registrava. Ainda falta: GitHub Actions (nenhum `.github/workflows/`), stack de monitoramento (Netdata/Dozzle/Tailscale/Sentry) — ver seção 9 |
 | Testes de integração com Testcontainers | ✅ Configurado e em uso | 23 arquivos de teste JUnit no backend, incluindo os 2 testes de isolamento RLS citados acima |
 | Testes E2E frontend (Playwright) | ❌ Não iniciado | Dependência instalada, sem `playwright.config` nem specs — só 3 testes Vitest (unitários/componente) |
 
 **Risco principal para o prazo de 15/08:** o módulo WhatsApp já está pronto; o deploy
 em produção (droplet + Caddy + CI/CD + monitoramento, seção 9) é o bloco que ainda
-falta para fechar o escopo contratado do v1.
+falta para fechar o escopo contratado do v1. **Atualização 12/08:** Caddy/HTTPS e
+containerização do frontend já estão implementados (ver correção na linha acima) —
+o que falta de fato é CI/CD (GitHub Actions) e a stack de monitoramento, um escopo
+menor do que a v2.2 desta doc registrava.
 
 ---
 
@@ -490,7 +499,7 @@ grid) sem impedir o operador de corrigir um erro (via exclusão + readição).
 | Recurso | Endpoints reais | Status |
 |---|---|---|
 | Auth | `POST /auth/login`, `POST /auth/refresh` | ✅ |
-| Admin | — | ❌ **não existe.** `/admin/**` é só um path reservado pro papel `ADMIN_PRX` em `SecurityConfig`; nenhum `TenantController` implementado |
+| Admin | `GET/POST/PUT /admin/tenants`, `GET/POST/PUT /admin/tenants/{id}`, `GET/POST/PUT/POST.../reset-senha /admin/tenants/{id}/usuarios`, `GET/POST/PUT /admin/administradores`, `GET/POST/PUT /admin/tenants/{id}/templates-mensagem` | ✅ **Correção 12/08 — esta linha estava desatualizada.** Painel Admin PRX completo: CRUD de tenants, CRUD de administradores (`ADMIN_PRX`), CRUD de usuários por tenant (com reset de senha), e desde o Prompt 18 CRUD de templates de mensagem WhatsApp por tenant (ver 10.7/10.8) — todos sob o gate `.requestMatchers("/admin/**").hasRole("ADMIN_PRX")` |
 | Fornecedores | `GET/POST/PUT/DELETE /fornecedores` | ✅ |
 | Produtos | `GET /produtos` (busca para matching), `PUT /produtos/{id}` | ✅ (sem `POST` direto — catálogo cresce via matching da lista OU, desde 04/08, via `nomeProdutoLivre` no `POST /produtos` da cotação abaixo — mesmo pipeline resolver-ou-criar, nunca um cadastro de produto solto) |
 | Cotações | `POST /cotacoes` (inicia), `GET /cotacoes`, `GET /cotacoes/{id}` | ✅ |
@@ -702,22 +711,30 @@ Actuator):
 
 ---
 
-## 9. Deploy e Infraestrutura (estado real, 21/07/2026)
+## 9. Deploy e Infraestrutura (estado real, 21/07/2026; corrigido em 12/08 — ver nota)
 
 > Plano mudou de Railway/Render/Vercel (v1.0) para **droplet único DigitalOcean**, hoje
-> refletido no `CLAUDE.md` mas ainda pouco implementado no repo.
+> refletido no `CLAUDE.md` e mais avançado no repo do que a v2.2 desta doc registrava.
 
-- **Backend:** ✅ `backend/Dockerfile` (multi-stage Maven → JRE Alpine) + serviço `backend` em `docker-compose.yml` (raiz do repo) — hoje só para uso local/dev, conecta a um Postgres externo via `host.docker.internal`. Sem publish de imagem, sem deploy automatizado.
-- **Frontend:** ❌ sem `Dockerfile`, sem serviço no `docker-compose.yml`.
-- **Proxy reverso / HTTPS:** ❌ sem `Caddyfile` no repo.
-- **Banco:** planejado como instância gerenciada separada do droplet de aplicação — backups automáticos diários. Hoje só existe o Postgres local de dev/teste (container `cotacao-test-db`).
-- **Domínio:** ainda não definido/commitado.
-- **CI:** ❌ sem `.github/workflows/` — nenhum pipeline roda testes em PR ainda.
-- **Secrets:** variáveis de ambiente já usadas localmente (`docker-compose.yml`, `application-dev.yml`) — padrão a manter em produção.
-- **Firewall:** regra já definida no `CLAUDE.md` (Netdata/Dozzle só via Tailscale) mas sem droplet provisionado para aplicar.
+> **Correção 12/08 (achado do diagnóstico do Prompt 18, não introduzido por ele):** a
+> v2.2 desta seção registrava "sem containerização do frontend, sem Caddy" como se
+> fosse zero código de infra — isso já estava desatualizado antes mesmo deste prompt.
+> O estado real, confirmado pelo histórico de commits (vários `fix caddy to route as
+> https secure`, `Prefixar toda a API com /api pra simplificar roteamento do Caddy`):
 
-Este é, junto com o módulo WhatsApp (seção 10), o maior gap entre o escopo contratado e o
-código existente hoje.
+- **Backend:** ✅ `backend/Dockerfile` (multi-stage Maven → JRE Alpine) + serviço `backend` em `docker-compose.yml` (raiz do repo), orquestrado junto com banco/frontend/Caddy — sem publish de imagem em registry externo, sem deploy automatizado (isso continua fora, ver CI abaixo).
+- **Frontend:** ✅ `frontend/Dockerfile` + serviço `frontend` em `docker-compose.yml` — **correção**: a v2.2 desta doc registrava isso como inexistente.
+- **Proxy reverso / HTTPS:** ✅ `Caddyfile` na raiz do repo, HTTPS automático via `{$CADDY_DOMAIN}`, roteamento `reverse_proxy /api/* backend:8080` + `reverse_proxy frontend:3000` — **correção**: a v2.2 desta doc registrava isso como inexistente. API do backend foi prefixada com `/api` especificamente para simplificar essa regra de roteamento.
+- **Banco:** planejado como instância gerenciada separada do droplet de aplicação — backups automáticos diários. Em produção hoje roda como serviço `db` do próprio `docker-compose.yml` (não confirmado se já migrou para instância gerenciada separada — não há evidência disso no repo). Localmente, Postgres de dev/teste continua no container `cotacao-test-db`.
+- **Domínio:** parametrizado via `CADDY_DOMAIN` no `.env` (não commitado, como esperado para secret/config de ambiente) — não é possível confirmar o valor real a partir do repo.
+- **CI:** ❌ ainda sem `.github/workflows/` — nenhum pipeline roda testes em PR. Continua sendo o maior gap real de infraestrutura.
+- **Secrets:** variáveis de ambiente usadas tanto localmente quanto no `docker-compose.yml` de produção (`JWT_SECRET`, `WHATSAPP_*`, `ADMIN_BOOTSTRAP_*`, `APP_CORS_ALLOWED_ORIGINS`, `CADDY_DOMAIN`) — sem default em `application-prod.yml` para nenhuma credencial sensível (boot falha explicitamente se não setada), padrão consistente em todo o projeto.
+- **Firewall:** regra já definida no `CLAUDE.md` (Netdata/Dozzle só via Tailscale) — nenhum dos dois está no `docker-compose.yml` hoje, então a regra ainda não tem o que proteger; segue sem stack de monitoramento provisionada.
+
+**O que de fato falta para fechar o v1 (revisado 12/08):** CI/CD (GitHub Actions) e a
+stack de monitoramento (Netdata/Dozzle/Tailscale/Sentry) — não mais "toda a
+infraestrutura", como a v2.2 desta seção dava a entender. O módulo WhatsApp (seção 10)
+está pronto desde 09/08.
 
 ---
 
@@ -827,8 +844,48 @@ A troca de marca do exemplo original (cliente pede "bombom nestle", fornecedor c
 > usavam esse valor como fixture continuam válidos). Detalhe completo em
 > `docs/fluxograma-05-resposta-fornecedor-avisos.md`.
 
-### 10.7 Confirmação mínima de recebimento
+### 10.7 Confirmação de recebimento — via Meta Message Template (Prompt 18, 12/08)
 
+> **Superado a partir de 12/08/2026 (Prompt 18).** O texto abaixo (versões 2.0-2.2)
+> descrevia uma mensagem de confirmação em **texto livre**. Diagnóstico do Prompt 18
+> confirmou, pelo código (não pela doc), que esse envio em texto livre estava
+> realmente acontecendo em produção — não era um caso de doc otimista sobre feature
+> não implementada. A partir do Prompt 18, o mecanismo de envio trocou de texto livre
+> para **Message Template aprovado pela Meta**, mantendo a mesma garantia
+> (recibo único por entrada processada, nunca bloqueia o processamento da mensagem se
+> o envio falhar) mas mudando radicalmente como o texto é decidido: não é mais uma
+> constante Java, é um template cadastrado pelo `ADMIN_PRX` por tenant.
+>
+> **Desenho final: exatamente 2 templates fixos por tenant — `SUCESSO` e `ERRO`.** O
+> "tipo" da mensagem recebida (`Lista de produtos` / `Resposta de fornecedor` /
+> `Desconhecido`, quando a 1ª linha não é reconhecida — seção 10.3) **não seleciona
+> qual template usar** — vira um parâmetro dinâmico dentro do template escolhido
+> (`{{1}} = tipoMensagem`, `{{2}} = detalhe`, ordem fixada em código, nunca editável
+> pelo admin). Isso significa que o caso "formato não reconhecido" — que não tem
+> nenhum `TipoMensagemWhatsapp` conhecido ainda, já que a classificação falhou antes
+> de saber se era tentativa de lista ou de resposta — se resolve de forma limpa como
+> só mais um `ERRO`, com `tipoMensagem=Desconhecido`, sem precisar de um caminho de
+> texto livre à parte. Se o tenant ainda não cadastrou o template `ERRO`/`SUCESSO`
+> correspondente, a decisão de produto é **não enviar nada** (loga e segue) — mesmo
+> comportamento adotado uniformemente pra "não cadastrado" e "cadastrado mas
+> desativado" (`ativo=false`), e nunca bloqueia o processamento/persistência da
+> mensagem recebida em si.
+>
+> **Desacoplamento (requisito de desenho, não incidental):** a decisão de negócio
+> "preciso confirmar sucesso/erro" não conhece o mecanismo concreto de envio — uma
+> porta `com.prx.cotacao.notificacao.MensageriaService` (`enviarMensagemSucesso`/
+> `enviarMensagemErro(ContextoNotificacao)`) isola isso; `ContextoNotificacao`
+> carrega só `tenantId`/`destinatario`/parâmetros de negócio, nada específico de
+> WhatsApp Template. A única implementação hoje (`WhatsappTemplateMensageriaService`)
+> resolve o template certo por `(tenant_id, resultado)` e fala com a Graph API por
+> trás dessa porta — trocar/somar canal no futuro (e-mail, SMS) não tocaria
+> `WhatsappWebhookService` nem nenhuma lógica de negócio existente.
+>
+> Cadastro dos 2 templates por tenant é feito pelo `ADMIN_PRX` numa aba nova dentro do
+> detalhe do tenant no Admin PRX (`/admin/tenants/{id}`, ao lado de "Usuários" — ver
+> seção 10.8), não mais em constante Java.
+
+**Texto original (v2.0-2.2, mantido para histórico — não reflete mais o comportamento real):**
 Sem conduzir conversa, o sistema ainda responde **uma única mensagem de confirmação** por entrada processada — por exemplo, `"✅ Lista recebida e adicionada à sua cotação."`, `"✅ Resposta do fornecedor recebida, aguardando conferência do operador."` (texto ajustado no Prompt 15 — "registrada" deixou de ser verdade a partir da unificação Web/WhatsApp, ver seção 10.6), ou, quando a 1ª linha não é reconhecida (seção 10.3), `"⚠️ Não consegui identificar o formato da sua mensagem. Comece com LISTA_PRODUTOS ou RESPOSTA_FORNECEDOR na primeira linha."`. Isso não é fluxo conversacional (não há passos nem botões), é só um recibo — sem ele, o cliente manda a lista e não tem nenhum sinal de que funcionou.
 
 ### 10.8 Componentes técnicos
@@ -837,6 +894,21 @@ Sem conduzir conversa, o sistema ainda responde **uma única mensagem de confirm
 - **Classificador de mensagem** — marcador explícito na 1ª linha (`LISTA_PRODUTOS`/`RESPOSTA_FORNECEDOR`), normalização de caixa/acento/separador e tolerância a erro de digitação via similaridade de Levenshtein (limiar 0,75); sem marcador reconhecido, formato não reconhecido — sem heurística de conteúdo como fallback (seção 10.3).
 - **Reaproveitamento dos services** de parsing/validação e matching já construídos para o canal web (mesma lógica, dois canais de entrada) — incluindo a extensão do matching para nome de fornecedor.
 - **Motor de roteamento** — decide anexar à cotação atual ou criar nova, consultando `ultima_atividade_em`.
+- **Envio de confirmação via Meta Template** (Prompt 18, 12/08 — ver 10.7) —
+  `com.prx.cotacao.notificacao.MensageriaService` (porta, canal-agnóstica) +
+  `WhatsappTemplateMensageriaService` (`whatsapp.envio`, único adaptador hoje) resolve
+  o template ativo por `(tenant_id, resultado)` na tabela `template_mensagem`
+  (`tenant_id NOT NULL` + RLS, `UNIQUE(tenant_id, resultado)`) e chama
+  `WhatsappMessageSender.enviarTemplate(...)` → `MetaWhatsappGraphClient` (POST
+  `type=template` na Graph API, `components[].parameters[]` posicionais). O método
+  antigo de texto livre (`enviar`) foi removido da interface — não sobrou nenhum
+  caminho de fallback em texto livre no fluxo de confirmação. `NotificacaoParametrosFactory`
+  (`whatsapp.webhook.service`) monta os parâmetros dinâmicos (`tipoMensagem`/`detalhe`)
+  pros 5 cenários reais (lista sucesso/erro, resposta sucesso/erro, formato
+  desconhecido) sem se repetir num switch gigante no `WhatsappWebhookService`. Falha
+  no envio (Graph API fora do ar, template não aprovado, etc.) é capturada e logada no
+  adaptador — nunca propaga pro processamento da mensagem recebida, que já foi
+  persistido/preview antes do envio da confirmação ser sequer tentado.
 - Nenhuma máquina de estados persistida, nenhum botão interativo, nenhum link assinado — removidos do desenho anterior por não serem necessários neste fluxo.
 
 > **Nota (09/08, Prompt 16 — reorganização de pacotes, unificação estrutural de
@@ -914,13 +986,24 @@ Sem conduzir conversa, o sistema ainda responde **uma única mensagem de confirm
 
 ### 10.9 Custo de infraestrutura da Meta
 
-Mesma conclusão da pesquisa original (seção mantida): desde jul/2025 a Meta cobra por mensagem entregue, e mensagens de **Service** (resposta a mensagem iniciada pelo cliente, dentro de 24h) são gratuitas. Como este fluxo é 100% reativo e **não usa mensagens interativas com template pré-aprovado** (a simplificação removeu os botões), a dependência de aprovação de template da Meta é praticamente eliminada — resta apenas a verificação inicial do Business Manager e do número, que é um passo único, não recorrente.
+> **Correção 12/08 (Prompt 18):** o parágrafo abaixo (v2.0-2.2) afirmava que o fluxo
+> "não usa mensagens interativas com template pré-aprovado". Isso deixou de ser
+> verdade a partir do Prompt 18 — a confirmação de recebimento agora É um Message
+> Template aprovado pela Meta (ver 10.7/10.8), embora continue sendo uma mensagem de
+> **Service** (resposta dentro de 24h a uma mensagem iniciada pelo cliente), não uma
+> mensagem iniciada pela empresa — então a conclusão sobre custo (gratuita) continua
+> válida, só a premissa de "sem template pré-aprovado" ficou incorreta. A dependência
+> de aprovação de template deixou de ser "praticamente eliminada" e passou a ser um
+> risco ativo — ver 10.10.
+
+Mesma conclusão da pesquisa original quanto a custo (seção mantida para histórico): desde jul/2025 a Meta cobra por mensagem entregue, e mensagens de **Service** (resposta a mensagem iniciada pelo cliente, dentro de 24h) são gratuitas. Como este fluxo é 100% reativo e ~~não usa mensagens interativas com template pré-aprovado~~ (a simplificação removeu os botões), a dependência de aprovação de template da Meta ~~é praticamente eliminada~~ — resta apenas a verificação inicial do Business Manager e do número, que é um passo único, não recorrente.
 
 ### 10.10 Riscos e dependências fora do seu controle
 
 - Verificação do Business Manager e do número (passo único, fora do seu controle de calendário, mas sem repetição a cada mensagem nova como aconteceria com templates).
 - Cliente mandando mensagem sem o marcador `LISTA_PRODUTOS`/`RESPOSTA_FORNECEDOR` reconhecido na 1ª linha — tratado pela mensagem de confirmação/erro da seção 10.7, mas vale monitorar a taxa de rejeição nas primeiras semanas para calibrar o limiar de similaridade se necessário.
 - Limite inicial de mensagens iniciadas pela empresa por dia — irrelevante aqui, já que o fluxo é 100% respostas a mensagens do cliente, não mensagens iniciadas pela empresa.
+- **Novo (12/08, Prompt 18):** os 2 templates (`SUCESSO`/`ERRO`) de cada tenant precisam ser criados e aprovados previamente no Business Manager — passo manual, fora do controle do código, repetido por tenant (não é mais um passo único de plataforma como a verificação inicial do número). Enquanto um tenant não tiver os 2 templates aprovados e cadastrados no Admin PRX, a decisão de produto é não enviar nenhuma confirmação (ver 10.7) — não há fallback em texto livre.
 
 ### 10.11 Estimativa de horas
 
@@ -1186,6 +1269,32 @@ renderização condicional. Destaque 3 tipos de erro de linha no grid (sem produ
 identificado, formato de texto não reconhecido, unidade fora do padrão).
 ```
 
+> **Nota (12/08):** entre o Prompt 12 e o Prompt 18 abaixo, houve trabalho real não
+> registrado como prompt numerado nesta lista — Admin PRX (CRUD de
+> tenants/administradores/usuários, seção 0/5), bootstrap do primeiro `ADMIN_PRX` via
+> env vars, refinamento do classificador WhatsApp (matching fuzzy por header), e a
+> reorganização de pacotes documentada como "Prompt 16"/"Prompt 17" nas notas da seção
+> 10.8 (numeração interna dessas notas, não desta lista). Não reconstruído
+> retroativamente aqui — fora do escopo do Prompt 18, registrado só para não sugerir
+> que nada aconteceu entre 04/08 e 12/08.
+
+**Prompt 18 — Templates de Mensagem WhatsApp (confirmação via Meta Template API)** — ✅ concluído (12/08)
+```
+Troque a confirmação de recebimento do webhook WhatsApp (seção 10.7) de texto livre
+para Message Templates aprovados pela Meta, com parâmetros dinâmicos, cadastrados por
+tenant. Diagnostique primeiro, pelo código (não pela doc), se a confirmação em texto
+livre estava realmente sendo enviada hoje. Desenhe uma porta MensageriaService
+(enviarMensagemSucesso/enviarMensagemErro) que isola a decisão de negócio do
+mecanismo concreto de envio — a única implementação (WhatsApp Template) fica atrás
+dela, sem vazar nome de template/idioma/phone_number_id pra quem chama. Exatamente 2
+templates fixos por tenant (SUCESSO/ERRO, tenant_id NOT NULL + RLS); o tipo da
+mensagem (lista/resposta/desconhecido) vira parâmetro dinâmico dentro do template
+escolhido, não uma chave de seleção entre N templates. Tela de cadastro nova aparece
+dentro do Admin PRX já existente, no detalhe do tenant, ao lado de "Usuários" — sem
+inventar layout novo. Falha no envio nunca bloqueia o processamento da mensagem
+recebida em si.
+```
+
 ### 12.1 Subagents do Claude Code utilizados neste projeto
 
 Construção e revisão deste projeto usam um setup multi-agent no Claude Code — cada
@@ -1205,12 +1314,12 @@ nunca na implementação em si:
 
 ## 13. Roadmap
 
-| Fase | Escopo | Quando | Status em 10/08 |
+| Fase | Escopo | Quando | Status em 12/08 (corrigido — ver notas) |
 |---|---|---|---|
 | v1 | Sistema web (fluxo de cotação completo) | até 15/08/2026 | ✅ Construído — ver seção 0 |
-| v1 | Módulo WhatsApp (entrada de dados simplificada) | até 15/08/2026 | ✅ Construído (09/08) — ver seção 0/10 |
-| v1 | Deploy em produção (droplet DigitalOcean + Caddy + CI/CD + monitoramento) | até 15/08/2026 | ⚠️ Parcial — ver seção 9 |
-| Futuro | Painel Admin PRX (`/admin/tenants`) | sob demanda | ❌ Não iniciado |
+| v1 | Módulo WhatsApp (entrada de dados simplificada) | até 15/08/2026 | ✅ Construído (09/08); confirmação por Meta Template desde 12/08 (Prompt 18) — ver seção 0/10 |
+| v1 | Deploy em produção (droplet DigitalOcean + Caddy + CI/CD + monitoramento) | até 15/08/2026 | ⚠️ Parcial — **correção 12/08**: Caddy/HTTPS e containerização do frontend já prontos; falta CI/CD e monitoramento — ver seção 9 |
+| v1 (movido de "Futuro") | Painel Admin PRX (`/admin/tenants`) | — | ✅ **Correção 12/08: esta linha estava desatualizada.** Não é mais "sob demanda/futuro" — já está construído e em produção, incluindo o CRUD de templates de mensagem do Prompt 18. Ver seção 0/5 |
 | Futuro | Catálogo de fornecedores parceiros (`fornecedor_produto` já preparado no schema) | sob demanda | — |
 | Futuro | Evolução do módulo WhatsApp para fluxo conversacional (botões, menu, link direto pro mapa) — se a operação mostrar essa necessidade | sob demanda | — |
 | Futuro | Histórico de Preços e Economia (seção 11) — persistência entre cotações + telas correspondentes do protótipo | sob demanda | ❌ Não iniciado |
