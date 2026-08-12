@@ -41,10 +41,15 @@ public class WhatsappSimulacaoController {
 
     public WhatsappSimulacaoController(WhatsappAssinaturaValidator assinaturaValidator,
                                         ObjectMapper objectMapper,
-                                        @Value("${server.port:8080}") String serverPort) {
+                                        @Value("${server.port:8080}") String serverPort,
+                                        @Value("${server.servlet.context-path:}") String contextPath) {
         this.assinaturaValidator = assinaturaValidator;
         this.objectMapper = objectMapper;
-        this.restClient = RestClient.builder().baseUrl("http://localhost:" + serverPort).build();
+        // baseUrl() é um RestClient batendo direto na porta do Tomcat embutido — não
+        // passa pelo dispatcher/path-pattern matching do Spring, então o context-path
+        // não é aplicado automaticamente como aconteceria numa chamada normal.
+        // Precisa ser montado na mão aqui.
+        this.restClient = RestClient.builder().baseUrl("http://localhost:" + serverPort + contextPath).build();
     }
 
     @PostMapping("/simular")

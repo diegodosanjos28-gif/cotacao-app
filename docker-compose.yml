@@ -2,6 +2,7 @@ services:
   db:
     image: postgres:16-alpine
     environment:
+      TZ: America/Sao_Paulo
       POSTGRES_DB: ${DB_NAME:-cotacao_dev}
       POSTGRES_USER: ${DB_USER:-cotacao}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-cotacao}
@@ -20,6 +21,7 @@ services:
       dockerfile: Dockerfile
     # ports removed — only Caddy talks to this now
     environment:
+      TZ: America/Sao_Paulo
       SPRING_PROFILES_ACTIVE: dev
       DB_HOST: db
       DB_PORT: 5432
@@ -41,7 +43,7 @@ services:
       db:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:8080/actuator/health"]
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/api/actuator/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -54,6 +56,8 @@ services:
       args:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8080}
     # ports removed — only Caddy talks to this now
+    environment:
+      TZ: America/Sao_Paulo
     depends_on:
       - backend
 

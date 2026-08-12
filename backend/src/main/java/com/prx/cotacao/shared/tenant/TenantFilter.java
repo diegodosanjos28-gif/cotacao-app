@@ -12,6 +12,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
+import org.springframework.web.util.UrlPathHelper;
 
 import java.io.IOException;
 import java.util.Set;
@@ -45,6 +46,14 @@ public class TenantFilter extends OncePerRequestFilter {
     // do próprio admin (tenant_id sempre NULL na tabela usuario) falhariam sob RLS.
     private static final String ROTA_SELECIONAR_TENANT = "/auth/selecionar-tenant";
 
+    // Mesmo mecanismo de resolução de path usado pelo MvcRequestMatcher do Spring
+    // Security por trás de SecurityConfig.requestMatchers(...) — exclui o context
+    // path e normaliza matrix params/encoding igual ao dispatch real do controller,
+    // ao contrário de subtrair getContextPath() na mão de getRequestURI() cru
+    // (achado do security-reviewer: URIs como "/auth/login;x=y" bateriam no
+    // controller normalmente mas não nesta comparação literal).
+    private static final UrlPathHelper URL_PATH_HELPER = new UrlPathHelper();
+
     private final ObjectMapper objectMapper;
 
     public TenantFilter(ObjectMapper objectMapper) {
@@ -56,7 +65,13 @@ public class TenantFilter extends OncePerRequestFilter {
                                     HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
         try {
-            String uri = request.getRequestURI();
+            // NÃO usar getServletPath(): depende do DispatcherServletPath resolvido
+            // pelo Boot a partir do mapeamento do dispatcher ("/", por padrão), que o
+            // MockMvcAutoConfiguration fixa como "" em testes — quebrando esta
+            // comparação em todo MockMvc. getPathWithinApplication() exclui o context
+            // path via getContextPath() (correto nos dois ambientes: "" sob MockMvc,
+            // "/api" num container real) e ainda normaliza matrix params/encoding.
+            String uri = URL_PATH_HELPER.getPathWithinApplication(request);
             if (ENDPOINTS_SEM_TENANT.contains(uri)) {
                 // Precisa ser setado aqui, no filtro, ANTES do controller chamar o
                 // service transacional: setar TenantContext dentro de um método
