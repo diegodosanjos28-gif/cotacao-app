@@ -24,7 +24,9 @@ import {
   TenantRequest,
   TenantStatus,
   TokenResponse,
+  AcaoCliente,
   CenarioSelecionado,
+  ItemCatalogoParametro,
   TemplateMensagem,
   TemplateMensagemRequest,
   UsuarioAdmin,
@@ -419,6 +421,22 @@ export function atualizarTemplateMensagem(
     method: "PUT",
     body: JSON.stringify(dados),
   });
+}
+
+export function listarParametrosDisponiveis(
+  tenantId: string,
+  acaoClienteId: string,
+): Promise<ItemCatalogoParametro[]> {
+  const params = new URLSearchParams({ acaoClienteId });
+  return request<ItemCatalogoParametro[]>(
+    `/admin/tenants/${tenantId}/templates-mensagem/parametros-disponiveis?${params}`,
+  );
+}
+
+// ── Admin: Ações do cliente (catálogo global, alimenta o grid de Templates) ─
+
+export function listarAcoesCliente(): Promise<AcaoCliente[]> {
+  return request<AcaoCliente[]>(`/admin/acoes-cliente`);
 }
 
 // ── Admin: Administradores (ADMIN_PRX, sem tenant) ──────────────────────────

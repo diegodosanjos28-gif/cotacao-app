@@ -2,14 +2,15 @@ package com.prx.cotacao.whatsapp.webhook.service;
 
 import com.prx.cotacao.notificacao.ContextoNotificacao;
 import com.prx.cotacao.notificacao.MensageriaService;
+import com.prx.cotacao.notificacao.acaocliente.AcaoClienteEnum;
 import com.prx.cotacao.shared.tenant.TenantContext;
+import com.prx.cotacao.whatsapp.canal.enums.EventoWhatsApp;
 import com.prx.cotacao.whatsapp.canal.service.ClassificadorMensagemWhatsapp;
 import com.prx.cotacao.whatsapp.canal.service.IdentificacaoWhatsappService;
 import com.prx.cotacao.whatsapp.canal.dto.MensagemNormalizada;
 import com.prx.cotacao.whatsapp.canal.dto.ResultadoClassificacao;
 import com.prx.cotacao.whatsapp.canal.dto.TelefoneAutorizado;
 import com.prx.cotacao.whatsapp.canal.dto.TelefoneLogUtils;
-import com.prx.cotacao.whatsapp.canal.enums.TipoMensagemWhatsapp;
 import com.prx.cotacao.whatsapp.canal.service.WhatsappListaProdutosService;
 import com.prx.cotacao.whatsapp.canal.service.WhatsappRespostaFornecedorService;
 import org.slf4j.Logger;
@@ -19,6 +20,9 @@ import org.springframework.stereotype.Service;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+
+import static com.prx.cotacao.whatsapp.canal.enums.EventoWhatsApp.LISTA_PRODUTOS;
+import static com.prx.cotacao.whatsapp.canal.enums.EventoWhatsApp.RESPOSTA_FORNECEDOR;
 
 /**
  * Coordenador do webhook — deliberadamente SEM {@code @Transactional} na classe/métodos:
@@ -149,11 +153,12 @@ public class WhatsappWebhookService {
         if (classificacao.isEmpty()) {
             log.info("Mensagem WhatsApp com formato não reconhecido: messageId={}", mensagem.messageId());
             mensageriaService.enviarMensagemErro(new ContextoNotificacao(
-                    tenantId, mensagem.numeroOrigem(), parametrosFactory.paraFormatoDesconhecido()));
+                    tenantId, mensagem.numeroOrigem(), AcaoClienteEnum.NAO_IDENTIFICADO, parametrosFactory.paraFormatoDesconhecido()));
             return;
         }
 
-        TipoMensagemWhatsapp tipo = classificacao.get().tipo();
+        EventoWhatsApp tipo = classificacao.get().tipo();
+        AcaoClienteEnum acao = paraAcaoCliente(tipo);
         String corpo = classificacao.get().corpo();
         try {
             Map<String, String> parametros = switch (tipo) {
@@ -161,14 +166,23 @@ public class WhatsappWebhookService {
                 case RESPOSTA_FORNECEDOR ->
                         parametrosFactory.paraRespostaSucesso(respostaFornecedorService.processar(usuarioId, corpo));
             };
-            mensageriaService.enviarMensagemSucesso(new ContextoNotificacao(tenantId, mensagem.numeroOrigem(), parametros));
+            mensageriaService.enviarMensagemSucesso(new ContextoNotificacao(tenantId, mensagem.numeroOrigem(), acao, parametros));
         } catch (RuntimeException e) {
             log.warn("Falha ao processar mensagem WhatsApp: messageId={}, tipo={}", mensagem.messageId(), tipo, e);
             Map<String, String> parametros = switch (tipo) {
                 case LISTA_PRODUTOS -> parametrosFactory.paraListaErro();
                 case RESPOSTA_FORNECEDOR -> parametrosFactory.paraRespostaErro();
             };
-            mensageriaService.enviarMensagemErro(new ContextoNotificacao(tenantId, mensagem.numeroOrigem(), parametros));
+            mensageriaService.enviarMensagemErro(new ContextoNotificacao(tenantId, mensagem.numeroOrigem(), acao, parametros));
         }
+    }
+
+    // EventoWhatsApp (classificação de texto, canal-específica) -> AcaoClienteEnum (ação de
+    // negócio, genérica/canal-agnóstica, ver pacote notificacao.acaocliente).
+    private static AcaoClienteEnum paraAcaoCliente(EventoWhatsApp evento) {
+        return switch (evento) {
+            case LISTA_PRODUTOS -> AcaoClienteEnum.INSERIR_PRODUTOS;
+            case RESPOSTA_FORNECEDOR -> AcaoClienteEnum.REGISTRAR_RESPOSTA;
+        };
     }
 }

@@ -50,7 +50,7 @@ public class WhatsappListaProdutosService {
         Cotacao cotacao = buscarCotacaoEmAndamento(usuarioId).orElseGet(() -> criarCotacao(usuarioId));
         List<ItemListaResponse> itens = cotacaoListaService.processarLista(cotacao.getId(), texto);
         int itensReconhecidos = (int) itens.stream().filter(ItemListaResponse::matched).count();
-        return new ResultadoProcessamentoLista(cotacao.getId(), itens.size(), itensReconhecidos);
+        return new ResultadoProcessamentoLista(cotacao.getId(), itens.size(), itensReconhecidos, cotacao.getTitulo());
     }
 
     private java.util.Optional<Cotacao> buscarCotacaoEmAndamento(UUID usuarioId) {

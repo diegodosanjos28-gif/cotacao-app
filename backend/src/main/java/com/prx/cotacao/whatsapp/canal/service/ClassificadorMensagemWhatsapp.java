@@ -1,7 +1,7 @@
 package com.prx.cotacao.whatsapp.canal.service;
 
 import com.prx.cotacao.whatsapp.canal.dto.ResultadoClassificacao;
-import com.prx.cotacao.whatsapp.canal.enums.TipoMensagemWhatsapp;
+import com.prx.cotacao.whatsapp.canal.enums.EventoWhatsApp;
 import org.springframework.stereotype.Service;
 
 import java.text.Normalizer;
@@ -9,10 +9,12 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
+import static com.prx.cotacao.whatsapp.canal.enums.EventoWhatsApp.LISTA_PRODUTOS;
+
 /**
  * Classificador de mensagem (doc técnica, seção 10.3): a PRIMEIRA linha da mensagem
  * precisa ser um dos dois marcadores {@code LISTA_PRODUTOS}/{@code RESPOSTA_FORNECEDOR}
- * (mesmo nome do enum {@link TipoMensagemWhatsapp}) — sem isso, não há classificação.
+ * (mesmo nome do enum {@link EventoWhatsApp}) — sem isso, não há classificação.
  * Não existe mais heurística de conteúdo (a antiga detecção por "R$" foi removida):
  * universo fechado de 2 alvos, nada além disso é aceito.
  *
@@ -38,9 +40,9 @@ public class ClassificadorMensagemWhatsapp {
 
     // Formas canônicas derivadas do próprio nome do enum (normalizadas do mesmo jeito
     // que a primeira linha da mensagem) — nunca hardcoded como string solta, pra não
-    // dessincronizar silenciosamente se TipoMensagemWhatsapp for renomeado.
-    private static final String CANONICO_LISTA = normalizar(TipoMensagemWhatsapp.LISTA_PRODUTOS.name());
-    private static final String CANONICO_RESPOSTA = normalizar(TipoMensagemWhatsapp.RESPOSTA_FORNECEDOR.name());
+    // dessincronizar silenciosamente se EventoWhatsApp for renomeado.
+    private static final String CANONICO_LISTA = normalizar(LISTA_PRODUTOS.name());
+    private static final String CANONICO_RESPOSTA = normalizar(EventoWhatsApp.RESPOSTA_FORNECEDOR.name());
 
     public Optional<ResultadoClassificacao> classificar(String texto) {
         if (texto == null || texto.isBlank()) {
@@ -70,10 +72,10 @@ public class ClassificadorMensagemWhatsapp {
             return Optional.empty();
         }
         if (listaOk && simLista >= simResposta) {
-            return Optional.of(new ResultadoClassificacao(TipoMensagemWhatsapp.LISTA_PRODUTOS, corpo));
+            return Optional.of(new ResultadoClassificacao(LISTA_PRODUTOS, corpo));
         }
         if (respostaOk) {
-            return Optional.of(new ResultadoClassificacao(TipoMensagemWhatsapp.RESPOSTA_FORNECEDOR, corpo));
+            return Optional.of(new ResultadoClassificacao(EventoWhatsApp.RESPOSTA_FORNECEDOR, corpo));
         }
         return Optional.empty();
     }

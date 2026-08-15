@@ -1,6 +1,5 @@
 package com.prx.cotacao.whatsapp.template.repository;
 
-import com.prx.cotacao.whatsapp.template.ResultadoNotificacao;
 import com.prx.cotacao.whatsapp.template.entity.TemplateMensagem;
 import org.springframework.data.jpa.repository.JpaRepository;
 
@@ -12,7 +11,7 @@ public interface TemplateMensagemRepository extends JpaRepository<TemplateMensag
 
     List<TemplateMensagem> findByTenantId(UUID tenantId);
 
-    Optional<TemplateMensagem> findByTenantIdAndResultadoAndAtivoTrue(UUID tenantId, ResultadoNotificacao resultado);
+    Optional<TemplateMensagem> findByTenantIdAndAcaoClienteIdAndAtivoTrue(UUID tenantId, UUID acaoClienteId);
 
-    boolean existsByTenantIdAndResultado(UUID tenantId, ResultadoNotificacao resultado);
+    boolean existsByTenantIdAndAcaoClienteId(UUID tenantId, UUID acaoClienteId);
 }

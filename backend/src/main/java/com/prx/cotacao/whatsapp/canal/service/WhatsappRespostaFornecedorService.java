@@ -82,15 +82,19 @@ public class WhatsappRespostaFornecedorService {
         List<LinhaFornecedor> linhasValidas = resultado.linhas().stream().filter(l -> !l.ignorada()).toList();
 
         UUID cotacaoId;
+        String cotacaoTitulo;
         Optional<Cotacao> emAndamento = buscarCotacaoEmAndamento(usuarioId);
         if (emAndamento.isPresent()) {
-            cotacaoId = emAndamento.get().getId();
+            Cotacao existente = emAndamento.get();
+            cotacaoId = existente.getId();
+            cotacaoTitulo = existente.getTitulo();
         } else {
             // "O fornecedor abre a cotação" (doc técnica, seção 10.3): usa os próprios
             // produtos da resposta como lista base.
             Cotacao nova = criarCotacao(usuarioId);
             criarItensBaseDaResposta(nova.getId(), linhasValidas);
             cotacaoId = nova.getId();
+            cotacaoTitulo = nova.getTitulo();
         }
 
         core.processar(cotacaoId, new ParametroResolucaoWhatsapp(resultado.nomeFornecedor()), texto);
@@ -98,7 +102,7 @@ public class WhatsappRespostaFornecedorService {
         log.info("Resposta de fornecedor via WhatsApp roteada para preview: cotacaoId={}, nomeFornecedor={}",
                 cotacaoId, resultado.nomeFornecedor());
 
-        return new ResultadoProcessamentoResposta(cotacaoId, resultado.nomeFornecedor(), linhasValidas.size());
+        return new ResultadoProcessamentoResposta(cotacaoId, resultado.nomeFornecedor(), linhasValidas.size(), cotacaoTitulo);
     }
 
     private List<CotacaoProduto> criarItensBaseDaResposta(UUID cotacaoId, List<LinhaFornecedor> linhas) {

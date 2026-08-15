@@ -9,25 +9,34 @@ import NavBar from "@/components/NavBar";
 import Card from "@/components/Card";
 import Modal from "@/components/Modal";
 import StatusBadge from "@/components/StatusBadge";
-import { buscarTenant, listarTemplatesMensagem, listarUsuariosDoTenant, resetarSenhaUsuario } from "@/lib/api";
+import {
+  buscarTenant,
+  listarAcoesCliente,
+  listarTemplatesMensagem,
+  listarUsuariosDoTenant,
+  resetarSenhaUsuario,
+} from "@/lib/api";
 import { formatarData } from "@/lib/format";
 import { getErrorMessage } from "@/lib/errors";
 import { useAsync } from "@/hooks/useAsync";
-import { ResultadoTemplateMensagem, TemplateMensagem, UsuarioAdmin } from "@/lib/types";
+import { AcaoCliente, ResultadoAcaoCliente, TemplateMensagem, UsuarioAdmin } from "@/lib/types";
 import TenantFormModal from "../components/TenantFormModal";
 import UsuarioFormModal from "./components/UsuarioFormModal";
 import TemplateMensagemFormModal from "./components/TemplateMensagemFormModal";
 
 const TH_CLASSE = "px-4 py-3 font-medium";
 
-const RESULTADOS_TEMPLATE: ResultadoTemplateMensagem[] = ["SUCESSO", "ERRO"];
-const LABEL_RESULTADO: Record<ResultadoTemplateMensagem, string> = {
+const LABEL_RESULTADO: Record<string, string> = {
   SUCESSO: "Sucesso",
   ERRO: "Erro",
 };
 
+function labelResultado(resultado: ResultadoAcaoCliente): string {
+  return resultado ? LABEL_RESULTADO[resultado] : "—";
+}
+
 interface VagaTemplate {
-  resultado: ResultadoTemplateMensagem;
+  acaoCliente: AcaoCliente;
   existente: TemplateMensagem | null;
 }
 
@@ -70,6 +79,11 @@ function TenantDetalheContent({ tenantId }: { tenantId: string }) {
     erro: erroTemplates,
     setData: setTemplates,
   } = useAsync(() => listarTemplatesMensagem(tenantId), [tenantId], "Não foi possível carregar os templates.");
+  const { data: acoesCliente, erro: erroAcoesCliente } = useAsync(
+    () => listarAcoesCliente(),
+    [],
+    "Não foi possível carregar as ações do cliente.",
+  );
 
   const [abaAtiva, setAbaAtiva] = useState<"usuarios" | "templates">("usuarios");
   const [editarTenantAberto, setEditarTenantAberto] = useState(false);
@@ -165,19 +179,25 @@ function TenantDetalheContent({ tenantId }: { tenantId: string }) {
 
   const vagasTemplate = useMemo<VagaTemplate[]>(
     () =>
-      RESULTADOS_TEMPLATE.map((resultado) => ({
-        resultado,
-        existente: templates?.find((t) => t.resultado === resultado) ?? null,
+      (acoesCliente ?? []).map((acaoCliente) => ({
+        acaoCliente,
+        existente: templates?.find((t) => t.acaoClienteId === acaoCliente.id) ?? null,
       })),
-    [templates],
+    [acoesCliente, templates],
   );
 
   const colunasTemplates = useMemo<ColumnDef<VagaTemplate>[]>(
     () => [
       {
+        id: "evento",
+        header: "Evento",
+        cell: ({ row }) => row.original.acaoCliente.descricao,
+        meta: { headerClassName: TH_CLASSE, cellClassName: "px-4 py-3 text-t2" },
+      },
+      {
         id: "resultado",
         header: "Resultado",
-        cell: ({ row }) => LABEL_RESULTADO[row.original.resultado],
+        cell: ({ row }) => labelResultado(row.original.acaoCliente.resultado),
         meta: { headerClassName: TH_CLASSE, cellClassName: "px-4 py-3 font-medium text-t1" },
       },
       {
@@ -224,7 +244,7 @@ function TenantDetalheContent({ tenantId }: { tenantId: string }) {
   const tableTemplates = useReactTable({
     data: vagasTemplate,
     columns: colunasTemplates,
-    getRowId: (v) => v.resultado,
+    getRowId: (v) => v.acaoCliente.id,
     getCoreRowModel: getCoreRowModel(),
   });
 
@@ -340,12 +360,15 @@ function TenantDetalheContent({ tenantId }: { tenantId: string }) {
         {abaAtiva === "templates" && (
           <>
             <p className="mt-4 text-sm text-t2">
-              Confirmação enviada por WhatsApp após cada mensagem recebida — um template pra sucesso, outro pra erro.
-              O tipo da mensagem (lista de produtos, resposta de fornecedor ou desconhecido) entra como parâmetro
-              dentro do template escolhido.
+              Confirmação enviada por WhatsApp após cada mensagem recebida. A vaga &quot;Não identificado&quot; serve
+              de fallback universal (usada quando não há um template específico configurado, e sempre usada para
+              mensagens de formato não reconhecido). As outras 4 vagas são opcionais — configure-as se quiser
+              personalizar a mensagem de Lista de Produtos e Resposta de Fornecedor separadamente, com parâmetros
+              próprios de cada cenário.
             </p>
 
             {erroTemplates && <p className="mt-2 text-sm text-er">{erroTemplates}</p>}
+            {erroAcoesCliente && <p className="mt-2 text-sm text-er">{erroAcoesCliente}</p>}
 
             <DataGrid
               table={tableTemplates}
@@ -353,10 +376,10 @@ function TenantDetalheContent({ tenantId }: { tenantId: string }) {
               tableClassName="w-full text-sm"
               theadClassName="bg-surf text-left text-xs uppercase tracking-wide text-t3"
               tbodyClassName="divide-y divide-bdr"
-              loading={templates === null}
+              loading={templates === null || acoesCliente === null}
               loadingContent={
                 <tr>
-                  <td colSpan={5} className="px-4 py-6 text-center text-t2">
+                  <td colSpan={6} className="px-4 py-6 text-center text-t2">
                     Carregando...
                   </td>
                 </tr>
@@ -388,7 +411,7 @@ function TenantDetalheContent({ tenantId }: { tenantId: string }) {
           open={modalTemplate !== null}
           onClose={() => setModalTemplate(null)}
           tenantId={tenantId}
-          resultado={modalTemplate.resultado}
+          acaoCliente={modalTemplate.acaoCliente}
           template={modalTemplate.existente}
           onSalvo={onTemplateSalvo}
         />

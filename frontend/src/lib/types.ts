@@ -414,27 +414,46 @@ export interface ResetSenhaResponse {
   senha: string;
 }
 
-export type ResultadoTemplateMensagem = "SUCESSO" | "ERRO";
+export type TipoAcaoCliente = "INSERIR_PRODUTOS" | "REGISTRAR_RESPOSTA" | "NAO_IDENTIFICADO";
+export type ResultadoAcaoCliente = "SUCESSO" | "ERRO" | null;
+
+// Catálogo global de ações do cliente — vem do backend (GET /admin/acoes-cliente),
+// seedado no boot a partir do enum AcaoCliente. NAO_IDENTIFICADO (resultado null) é o
+// fallback universal, usado quando não há template específico configurado e sempre
+// usado para mensagens de formato não reconhecido.
+export interface AcaoCliente {
+  id: string;
+  acao: TipoAcaoCliente;
+  resultado: ResultadoAcaoCliente;
+  descricao: string;
+}
 
 export interface TemplateMensagem {
   id: string;
   tenantId: string;
-  resultado: ResultadoTemplateMensagem;
+  acaoClienteId: string;
   nomeTemplateMeta: string;
   idioma: string;
   conteudo: string | null;
   descricaoParametros: string | null;
+  parametrosOrdenados: string[];
   ativo: boolean;
   criadoEm: string;
 }
 
 export interface TemplateMensagemRequest {
-  resultado: ResultadoTemplateMensagem;
+  acaoClienteId: string;
   nomeTemplateMeta: string;
   idioma: string;
   conteudo?: string | null;
   descricaoParametros?: string | null;
+  parametrosOrdenados: string[];
   ativo?: boolean | null;
+}
+
+export interface ItemCatalogoParametro {
+  identificador: string;
+  rotulo: string;
 }
 
 export interface UsuarioTelefone {

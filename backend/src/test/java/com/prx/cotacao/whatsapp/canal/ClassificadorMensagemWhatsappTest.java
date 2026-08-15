@@ -1,7 +1,7 @@
 package com.prx.cotacao.whatsapp.canal;
 
 import com.prx.cotacao.whatsapp.canal.dto.ResultadoClassificacao;
-import com.prx.cotacao.whatsapp.canal.enums.TipoMensagemWhatsapp;
+import com.prx.cotacao.whatsapp.canal.enums.EventoWhatsApp;
 import com.prx.cotacao.whatsapp.canal.service.ClassificadorMensagemWhatsapp;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -23,7 +23,7 @@ class ClassificadorMensagemWhatsappTest {
     void header_lista_produtos_exato_classifica_como_lista_e_extrai_corpo() {
         Optional<ResultadoClassificacao> r = classificador.classificar("LISTA_PRODUTOS\n3 un feijao");
         assertTrue(r.isPresent());
-        assertEquals(TipoMensagemWhatsapp.LISTA_PRODUTOS, r.get().tipo());
+        assertEquals(EventoWhatsApp.LISTA_PRODUTOS, r.get().tipo());
         assertEquals("3 un feijao", r.get().corpo());
     }
 
@@ -32,7 +32,7 @@ class ClassificadorMensagemWhatsappTest {
         Optional<ResultadoClassificacao> r = classificador.classificar(
                 "RESPOSTA_FORNECEDOR\nFornecedor X\nsazon legumes 60g - R$ 4,89");
         assertTrue(r.isPresent());
-        assertEquals(TipoMensagemWhatsapp.RESPOSTA_FORNECEDOR, r.get().tipo());
+        assertEquals(EventoWhatsApp.RESPOSTA_FORNECEDOR, r.get().tipo());
         assertEquals("Fornecedor X\nsazon legumes 60g - R$ 4,89", r.get().corpo());
     }
 
@@ -40,14 +40,14 @@ class ClassificadorMensagemWhatsappTest {
     void header_case_insensitive_reconhecido() {
         Optional<ResultadoClassificacao> r = classificador.classificar("lista_produtos\n3 un feijao");
         assertTrue(r.isPresent());
-        assertEquals(TipoMensagemWhatsapp.LISTA_PRODUTOS, r.get().tipo());
+        assertEquals(EventoWhatsApp.LISTA_PRODUTOS, r.get().tipo());
     }
 
     @Test
     void header_com_hifen_como_separador_reconhecido() {
         Optional<ResultadoClassificacao> r = classificador.classificar("RESPOSTA-FORNECEDOR\nFornecedor X\npreco 4,89");
         assertTrue(r.isPresent());
-        assertEquals(TipoMensagemWhatsapp.RESPOSTA_FORNECEDOR, r.get().tipo());
+        assertEquals(EventoWhatsApp.RESPOSTA_FORNECEDOR, r.get().tipo());
     }
 
     @Test
@@ -56,7 +56,7 @@ class ClassificadorMensagemWhatsappTest {
         // alvo canônico (score 1.0, nem precisa da tolerância fuzzy).
         Optional<ResultadoClassificacao> r = classificador.classificar("RESPÓSTA FÓRNECEDOR\nFornecedor X\npreco 4,89");
         assertTrue(r.isPresent());
-        assertEquals(TipoMensagemWhatsapp.RESPOSTA_FORNECEDOR, r.get().tipo());
+        assertEquals(EventoWhatsApp.RESPOSTA_FORNECEDOR, r.get().tipo());
     }
 
     @Test
@@ -66,7 +66,7 @@ class ClassificadorMensagemWhatsappTest {
         // a distância manualmente antes de escrever este teste.
         Optional<ResultadoClassificacao> r = classificador.classificar("LISTA PRODUTO\n3 un feijao");
         assertTrue(r.isPresent());
-        assertEquals(TipoMensagemWhatsapp.LISTA_PRODUTOS, r.get().tipo());
+        assertEquals(EventoWhatsApp.LISTA_PRODUTOS, r.get().tipo());
     }
 
     @Test
@@ -75,7 +75,7 @@ class ClassificadorMensagemWhatsappTest {
         // (19 chars): distância 1 -> similaridade 1 - 1/19 ≈ 0.9474, acima do limiar.
         Optional<ResultadoClassificacao> r = classificador.classificar("RESPOSTA FORNCEDOR\nFornecedor X\npreco 4,89");
         assertTrue(r.isPresent());
-        assertEquals(TipoMensagemWhatsapp.RESPOSTA_FORNECEDOR, r.get().tipo());
+        assertEquals(EventoWhatsApp.RESPOSTA_FORNECEDOR, r.get().tipo());
     }
 
     @Test
@@ -107,7 +107,7 @@ class ClassificadorMensagemWhatsappTest {
     void header_apenas_sem_corpo_retorna_corpo_vazio() {
         Optional<ResultadoClassificacao> r = classificador.classificar("LISTA_PRODUTOS");
         assertTrue(r.isPresent());
-        assertEquals(TipoMensagemWhatsapp.LISTA_PRODUTOS, r.get().tipo());
+        assertEquals(EventoWhatsApp.LISTA_PRODUTOS, r.get().tipo());
         assertTrue(r.get().corpo().isEmpty());
     }
 

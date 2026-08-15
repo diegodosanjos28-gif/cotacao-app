@@ -1,5 +1,9 @@
 package com.prx.cotacao.whatsapp.template.resource;
 
+import com.prx.cotacao.notificacao.acaocliente.entity.AcaoCliente;
+import com.prx.cotacao.notificacao.acaocliente.repository.AcaoClienteCenarioRepository;
+import com.prx.cotacao.shared.error.ResourceNotFoundException;
+import com.prx.cotacao.whatsapp.template.CatalogoParametrosNotificacao;
 import com.prx.cotacao.whatsapp.template.dto.TemplateMensagemAdminRequest;
 import com.prx.cotacao.whatsapp.template.dto.TemplateMensagemAdminResponse;
 import com.prx.cotacao.whatsapp.template.entity.TemplateMensagem;
@@ -17,14 +21,29 @@ import java.util.UUID;
 public class TemplateMensagemAdminController {
 
     private final TemplateMensagemAdminService templateService;
+    private final AcaoClienteCenarioRepository cenarioRepository;
 
-    public TemplateMensagemAdminController(TemplateMensagemAdminService templateService) {
+    public TemplateMensagemAdminController(TemplateMensagemAdminService templateService,
+                                            AcaoClienteCenarioRepository cenarioRepository) {
         this.templateService = templateService;
+        this.cenarioRepository = cenarioRepository;
     }
 
     @GetMapping
     public List<TemplateMensagemAdminResponse> listar(@PathVariable UUID tenantId) {
         return templateService.listar(tenantId).stream().map(TemplateMensagemAdminResponse::from).toList();
+    }
+
+    // Catálogo é uma constante do sistema (CatalogoParametrosNotificacao), não depende
+    // de dado de tenant — tenantId no path só mantém o recurso consistente com o resto
+    // da rota admin.
+    @GetMapping("/parametros-disponiveis")
+    public List<CatalogoParametrosNotificacao.ItemCatalogo> parametrosDisponiveis(
+            @PathVariable UUID tenantId,
+            @RequestParam UUID acaoClienteId) {
+        AcaoCliente cenario = cenarioRepository.findById(acaoClienteId)
+                .orElseThrow(() -> new ResourceNotFoundException("acao_cliente não encontrado: " + acaoClienteId));
+        return CatalogoParametrosNotificacao.getEfetivo(cenario.getAcao(), cenario.getResultado());
     }
 
     @PostMapping

@@ -23,13 +23,16 @@ class NotificacaoParametrosFactoryTest {
 
     @Test
     void paraListaSucesso_montaTipoMensagemEDetalheComContagens() {
-        ResultadoProcessamentoLista resultado = new ResultadoProcessamentoLista(UUID.randomUUID(), 5, 3);
+        ResultadoProcessamentoLista resultado = new ResultadoProcessamentoLista(UUID.randomUUID(), 5, 3, "WhatsApp 13/08/2026 14:32");
 
         Map<String, String> parametros = factory.paraListaSucesso(resultado);
 
-        assertEquals(2, parametros.size());
+        assertEquals(5, parametros.size());
         assertEquals("Lista de produtos", parametros.get("tipoMensagem"));
         assertEquals("5 itens adicionados (3 reconhecidos)", parametros.get("detalhe"));
+        assertEquals("5", parametros.get("totalItens"));
+        assertEquals("3", parametros.get("itensReconhecidos"));
+        assertEquals("WhatsApp 13/08/2026 14:32", parametros.get("cotacaoTitulo"));
     }
 
     @Test
@@ -45,14 +48,17 @@ class NotificacaoParametrosFactoryTest {
     @Test
     void paraRespostaSucesso_montaTipoMensagemEDetalheComNomeFornecedorETotalItens() {
         ResultadoProcessamentoResposta resultado =
-                new ResultadoProcessamentoResposta(UUID.randomUUID(), "Distribuidora Silva Ltda", 4);
+                new ResultadoProcessamentoResposta(UUID.randomUUID(), "Distribuidora Silva Ltda", 4, "WhatsApp 13/08/2026 14:32");
 
         Map<String, String> parametros = factory.paraRespostaSucesso(resultado);
 
-        assertEquals(2, parametros.size());
+        assertEquals(5, parametros.size());
         assertEquals("Resposta de fornecedor", parametros.get("tipoMensagem"));
         assertEquals("Fornecedor Distribuidora Silva Ltda, 4 itens — aguardando conferência do operador.",
                 parametros.get("detalhe"));
+        assertEquals("Distribuidora Silva Ltda", parametros.get("nomeFornecedor"));
+        assertEquals("4", parametros.get("totalItens"));
+        assertEquals("WhatsApp 13/08/2026 14:32", parametros.get("cotacaoTitulo"));
     }
 
     @Test

@@ -1,6 +1,6 @@
 package com.prx.cotacao.whatsapp.canal.dto;
 
-import com.prx.cotacao.whatsapp.canal.enums.TipoMensagemWhatsapp;
+import com.prx.cotacao.whatsapp.canal.enums.EventoWhatsApp;
 import com.prx.cotacao.whatsapp.canal.service.ClassificadorMensagemWhatsapp;
 
 /**
@@ -9,5 +9,5 @@ import com.prx.cotacao.whatsapp.canal.service.ClassificadorMensagemWhatsapp;
  * marcador LISTA_PRODUTOS/RESPOSTA_FORNECEDOR já foi descartado) — vazio se a mensagem
  * não tiver quebra de linha nenhuma.
  */
-public record ResultadoClassificacao(TipoMensagemWhatsapp tipo, String corpo) {
+public record ResultadoClassificacao(EventoWhatsApp tipo, String corpo) {
 }

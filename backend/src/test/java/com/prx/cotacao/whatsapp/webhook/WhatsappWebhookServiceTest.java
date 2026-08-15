@@ -2,11 +2,12 @@ package com.prx.cotacao.whatsapp.webhook;
 
 import com.prx.cotacao.notificacao.ContextoNotificacao;
 import com.prx.cotacao.notificacao.MensageriaService;
+import com.prx.cotacao.notificacao.acaocliente.AcaoClienteEnum;
 import com.prx.cotacao.whatsapp.canal.dto.ResultadoClassificacao;
 import com.prx.cotacao.whatsapp.canal.dto.ResultadoProcessamentoLista;
 import com.prx.cotacao.whatsapp.canal.dto.ResultadoProcessamentoResposta;
 import com.prx.cotacao.whatsapp.canal.dto.TelefoneAutorizado;
-import com.prx.cotacao.whatsapp.canal.enums.TipoMensagemWhatsapp;
+import com.prx.cotacao.whatsapp.canal.enums.EventoWhatsApp;
 import com.prx.cotacao.whatsapp.canal.service.ClassificadorMensagemWhatsapp;
 import com.prx.cotacao.whatsapp.canal.service.IdentificacaoWhatsappService;
 import com.prx.cotacao.whatsapp.canal.service.WhatsappListaProdutosService;
@@ -110,9 +111,9 @@ class WhatsappWebhookServiceTest {
     void mensagemListaProdutos_processadaComSucesso_chamaEnviarMensagemSucessoComParametrosDaFabrica() {
         String corpo = "3 cx Sazon Legumes 60g";
         when(classificador.classificar(anyString()))
-                .thenReturn(Optional.of(new ResultadoClassificacao(TipoMensagemWhatsapp.LISTA_PRODUTOS, corpo)));
+                .thenReturn(Optional.of(new ResultadoClassificacao(EventoWhatsApp.LISTA_PRODUTOS, corpo)));
         UUID cotacaoId = UUID.randomUUID();
-        ResultadoProcessamentoLista resultado = new ResultadoProcessamentoLista(cotacaoId, 3, 2);
+        ResultadoProcessamentoLista resultado = new ResultadoProcessamentoLista(cotacaoId, 3, 2, "WhatsApp 13/08/2026 14:32");
         when(listaService.processar(USUARIO_ID, corpo)).thenReturn(resultado);
 
         service.processar(payloadComUmaMensagem("LISTA_PRODUTOS\n" + corpo));
@@ -124,6 +125,7 @@ class WhatsappWebhookServiceTest {
         ContextoNotificacao contexto = captor.getValue();
         assertEquals(TENANT_ID, contexto.tenantId());
         assertEquals(NUMERO_ORIGEM, contexto.destinatario());
+        assertEquals(AcaoClienteEnum.INSERIR_PRODUTOS, contexto.acao());
         assertEquals(parametrosFactory.paraListaSucesso(resultado), contexto.parametros());
     }
 
@@ -133,9 +135,9 @@ class WhatsappWebhookServiceTest {
     void mensagemRespostaFornecedor_processadaComSucesso_chamaEnviarMensagemSucessoComParametrosDaFabrica() {
         String corpo = "Distribuidora Silva\n3 cx Sazon Legumes 60g R$ 45,00";
         when(classificador.classificar(anyString()))
-                .thenReturn(Optional.of(new ResultadoClassificacao(TipoMensagemWhatsapp.RESPOSTA_FORNECEDOR, corpo)));
+                .thenReturn(Optional.of(new ResultadoClassificacao(EventoWhatsApp.RESPOSTA_FORNECEDOR, corpo)));
         UUID cotacaoId = UUID.randomUUID();
-        ResultadoProcessamentoResposta resultado = new ResultadoProcessamentoResposta(cotacaoId, "Distribuidora Silva", 1);
+        ResultadoProcessamentoResposta resultado = new ResultadoProcessamentoResposta(cotacaoId, "Distribuidora Silva", 1, "WhatsApp 13/08/2026 14:32");
         when(respostaFornecedorService.processar(USUARIO_ID, corpo)).thenReturn(resultado);
 
         service.processar(payloadComUmaMensagem("RESPOSTA_FORNECEDOR\n" + corpo));
@@ -147,6 +149,7 @@ class WhatsappWebhookServiceTest {
         ContextoNotificacao contexto = captor.getValue();
         assertEquals(TENANT_ID, contexto.tenantId());
         assertEquals(NUMERO_ORIGEM, contexto.destinatario());
+        assertEquals(AcaoClienteEnum.REGISTRAR_RESPOSTA, contexto.acao());
         assertEquals(parametrosFactory.paraRespostaSucesso(resultado), contexto.parametros());
     }
 
@@ -156,7 +159,7 @@ class WhatsappWebhookServiceTest {
     void listaServiceLancaRuntimeException_chamaEnviarMensagemErroComParametrosDeErroDeLista() {
         String corpo = "3 cx Sazon Legumes 60g";
         when(classificador.classificar(anyString()))
-                .thenReturn(Optional.of(new ResultadoClassificacao(TipoMensagemWhatsapp.LISTA_PRODUTOS, corpo)));
+                .thenReturn(Optional.of(new ResultadoClassificacao(EventoWhatsApp.LISTA_PRODUTOS, corpo)));
         when(listaService.processar(USUARIO_ID, corpo)).thenThrow(new RuntimeException("falha simulada no parser"));
 
         service.processar(payloadComUmaMensagem("LISTA_PRODUTOS\n" + corpo));
@@ -164,6 +167,7 @@ class WhatsappWebhookServiceTest {
         ArgumentCaptor<ContextoNotificacao> captor = ArgumentCaptor.forClass(ContextoNotificacao.class);
         verify(mensageriaService).enviarMensagemErro(captor.capture());
         verify(mensageriaService, never()).enviarMensagemSucesso(any());
+        assertEquals(AcaoClienteEnum.INSERIR_PRODUTOS, captor.getValue().acao());
         assertEquals(parametrosFactory.paraListaErro(), captor.getValue().parametros());
     }
 
@@ -171,7 +175,7 @@ class WhatsappWebhookServiceTest {
     void respostaFornecedorServiceLancaRuntimeException_chamaEnviarMensagemErroComParametrosDeErroDeResposta() {
         String corpo = "Distribuidora Silva\n3 cx Sazon Legumes 60g R$ 45,00";
         when(classificador.classificar(anyString()))
-                .thenReturn(Optional.of(new ResultadoClassificacao(TipoMensagemWhatsapp.RESPOSTA_FORNECEDOR, corpo)));
+                .thenReturn(Optional.of(new ResultadoClassificacao(EventoWhatsApp.RESPOSTA_FORNECEDOR, corpo)));
         when(respostaFornecedorService.processar(USUARIO_ID, corpo)).thenThrow(new RuntimeException("falha simulada no matching"));
 
         service.processar(payloadComUmaMensagem("RESPOSTA_FORNECEDOR\n" + corpo));
@@ -179,6 +183,7 @@ class WhatsappWebhookServiceTest {
         ArgumentCaptor<ContextoNotificacao> captor = ArgumentCaptor.forClass(ContextoNotificacao.class);
         verify(mensageriaService).enviarMensagemErro(captor.capture());
         verify(mensageriaService, never()).enviarMensagemSucesso(any());
+        assertEquals(AcaoClienteEnum.REGISTRAR_RESPOSTA, captor.getValue().acao());
         assertEquals(parametrosFactory.paraRespostaErro(), captor.getValue().parametros());
     }
 
@@ -195,6 +200,7 @@ class WhatsappWebhookServiceTest {
         verify(mensageriaService, never()).enviarMensagemSucesso(any());
         assertEquals(parametrosFactory.paraFormatoDesconhecido(), captor.getValue().parametros());
         assertEquals("Desconhecido", captor.getValue().parametros().get("tipoMensagem"));
+        assertEquals(AcaoClienteEnum.NAO_IDENTIFICADO, captor.getValue().acao());
 
         verifyNoInteractions(listaService, respostaFornecedorService);
     }
