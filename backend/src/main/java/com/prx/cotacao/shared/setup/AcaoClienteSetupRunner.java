@@ -1,5 +1,7 @@
-package com.prx.cotacao.notificacao.acaocliente;
+package com.prx.cotacao.shared.setup;
 
+import com.prx.cotacao.notificacao.acaocliente.AcaoClienteEnum;
+import com.prx.cotacao.notificacao.acaocliente.ResultadoAcaoCliente;
 import com.prx.cotacao.notificacao.acaocliente.entity.AcaoCliente;
 import com.prx.cotacao.notificacao.acaocliente.repository.AcaoClienteCenarioRepository;
 import com.prx.cotacao.shared.tenant.TenantContext;
@@ -20,7 +22,7 @@ import java.util.stream.Collectors;
  * Semeia o catálogo global {@code acao_cliente} no boot, a partir do enum Java
  * {@link AcaoClienteEnum} — a fonte da verdade de quais linhas devem existir é o enum, não
  * SQL (nenhuma migration faz INSERT nesta tabela, ver {@code V29__create_acao_cliente.sql}).
- * Mesmo padrão de {@code com.prx.cotacao.identidade.AdminBootstrapRunner}:
+ * Mesmo padrão de {@code com.prx.cotacao.shared.setup.AdminBootstrapRunner}:
  * {@code SmartInitializingSingleton} (não {@code ApplicationRunner}/
  * {@code CommandLineRunner} — roda antes do Tomcat embutido abrir os connectors,
  * garantindo que o seed exista antes de qualquer request real), idempotente via

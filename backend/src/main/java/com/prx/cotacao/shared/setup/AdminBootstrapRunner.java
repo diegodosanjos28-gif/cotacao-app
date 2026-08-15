@@ -1,4 +1,4 @@
-package com.prx.cotacao.identidade;
+package com.prx.cotacao.shared.setup;
 
 import com.prx.cotacao.identidade.entity.Usuario;
 import com.prx.cotacao.identidade.enums.Papel;

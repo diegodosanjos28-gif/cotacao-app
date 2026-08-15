@@ -1,5 +1,7 @@
 package com.prx.cotacao.notificacao.acaocliente;
 
+import com.prx.cotacao.shared.setup.AcaoClienteSetupRunner;
+
 /**
  * Ação de negócio que o sistema tomou em resposta a uma mensagem recebida — genérico e
  * canal-agnóstico (ao contrário de {@code EventoWhatsApp}, que é específico da

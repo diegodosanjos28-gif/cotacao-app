@@ -44,8 +44,8 @@ function labelResultado(resultado: ResultadoAcaoCliente): string {
 }
 
 const LABEL_EVENTO: Record<Exclude<TipoAcaoCliente, "NAO_IDENTIFICADO">, string> = {
-  INSERIR_PRODUTOS: "Lista de Produtos",
-  REGISTRAR_RESPOSTA: "Resposta de Fornecedor",
+  INSERIR_PRODUTOS: "Inserir Produtos",
+  REGISTRAR_RESPOSTA: "Registrar Resposta de Fornecedor",
 };
 
 function truncar(conteudo: string | null | undefined): ReactNode {
@@ -231,8 +231,8 @@ function TenantDetalheContent({ tenantId }: { tenantId: string }) {
   const colunasTemplates = useMemo<ColumnDef<VagaTemplateLinha>[]>(
     () => [
       {
-        id: "evento",
-        header: "Evento",
+        id: "acaoCliente",
+        header: "Ação Cliente",
         cell: ({ row }) => (row.original.tipo === "fallback" ? row.original.vaga.acaoCliente.descricao : row.original.label),
         meta: { headerClassName: TH_CLASSE, cellClassName: "px-4 py-3 text-t2" },
       },

@@ -3,6 +3,7 @@ package com.prx.cotacao.identidade;
 import com.prx.cotacao.identidade.entity.Usuario;
 import com.prx.cotacao.identidade.enums.Papel;
 import com.prx.cotacao.identidade.repository.UsuarioRepository;
+import com.prx.cotacao.shared.setup.AdminBootstrapRunner;
 import com.prx.cotacao.shared.tenant.TenantContext;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;

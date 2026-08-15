@@ -5,6 +5,7 @@ import com.prx.cotacao.identidade.enums.TenantStatus;
 import com.prx.cotacao.identidade.repository.TenantRepository;
 import com.prx.cotacao.notificacao.acaocliente.entity.AcaoCliente;
 import com.prx.cotacao.notificacao.acaocliente.repository.AcaoClienteCenarioRepository;
+import com.prx.cotacao.shared.setup.AcaoClienteSetupRunner;
 import com.prx.cotacao.shared.tenant.TenantContext;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
