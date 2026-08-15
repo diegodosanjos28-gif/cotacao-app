@@ -432,22 +432,23 @@ export interface TemplateMensagem {
   id: string;
   tenantId: string;
   acaoClienteId: string;
-  nomeTemplateMeta: string;
-  idioma: string;
+  // Campos legados do envio por Meta Message Template (Prompt 18/19) — desde o
+  // Prompt 20 (Service Message em texto livre) nenhum código de produção os usa pra
+  // montar o envio real, mantidos opcionais só como referência histórica.
+  nomeTemplateMeta: string | null;
+  idioma: string | null;
   conteudo: string | null;
   descricaoParametros: string | null;
-  parametrosOrdenados: string[];
   ativo: boolean;
   criadoEm: string;
 }
 
 export interface TemplateMensagemRequest {
   acaoClienteId: string;
-  nomeTemplateMeta: string;
-  idioma: string;
+  nomeTemplateMeta?: string | null;
+  idioma?: string | null;
   conteudo?: string | null;
   descricaoParametros?: string | null;
-  parametrosOrdenados: string[];
   ativo?: boolean | null;
 }
 

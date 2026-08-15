@@ -80,35 +80,22 @@ public class TemplateMensagemAdminService {
         t.setIdioma(request.idioma());
         t.setConteudo(request.conteudo());
         t.setDescricaoParametros(request.descricaoParametros());
-        t.setParametrosOrdenados(request.parametrosOrdenados() != null ? request.parametrosOrdenados() : List.of());
         t.setAtivo(request.ativo() == null || request.ativo());
     }
 
     // Garante que todo {{identificador}} usado no conteúdo existe no catálogo do
-    // cenário (acao, resultado) do template E foi adicionado à lista ordenada (senão
-    // não teria posição definida no envio real) — e que a lista ordenada não referencia
-    // nenhum identificador fora do catálogo.
+    // cenário (acao, resultado) do template — sem checagem de posição/ordem desde o
+    // Prompt 20 (substituição é por nome, não existe mais {{1}}/{{2}} posicional).
     private void validarParametros(TemplateMensagemAdminRequest request, AcaoCliente cenario) {
         List<String> tokensNoConteudo = extrairTokens(request.conteudo());
         List<String> catalogoEfetivoIds = CatalogoParametrosNotificacao
                 .getEfetivo(cenario.getAcao(), cenario.getResultado())
                 .stream().map(CatalogoParametrosNotificacao.ItemCatalogo::identificador).toList();
-        List<String> parametrosOrdenados = request.parametrosOrdenados() != null ? request.parametrosOrdenados() : List.of();
 
         for (String token : tokensNoConteudo) {
             if (!catalogoEfetivoIds.contains(token)) {
                 throw new IllegalArgumentException(
                         "Parâmetro \"" + token + "\" usado no conteúdo não existe no catálogo deste cenário.");
-            }
-            if (!parametrosOrdenados.contains(token)) {
-                throw new IllegalArgumentException(
-                        "Parâmetro \"" + token + "\" aparece no conteúdo mas não foi adicionado à lista de parâmetros do envio.");
-            }
-        }
-        for (String id : parametrosOrdenados) {
-            if (!catalogoEfetivoIds.contains(id)) {
-                throw new IllegalArgumentException(
-                        "Identificador \"" + id + "\" em parâmetros não existe no catálogo deste cenário.");
             }
         }
     }

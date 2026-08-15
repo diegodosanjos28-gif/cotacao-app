@@ -4,13 +4,17 @@ import com.prx.cotacao.shared.tenant.TenantAuditEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.UUID;
 
+/**
+ * {@code nomeTemplateMeta}/{@code idioma} são campos legados do envio por Message
+ * Template (Prompt 18/19) — desde o Prompt 20 (Service Message em texto livre,
+ * ver {@code WhatsappTextoLivreMensageriaService}) nenhum código de produção os lê pra
+ * montar a chamada real à Meta. Mantidos nullable (não removidos): dado histórico,
+ * estrutura reversível pra um eventual fluxo proativo futuro fora da janela de 24h, sem
+ * caso de uso hoje (decisão registrada na doc técnica, seção 10.7).
+ */
 @Entity
 @Table(name = "template_mensagem")
 public class TemplateMensagem extends TenantAuditEntity {
@@ -23,32 +27,25 @@ public class TemplateMensagem extends TenantAuditEntity {
     @Column(name = "acao_cliente_id", nullable = false)
     private UUID acaoClienteId;
 
-    @Column(name = "nome_template_meta", nullable = false)
+    @Column(name = "nome_template_meta")
     private String nomeTemplateMeta;
 
-    @Column(nullable = false)
-    private String idioma = "pt_BR";
+    @Column
+    private String idioma;
 
+    // Texto REALMENTE enviado (Prompt 20) — {{identificador}} é substituído pelo valor
+    // real em WhatsappTextoLivreMensageriaService antes do envio.
     @Column(columnDefinition = "TEXT")
     private String conteudo;
 
     @Column(name = "descricao_parametros", columnDefinition = "TEXT")
     private String descricaoParametros;
 
-    // Ordem em que os identificadores do catálogo (CatalogoParametrosNotificacao)
-    // preenchem {{1}}, {{2}}, ... no envio real — ver WhatsappTemplateMensageriaService.
-    @JdbcTypeCode(SqlTypes.ARRAY)
-    @Column(name = "parametros_ordenados", nullable = false, columnDefinition = "text[]")
-    private List<String> parametrosOrdenados = new ArrayList<>();
-
     @Column(nullable = false)
     private boolean ativo = true;
 
     public UUID getAcaoClienteId() { return acaoClienteId; }
     public void setAcaoClienteId(UUID acaoClienteId) { this.acaoClienteId = acaoClienteId; }
-
-    public List<String> getParametrosOrdenados() { return parametrosOrdenados; }
-    public void setParametrosOrdenados(List<String> parametrosOrdenados) { this.parametrosOrdenados = parametrosOrdenados; }
 
     public String getNomeTemplateMeta() { return nomeTemplateMeta; }
     public void setNomeTemplateMeta(String nomeTemplateMeta) { this.nomeTemplateMeta = nomeTemplateMeta; }

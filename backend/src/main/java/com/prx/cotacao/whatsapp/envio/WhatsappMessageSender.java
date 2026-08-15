@@ -1,8 +1,9 @@
 package com.prx.cotacao.whatsapp.envio;
 
-import java.util.List;
-
-/** Envio de mensagem WhatsApp via Meta Template API (doc técnica, seção 10.7). */
+/**
+ * Envio de mensagem WhatsApp via Meta Cloud API, Service Message em texto livre
+ * (doc técnica, seção 10.7, Prompt 20 — substitui o antigo envio por Message Template).
+ */
 public interface WhatsappMessageSender {
-    void enviarTemplate(String numeroDestino, String nomeTemplateMeta, String idioma, List<String> parametrosPosicionais);
+    void enviarTexto(String numeroDestino, String corpo);
 }

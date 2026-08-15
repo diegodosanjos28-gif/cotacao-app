@@ -108,14 +108,11 @@ class TemplateMensagemAdminServiceTest {
 
     private TemplateMensagemAdminRequest request(UUID acaoClienteId, String nomeTemplateMeta) {
         return new TemplateMensagemAdminRequest(acaoClienteId, nomeTemplateMeta, "pt_BR",
-                "conteúdo de exemplo {{tipoMensagem}} {{detalhe}}", null,
-                List.of("tipoMensagem", "detalhe"), true);
+                "conteúdo de exemplo {{tipoMensagem}} {{detalhe}}", null, true);
     }
 
-    private TemplateMensagemAdminRequest request(UUID acaoClienteId, String nomeTemplateMeta, String conteudo,
-                                                    List<String> parametrosOrdenados) {
-        return new TemplateMensagemAdminRequest(acaoClienteId, nomeTemplateMeta, "pt_BR",
-                conteudo, null, parametrosOrdenados, true);
+    private TemplateMensagemAdminRequest request(UUID acaoClienteId, String nomeTemplateMeta, String conteudo) {
+        return new TemplateMensagemAdminRequest(acaoClienteId, nomeTemplateMeta, "pt_BR", conteudo, null, true);
     }
 
     // ── Testes ──────────────────────────────────────────────────────────────
@@ -157,7 +154,7 @@ class TemplateMensagemAdminServiceTest {
                 templateAdminService.criar(tenantAId, request(naoIdentificado, "tpl_generico")));
         TemplateMensagem especifico = comoAdmin(() ->
                 templateAdminService.criar(tenantAId, request(inserirProdutosSucesso, "tpl_especifico",
-                        "{{totalItens}} itens", List.of("totalItens"))));
+                        "{{totalItens}} itens")));
 
         assertEquals(naoIdentificado, generico.getAcaoClienteId());
         assertEquals(inserirProdutosSucesso, especifico.getAcaoClienteId());
@@ -195,7 +192,7 @@ class TemplateMensagemAdminServiceTest {
         UUID inserirProdutosSucesso = cenario(AcaoClienteEnum.INSERIR_PRODUTOS, ResultadoAcaoCliente.SUCESSO);
         comoAdmin(() -> templateAdminService.criar(tenantAId, request(naoIdentificado, "tpl_a_generico")));
         comoAdmin(() -> templateAdminService.criar(tenantAId, request(inserirProdutosSucesso, "tpl_a_especifico",
-                "{{totalItens}}", List.of("totalItens"))));
+                "{{totalItens}}")));
         comoAdmin(() -> templateAdminService.criar(tenantBId, request(naoIdentificado, "tpl_b_generico")));
 
         List<TemplateMensagem> doTenantA = comoAdmin(() -> templateAdminService.listar(tenantAId));
@@ -227,8 +224,7 @@ class TemplateMensagemAdminServiceTest {
         // NAO_IDENTIFICADO => catálogo efetivo é só o genérico (tipoMensagem/detalhe).
         // totalItens só existe no catálogo de INSERIR_PRODUTOS.
         UUID naoIdentificado = cenario(AcaoClienteEnum.NAO_IDENTIFICADO, null);
-        TemplateMensagemAdminRequest req = request(naoIdentificado, "tpl_token_fora_do_catalogo",
-                "olá {{totalItens}}", List.of("totalItens"));
+        TemplateMensagemAdminRequest req = request(naoIdentificado, "tpl_token_fora_do_catalogo", "olá {{totalItens}}");
 
         assertThrows(IllegalArgumentException.class,
                 () -> comoAdmin(() -> templateAdminService.criar(tenantAId, req)),
@@ -236,54 +232,41 @@ class TemplateMensagemAdminServiceTest {
     }
 
     @Test
-    void criar_comTokenNoConteudoAusenteDeParametrosOrdenados_lancaIllegalArgumentException() {
-        // {{detalhe}} está no conteúdo mas não foi adicionado à lista de parâmetros do envio.
-        UUID naoIdentificado = cenario(AcaoClienteEnum.NAO_IDENTIFICADO, null);
-        TemplateMensagemAdminRequest req = request(naoIdentificado, "tpl_token_sem_posicao",
-                "olá {{tipoMensagem}} {{detalhe}}", List.of("tipoMensagem"));
-
-        assertThrows(IllegalArgumentException.class,
-                () -> comoAdmin(() -> templateAdminService.criar(tenantAId, req)),
-                "detalhe aparece no conteúdo mas não está em parametrosOrdenados");
-    }
-
-    @Test
-    void criar_comIdentificadorEmParametrosOrdenadosForaDoCatalogo_lancaIllegalArgumentException() {
-        // nomeFornecedor não existe no catálogo efetivo de NAO_IDENTIFICADO.
-        UUID naoIdentificado = cenario(AcaoClienteEnum.NAO_IDENTIFICADO, null);
-        TemplateMensagemAdminRequest req = request(naoIdentificado, "tpl_parametro_fora_do_catalogo",
-                "olá {{tipoMensagem}}", List.of("tipoMensagem", "nomeFornecedor"));
-
-        assertThrows(IllegalArgumentException.class,
-                () -> comoAdmin(() -> templateAdminService.criar(tenantAId, req)),
-                "nomeFornecedor em parametrosOrdenados não pertence ao catálogo de NAO_IDENTIFICADO");
-    }
-
-    @Test
     void criar_comAcaoEspecificaUsandoParametroExclusivoDoCatalogo_salvaComSucesso() {
         UUID registrarRespostaSucesso = cenario(AcaoClienteEnum.REGISTRAR_RESPOSTA, ResultadoAcaoCliente.SUCESSO);
         TemplateMensagemAdminRequest req = request(registrarRespostaSucesso, "tpl_resposta_fornecedor",
-                "obrigado, {{nomeFornecedor}}! recebemos {{totalItens}} itens para {{cotacaoTitulo}}",
-                List.of("nomeFornecedor", "totalItens", "cotacaoTitulo"));
+                "obrigado, {{nomeFornecedor}}! recebemos {{totalItens}} itens para {{cotacaoTitulo}}");
 
         TemplateMensagem salvo = comoAdmin(() -> templateAdminService.criar(tenantAId, req));
 
         assertEquals(registrarRespostaSucesso, salvo.getAcaoClienteId());
-        assertEquals(List.of("nomeFornecedor", "totalItens", "cotacaoTitulo"), salvo.getParametrosOrdenados());
+        assertEquals(req.conteudo(), salvo.getConteudo());
     }
 
     @Test
     void criar_segundaLinhaParaAMesmaAcaoEspecificaNoMesmoTenant_lancaConflictException() {
         UUID inserirProdutosSucesso = cenario(AcaoClienteEnum.INSERIR_PRODUTOS, ResultadoAcaoCliente.SUCESSO);
-        TemplateMensagemAdminRequest primeiro = request(inserirProdutosSucesso, "tpl_lista_produtos_1",
-                "{{totalItens}} itens", List.of("totalItens"));
-        TemplateMensagemAdminRequest segundo = request(inserirProdutosSucesso, "tpl_lista_produtos_2",
-                "{{itensReconhecidos}} reconhecidos", List.of("itensReconhecidos"));
+        TemplateMensagemAdminRequest primeiro = request(inserirProdutosSucesso, "tpl_lista_produtos_1", "{{totalItens}} itens");
+        TemplateMensagemAdminRequest segundo = request(inserirProdutosSucesso, "tpl_lista_produtos_2", "{{itensReconhecidos}} reconhecidos");
 
         comoAdmin(() -> templateAdminService.criar(tenantAId, primeiro));
 
         assertThrows(ConflictException.class,
                 () -> comoAdmin(() -> templateAdminService.criar(tenantAId, segundo)),
                 "já existe uma linha para (tenantA, INSERIR_PRODUTOS×SUCESSO)");
+    }
+
+    // ── Campos legados de Message Template (Prompt 20 — nome/idioma opcionais) ─
+
+    @Test
+    void criar_semNomeTemplateMetaNemIdioma_salvaComSucesso() {
+        UUID naoIdentificado = cenario(AcaoClienteEnum.NAO_IDENTIFICADO, null);
+        TemplateMensagemAdminRequest req = new TemplateMensagemAdminRequest(naoIdentificado, null, null,
+                "{{tipoMensagem}}: {{detalhe}}", null, true);
+
+        TemplateMensagem salvo = comoAdmin(() -> templateAdminService.criar(tenantAId, req));
+
+        assertEquals(naoIdentificado, salvo.getAcaoClienteId());
+        assertEquals("{{tipoMensagem}}: {{detalhe}}", salvo.getConteudo());
     }
 }

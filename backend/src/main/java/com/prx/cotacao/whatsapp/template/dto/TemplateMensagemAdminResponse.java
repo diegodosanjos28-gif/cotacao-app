@@ -3,7 +3,6 @@ package com.prx.cotacao.whatsapp.template.dto;
 import com.prx.cotacao.whatsapp.template.entity.TemplateMensagem;
 
 import java.time.OffsetDateTime;
-import java.util.List;
 import java.util.UUID;
 
 // Não denormaliza acao/resultado aqui de propósito — o frontend já carrega
@@ -17,13 +16,12 @@ public record TemplateMensagemAdminResponse(
         String idioma,
         String conteudo,
         String descricaoParametros,
-        List<String> parametrosOrdenados,
         boolean ativo,
         OffsetDateTime criadoEm
 ) {
     public static TemplateMensagemAdminResponse from(TemplateMensagem t) {
         return new TemplateMensagemAdminResponse(
                 t.getId(), t.getTenantId(), t.getAcaoClienteId(), t.getNomeTemplateMeta(), t.getIdioma(),
-                t.getConteudo(), t.getDescricaoParametros(), t.getParametrosOrdenados(), t.isAtivo(), t.getCriadoEm());
+                t.getConteudo(), t.getDescricaoParametros(), t.isAtivo(), t.getCriadoEm());
     }
 }

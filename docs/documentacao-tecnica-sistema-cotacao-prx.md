@@ -1,7 +1,13 @@
 # Documentação Técnica — Sistema de Cotação PRX
 
-**Versão:** 2.3
-**Data:** 12/08/2026 (Prompt 18 — confirmação WhatsApp trocou de texto livre para
+**Versão:** 2.4
+**Data:** 15/08/2026 (Prompt 20 — confirmação WhatsApp voltou de Message Template para
+texto livre (Service Message), dentro da janela de 24h de Customer Service Window
+aberta pela própria mensagem recebida; ver 10.7/10.8/10.9/10.10. No caminho, o modelo
+de "evento" (enum específico do canal WhatsApp) foi consolidado numa tabela de
+referência genérica `acao_cliente`, canal-agnóstica — nota em 10.7, entre os blocos do
+Prompt 19 e do Prompt 20)
+v2.3 em 12/08/2026 (Prompt 18 — confirmação WhatsApp trocou de texto livre para
 Message Templates da Meta cadastrados por tenant, ver 10.7/10.8; correção de
 imprecisões pré-existentes encontradas durante esse trabalho, não introduzidas por
 ele: o Painel Admin PRX estava registrado como "não iniciado" nas seções 0/5/13 desde
@@ -40,7 +46,7 @@ plano operacional dia-a-dia (prompts, gates, matriz de subagents), ver
 | Frontend (Dashboard, Entrada, Comparativo, Mapa, Alertas) | ✅ Pronto | Fiel ao protótipo `"COTA&TESTA - 14.07 - V5.html"`; sem SSR, JWT em localStorage |
 | Histórico de Preços (seção 11) | ✅ Pronto | Consulta derivada ao vivo (sem tabela nova) sobre `cotacao_produto_fornecedor`/`cotacao_produto`/`cotacao`/`produto` — ver nota de implementação em 11.4 |
 | Economia (seção 11) | ❌ Não iniciado | Nenhuma tabela, nenhum endpoint — tela do protótipo fica fora do v1 até este módulo ser priorizado |
-| **Módulo WhatsApp** (webhook, classificador, roteamento) | ✅ Pronto (09/08; confirmação por template desde 12/08) | Webhook Meta com validação de assinatura HMAC + idempotência por `message_id`, classificador por marcador explícito com tolerância a erro de digitação (Levenshtein), roteamento lista/resposta com janela de 48h, matching fuzzy de fornecedor com criação automática `PENDENTE_DADOS`/`WHATSAPP_AUTO`, e desde o Prompt 15 compartilha o MESMO núcleo de persistência do canal Web (`RespostaFornecedorCoreService` — sempre preview + Conferência, nunca auto-confirma). Desde o Prompt 18 (12/08), a confirmação de recebimento é enviada via Meta Message Template (antes era texto livre) — ver 10.7/10.8. Detalhe completo na seção 10 |
+| **Módulo WhatsApp** (webhook, classificador, roteamento) | ✅ Pronto (09/08; confirmação por Message Template 12/08→15/08, texto livre novamente desde o Prompt 20) | Webhook Meta com validação de assinatura HMAC + idempotência por `message_id`, classificador por marcador explícito com tolerância a erro de digitação (Levenshtein), roteamento lista/resposta com janela de 48h, matching fuzzy de fornecedor com criação automática `PENDENTE_DADOS`/`WHATSAPP_AUTO`, e desde o Prompt 15 compartilha o MESMO núcleo de persistência do canal Web (`RespostaFornecedorCoreService` — sempre preview + Conferência, nunca auto-confirma). Desde o Prompt 20 (15/08), a confirmação de recebimento é enviada via Service Message em texto livre, dentro da janela de 24h — ver 10.7/10.8. Detalhe completo na seção 10 |
 | CI/CD + deploy em produção (droplet DigitalOcean) | ⚠️ Parcial | **Correção 12/08:** `docker-compose.yml` já orquestra backend + frontend (com `Dockerfile` próprio) + Caddy com HTTPS automático (`Caddyfile` na raiz, API prefixada em `/api`) — mais avançado do que a v2.2 registrava. Ainda falta: GitHub Actions (nenhum `.github/workflows/`), stack de monitoramento (Netdata/Dozzle/Tailscale/Sentry) — ver seção 9 |
 | Testes de integração com Testcontainers | ✅ Configurado e em uso | 23 arquivos de teste JUnit no backend, incluindo os 2 testes de isolamento RLS citados acima |
 | Testes E2E frontend (Playwright) | ❌ Não iniciado | Dependência instalada, sem `playwright.config` nem specs — só 3 testes Vitest (unitários/componente) |
@@ -885,6 +891,94 @@ A troca de marca do exemplo original (cliente pede "bombom nestle", fornecedor c
 > detalhe do tenant no Admin PRX (`/admin/tenants/{id}`, ao lado de "Usuários" — ver
 > seção 10.8), não mais em constante Java.
 
+> **Atualizado a partir de 14/08/2026 (Prompt 19) — catálogo de parâmetros dinâmicos
+> por cenário.** O parágrafo acima ("`{{1}} = tipoMensagem`, `{{2}} = detalhe`, ordem
+> fixada em código, nunca editável pelo admin") descrevia uma limitação real do
+> Prompt 18: só 2 parâmetros, iguais para os 4 cenários. Diagnóstico do Prompt 19
+> confirmou pelo código que `template_mensagem` só distinguia por `resultado`
+> (`SUCESSO`/`ERRO`) — um único template servia `LISTA_PRODUTOS` e
+> `RESPOSTA_FORNECEDOR` ao mesmo tempo, e o campo "Parâmetros" da tela era anotação
+> livre sem efeito funcional. O plano original do Prompt 19 desenhava isso como uma
+> coluna `evento` nullable direto em `template_mensagem` (6 vagas por tenant) — esse
+> desenho **nunca chegou a ser implantado**: antes de qualquer deploy, foi substituído
+> pela consolidação `acao_cliente` descrita na nota abaixo. Documentado aqui só pelo
+> raciocínio de diagnóstico que motivou a mudança (catálogo de parâmetros por cenário
+> segue válido), não pelo schema (`evento` nunca existiu em produção).
+>
+> **Nota (entre 14/08 e o Prompt 20 abaixo):** trabalho real não numerado como prompt
+> formal na hora, mesmo espírito da nota de 12/08 acima. "Que ação de negócio o sistema
+> tomou em resposta a uma mensagem" deixou de ser um enum Java específico do canal
+> WhatsApp (`evento`) e virou uma **tabela de referência genérica e canal-agnóstica**,
+> `acao_cliente` — `AcaoClienteEnum` (`INSERIR_PRODUTOS`/`REGISTRAR_RESPOSTA`/
+> `NAO_IDENTIFICADO`) × `ResultadoAcaoCliente` (`SUCESSO`/`ERRO`, sempre `NULL` para
+> `NAO_IDENTIFICADO`), seedada no boot por `AcaoClienteSetupRunner`
+> (`SmartInitializingSingleton`, mesmo padrão do `AdminBootstrapRunner`) a partir do
+> enum Java — fonte da verdade é o enum, não SQL. Só **5 cenários fixos** (não 6): o
+> antigo par de vagas genéricas (`evento=NULL` × `SUCESSO`/`ERRO`) virou um único
+> registro `NAO_IDENTIFICADO` — fallback universal, sem distinção de resultado.
+> `template_mensagem` ganhou `acao_cliente_id` (FK única por tenant, substitui as
+> antigas colunas `evento`+`resultado`); templates legados (só `resultado`, sem
+> `evento`) foram promovidos automaticamente pro cenário `NAO_IDENTIFICADO`
+> (priorizando o conteúdo de `ERRO` quando os dois existiam, com o descartado
+> arquivado em `template_mensagem_legado_backup` antes do descarte). Catálogo de
+> parâmetros por cenário (`CatalogoParametrosNotificacao`) passou a ser chaveado por
+> `(AcaoClienteEnum, ResultadoAcaoCliente)` em vez de `(evento, resultado)`, mesma
+> tabela de identificadores disponíveis por cenário descrita no parágrafo do Prompt 19
+> acima. Endpoint novo `GET /admin/acoes-cliente` (fora de `/tenants/{id}` — catálogo
+> global, não dado de tenant) alimenta o grid de vagas do Admin PRX. Até este ponto, o
+> mapeamento identificador→posição (`parametrosOrdenados`, `{{1}}`/`{{2}}` no payload
+> Meta) continuou existindo do jeito descrito no Prompt 19 — só o schema de baixo
+> (evento/resultado → acao_cliente_id) mudou. Isso muda no Prompt 20 a seguir.
+
+> **Atualizado a partir de 15/08/2026 (Prompt 20) — de Message Template para Service
+> Message em texto livre.** O fluxo do PRX sempre responde de forma **síncrona**, logo
+> após processar a mensagem recebida — isso significa que o envio da confirmação está,
+> por construção, quase sempre dentro da **Customer Service Window de 24h** do
+> WhatsApp, aberta pela própria mensagem que originou a resposta. Dentro dessa janela a
+> Meta permite **Service Messages** — texto livre, sem template pré-aprovado, mesmo
+> endpoint (`POST /{phone_number_id}/messages`), payload mais simples
+> (`type:"text"`, `text.body`). Isso torna o Message Template do Prompt 18/19
+> desnecessário para o caso de uso real do PRX (confirmação sempre reativa) — migrado:
+>
+> - **Envio**: `WhatsappTemplateMensageriaService` foi renomeado
+>   `WhatsappTextoLivreMensageriaService` — resolve o `TemplateMensagem` do cenário
+>   exatamente como antes (`(tenantId, acaoClienteId)`, fallback pra
+>   `NAO_IDENTIFICADO`), mas em vez de montar parâmetros posicionais, substitui cada
+>   `{{identificador}}` presente em `conteudo` pelo valor real de
+>   `ContextoNotificacao.parametros()` via substituição de string simples — sem posição,
+>   `parametrosOrdenados` foi **removido** (coluna e campo; ao contrário de
+>   `descricao_parametros`, que fica órfã como documentação humana, este não tinha mais
+>   nenhum valor residual sob substituição por nome). `WhatsappMessageSender` trocou
+>   `enviarTemplate(...)` por `enviarTexto(numeroDestino, corpo)` —
+>   `MetaWhatsappGraphClient` monta o payload `type:"text"` no mesmo endpoint/
+>   credenciais de sempre.
+> - **Janela de 24h — checagem defensiva**: `ContextoNotificacao` ganhou
+>   `mensagemRecebidaEm` (`Instant`, o próprio timestamp da mensagem recebida que
+>   disparou o processamento — já vinha parseado do payload da Meta, sem consulta
+>   nova). Antes de qualquer lookup/HTTP, `WhatsappTextoLivreMensageriaService` checa
+>   se `agora - mensagemRecebidaEm >= 24h`; se sim, loga aviso distinto e não tenta
+>   enviar — no desenho síncrono atual isso é quase sempre falso na prática, mas fila
+>   atrasada ou reprocessamento manual poderiam violar essa suposição.
+> - **Erro 131047 (janela fechada) — segunda camada de defesa**: se a checagem acima
+>   não pegar o caso (relógio, reprocessamento fora do padrão), a própria Graph API
+>   recusa com HTTP 4xx e corpo `{"error":{"code":131047,...}}`. `MetaWhatsappGraphClient`
+>   captura `RestClientResponseException`, extrai `error.code` do corpo (Jackson), e
+>   loga um aviso específico pra esse código — distinto de qualquer outra falha
+>   genérica de rede/API. Nenhum dos dois casos propaga exceção — mesma regra de
+>   isolamento de falha do Prompt 18 (recibo nunca derruba o processamento da mensagem).
+> - **Campos remanescentes de Meta Template** (`nome_template_meta`, `idioma`) —
+>   **tornados opcionais** (migration `V31`, aditiva), não removidos: dado histórico e
+>   estrutura preservados pra uma eventual reintrodução futura de template aprovado
+>   (só necessário fora da janela de 24h, sem caso de uso hoje). A tela de cadastro
+>   (Admin > Tenant > Templates de Mensagens) moveu esses 2 campos pra uma seção
+>   recolhível "Campos legados (Meta Template)", sem exigi-los pra salvar. O campo
+>   antes rotulado "Conteúdo (preview)" (com o aviso "só como referência — não é
+>   enviado pelo sistema") virou **"Conteúdo da mensagem"** — é o texto realmente
+>   enviado, sem ressalva nenhuma.
+> - O grid de vagas no Admin PRX trocou as colunas "Nome do template (Meta)"/"Idioma"
+>   por uma coluna "Conteúdo enviado" — é isso que reflete o que de fato é mandado ao
+>   cliente desde este prompt.
+
 **Texto original (v2.0-2.2, mantido para histórico — não reflete mais o comportamento real):**
 Sem conduzir conversa, o sistema ainda responde **uma única mensagem de confirmação** por entrada processada — por exemplo, `"✅ Lista recebida e adicionada à sua cotação."`, `"✅ Resposta do fornecedor recebida, aguardando conferência do operador."` (texto ajustado no Prompt 15 — "registrada" deixou de ser verdade a partir da unificação Web/WhatsApp, ver seção 10.6), ou, quando a 1ª linha não é reconhecida (seção 10.3), `"⚠️ Não consegui identificar o formato da sua mensagem. Comece com LISTA_PRODUTOS ou RESPOSTA_FORNECEDOR na primeira linha."`. Isso não é fluxo conversacional (não há passos nem botões), é só um recibo — sem ele, o cliente manda a lista e não tem nenhum sinal de que funcionou.
 
@@ -894,21 +988,24 @@ Sem conduzir conversa, o sistema ainda responde **uma única mensagem de confirm
 - **Classificador de mensagem** — marcador explícito na 1ª linha (`LISTA_PRODUTOS`/`RESPOSTA_FORNECEDOR`), normalização de caixa/acento/separador e tolerância a erro de digitação via similaridade de Levenshtein (limiar 0,75); sem marcador reconhecido, formato não reconhecido — sem heurística de conteúdo como fallback (seção 10.3).
 - **Reaproveitamento dos services** de parsing/validação e matching já construídos para o canal web (mesma lógica, dois canais de entrada) — incluindo a extensão do matching para nome de fornecedor.
 - **Motor de roteamento** — decide anexar à cotação atual ou criar nova, consultando `ultima_atividade_em`.
-- **Envio de confirmação via Meta Template** (Prompt 18, 12/08 — ver 10.7) —
+- **Envio de confirmação via Service Message em texto livre** (Prompt 18→20, ver 10.7
+  para o histórico completo da migração) —
   `com.prx.cotacao.notificacao.MensageriaService` (porta, canal-agnóstica) +
-  `WhatsappTemplateMensageriaService` (`whatsapp.envio`, único adaptador hoje) resolve
-  o template ativo por `(tenant_id, resultado)` na tabela `template_mensagem`
-  (`tenant_id NOT NULL` + RLS, `UNIQUE(tenant_id, resultado)`) e chama
-  `WhatsappMessageSender.enviarTemplate(...)` → `MetaWhatsappGraphClient` (POST
-  `type=template` na Graph API, `components[].parameters[]` posicionais). O método
-  antigo de texto livre (`enviar`) foi removido da interface — não sobrou nenhum
-  caminho de fallback em texto livre no fluxo de confirmação. `NotificacaoParametrosFactory`
-  (`whatsapp.webhook.service`) monta os parâmetros dinâmicos (`tipoMensagem`/`detalhe`)
-  pros 5 cenários reais (lista sucesso/erro, resposta sucesso/erro, formato
-  desconhecido) sem se repetir num switch gigante no `WhatsappWebhookService`. Falha
-  no envio (Graph API fora do ar, template não aprovado, etc.) é capturada e logada no
-  adaptador — nunca propaga pro processamento da mensagem recebida, que já foi
-  persistido/preview antes do envio da confirmação ser sequer tentado.
+  `WhatsappTextoLivreMensageriaService` (`whatsapp.envio`, único adaptador hoje) resolve
+  o template ativo por `(tenant_id, acao_cliente_id)` na tabela `template_mensagem`
+  (`tenant_id NOT NULL` + RLS, `UNIQUE(tenant_id, acao_cliente_id)`), checa a janela de
+  24h de Customer Service Window (`ContextoNotificacao.mensagemRecebidaEm`), substitui
+  cada `{{identificador}}` do `conteudo` pelo valor real, e chama
+  `WhatsappMessageSender.enviarTexto(...)` → `MetaWhatsappGraphClient` (POST
+  `type=text` na Graph API). O método antigo de Message Template (`enviarTemplate`) foi
+  removido da interface — não sobrou nenhum caminho de fallback em template no fluxo de
+  confirmação. `NotificacaoParametrosFactory` (`whatsapp.webhook.service`) monta os
+  parâmetros dinâmicos pros 5 cenários reais (lista sucesso/erro, resposta sucesso/erro,
+  formato desconhecido) sem se repetir num switch gigante no `WhatsappWebhookService`.
+  Falha no envio (Graph API fora do ar, janela de 24h fechada — erro 131047, etc.) é
+  capturada e logada no adaptador — nunca propaga pro processamento da mensagem
+  recebida, que já foi persistido/preview antes do envio da confirmação ser sequer
+  tentado.
 - Nenhuma máquina de estados persistida, nenhum botão interativo, nenhum link assinado — removidos do desenho anterior por não serem necessários neste fluxo.
 
 > **Nota (09/08, Prompt 16 — reorganização de pacotes, unificação estrutural de
@@ -995,6 +1092,12 @@ Sem conduzir conversa, o sistema ainda responde **uma única mensagem de confirm
 > válida, só a premissa de "sem template pré-aprovado" ficou incorreta. A dependência
 > de aprovação de template deixou de ser "praticamente eliminada" e passou a ser um
 > risco ativo — ver 10.10.
+>
+> **Correção 15/08 (Prompt 20):** a premissa original (v2.0-2.2) volta a ser verdade —
+> a confirmação voltou a ser texto livre (Service Message), não Message Template. A
+> dependência de aprovação de template por tenant introduzida pelo Prompt 18 (ver
+> parágrafo acima) foi removida; a conclusão sobre custo (gratuita, mensagem de Service
+> dentro de 24h) nunca mudou em nenhuma das duas fases.
 
 Mesma conclusão da pesquisa original quanto a custo (seção mantida para histórico): desde jul/2025 a Meta cobra por mensagem entregue, e mensagens de **Service** (resposta a mensagem iniciada pelo cliente, dentro de 24h) são gratuitas. Como este fluxo é 100% reativo e ~~não usa mensagens interativas com template pré-aprovado~~ (a simplificação removeu os botões), a dependência de aprovação de template da Meta ~~é praticamente eliminada~~ — resta apenas a verificação inicial do Business Manager e do número, que é um passo único, não recorrente.
 
@@ -1003,7 +1106,7 @@ Mesma conclusão da pesquisa original quanto a custo (seção mantida para hist�
 - Verificação do Business Manager e do número (passo único, fora do seu controle de calendário, mas sem repetição a cada mensagem nova como aconteceria com templates).
 - Cliente mandando mensagem sem o marcador `LISTA_PRODUTOS`/`RESPOSTA_FORNECEDOR` reconhecido na 1ª linha — tratado pela mensagem de confirmação/erro da seção 10.7, mas vale monitorar a taxa de rejeição nas primeiras semanas para calibrar o limiar de similaridade se necessário.
 - Limite inicial de mensagens iniciadas pela empresa por dia — irrelevante aqui, já que o fluxo é 100% respostas a mensagens do cliente, não mensagens iniciadas pela empresa.
-- **Novo (12/08, Prompt 18):** os 2 templates (`SUCESSO`/`ERRO`) de cada tenant precisam ser criados e aprovados previamente no Business Manager — passo manual, fora do controle do código, repetido por tenant (não é mais um passo único de plataforma como a verificação inicial do número). Enquanto um tenant não tiver os 2 templates aprovados e cadastrados no Admin PRX, a decisão de produto é não enviar nenhuma confirmação (ver 10.7) — não há fallback em texto livre.
+- ~~**12/08, Prompt 18:** os 2 templates (`SUCESSO`/`ERRO`) de cada tenant precisam ser criados e aprovados previamente no Business Manager — passo manual, fora do controle do código, repetido por tenant.~~ **Superado a partir de 15/08/2026 (Prompt 20):** a confirmação voltou a ser texto livre (Service Message dentro da janela de 24h) — não depende mais de aprovação de template na Meta. O risco de aprovação por tenant deixou de existir para este fluxo; volta a valer só a verificação única do Business Manager/número, como no desenho original. Enquanto um tenant não tiver cadastrado o conteúdo da vaga correspondente (ou o cenário específico e o fallback `NAO_IDENTIFICADO` estiverem ambos vazios) no Admin PRX, a decisão de produto continua sendo não enviar nenhuma confirmação (ver 10.7).
 
 ### 10.11 Estimativa de horas
 
@@ -1293,6 +1396,57 @@ escolhido, não uma chave de seleção entre N templates. Tela de cadastro nova 
 dentro do Admin PRX já existente, no detalhe do tenant, ao lado de "Usuários" — sem
 inventar layout novo. Falha no envio nunca bloqueia o processamento da mensagem
 recebida em si.
+```
+
+**Prompt 19 — Catálogo de Parâmetros Dinâmicos por Cenário (Templates WhatsApp)** — ✅ concluído (14/08)
+```
+O Prompt 18 deixou os parâmetros do template fixos em 2 posições hardcoded
+(tipoMensagem/detalhe, iguais pros 4 cenários) e o campo "Parâmetros" da tela sem
+efeito funcional. Diagnostique primeiro, pelo código, quais dados de negócio estão
+realmente disponíveis em cada uma das 4 combinações evento×resultado no ponto real de
+envio — não assuma um exemplo genérico. Descubra se template_mensagem já modela evento
+como dimensão própria antes de desenhar o catálogo (não modelava: só distinguia por
+resultado, um único template servindo os 2 eventos ao mesmo tempo — resolvido com
+coluna evento NULLABLE, NULL = genérico/fallback, migração aditiva sem quebrar
+templates já cadastrados). Catálogo de identificadores é constante do sistema,
+escopado por (evento, resultado), nunca editável em runtime pelo tenant — troque o
+campo de anotação livre por botões que inserem {{identificador}} no texto e registram
+a ordem real usada pra montar {{1}}/{{2}}/... no payload posicional da Meta. Valide no
+salvamento que todo identificador usado existe no catálogo do cenário e foi adicionado
+à lista ordenada. MensageriaService/ContextoNotificacao continuam sem conhecer nada de
+Meta Template.
+```
+
+> **Nota (14/08→15/08):** entre o Prompt 19 e o Prompt 20 abaixo, mesmo espírito da
+> nota de 12/08 acima — trabalho real não registrado como prompt numerado nesta lista.
+> O desenho do Prompt 19 (coluna `evento` nullable direto em `template_mensagem`) foi
+> substituído, antes de qualquer deploy, por uma tabela de referência genérica
+> `acao_cliente` (`AcaoClienteEnum`×`ResultadoAcaoCliente`, seedada no boot por
+> `AcaoClienteSetupRunner`), desacoplando o conceito de "ação de negócio" do canal
+> WhatsApp — ver a nota em 10.7 entre os blocos do Prompt 19 e do Prompt 20 para o
+> detalhe completo. Não reconstruído retroativamente aqui como prompt próprio.
+
+**Prompt 20 — Migrar Confirmação de Template Meta para Mensagem Livre (Service Message)** — ✅ concluído (15/08)
+```
+O fluxo do PRX sempre responde de forma síncrona, logo após processar a mensagem
+recebida — o envio de confirmação está, por construção, quase sempre dentro da janela
+de 24h de Customer Service Window do WhatsApp, aberta pela própria mensagem que
+originou a resposta. Dentro dessa janela a Meta permite Service Messages (texto livre,
+sem template pré-aprovado, mesmo endpoint). Migre o mecanismo de envio de
+type:"template" para type:"text", com os parâmetros substituídos por valor real
+diretamente na string ({{identificador}} → valor), não mais posicional. Diagnostique
+primeiro, pelo código, o que já está implementado (evento/resultado ou acao_cliente,
+qual chegou a ser deployado) antes de desenhar em cima. Implemente uma checagem
+defensiva da janela de 24h antes do envio (o timestamp da mensagem recebida já está
+disponível, sem consulta nova) — na prática quase sempre verdadeira, mas trate o caso
+de janela fechada mesmo assim, com log de aviso e sem derrubar o processamento da
+mensagem recebida. Levante o formato exato do erro 131047 da Graph API pra distinguir
+"janela fechada" de qualquer outra falha de envio. MensageriaService continua a única
+porta usada por quem dispara a notificação — a interface não muda, só a implementação
+concreta WhatsApp. Decida o que fazer com os campos remanescentes de Meta Template
+(nome do template, idioma) na tabela/tela — não assuma remoção. Atualize a tela de
+cadastro pra deixar claro que o conteúdo é o texto realmente enviado, não mais um
+preview decorativo.
 ```
 
 ### 12.1 Subagents do Claude Code utilizados neste projeto

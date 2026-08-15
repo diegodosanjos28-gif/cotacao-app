@@ -2,6 +2,7 @@ package com.prx.cotacao.notificacao;
 
 import com.prx.cotacao.notificacao.acaocliente.AcaoClienteEnum;
 
+import java.time.Instant;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
@@ -21,14 +22,21 @@ import java.util.UUID;
  *              solto. Nunca null: {@link AcaoClienteEnum#NAO_IDENTIFICADO} é o valor
  *              explícito pra "nenhum cenário classificado" (ex. formato de mensagem
  *              desconhecido), não mais representado por ausência de valor.
+ * @param mensagemRecebidaEm quando a mensagem que originou esta notificação chegou —
+ *              usado pela implementação concreta de {@link MensageriaService} pra
+ *              checar a janela de 24h de Customer Service Window do WhatsApp antes de
+ *              enviar texto livre (Prompt 20). Vem direto do timestamp já parseado da
+ *              mensagem recebida, sem consulta nova.
  */
 public record ContextoNotificacao(
         UUID tenantId,
         String destinatario,
         AcaoClienteEnum acao,
+        Instant mensagemRecebidaEm,
         Map<String, String> parametros
 ) {
     public ContextoNotificacao {
         Objects.requireNonNull(acao, "acao não pode ser null");
+        Objects.requireNonNull(mensagemRecebidaEm, "mensagemRecebidaEm não pode ser null");
     }
 }

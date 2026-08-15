@@ -201,16 +201,17 @@ function TenantDetalheContent({ tenantId }: { tenantId: string }) {
         meta: { headerClassName: TH_CLASSE, cellClassName: "px-4 py-3 font-medium text-t1" },
       },
       {
-        id: "nomeTemplateMeta",
-        header: "Nome do template (Meta)",
-        cell: ({ row }) => row.original.existente?.nomeTemplateMeta ?? "— não configurado —",
-        meta: { headerClassName: TH_CLASSE, cellClassName: "px-4 py-3" },
-      },
-      {
-        id: "idioma",
-        header: "Idioma",
-        cell: ({ row }) => row.original.existente?.idioma ?? "—",
-        meta: { headerClassName: TH_CLASSE, cellClassName: "px-4 py-3 text-t2" },
+        // Conteúdo é o texto REALMENTE enviado desde o Prompt 20 (Service Message em
+        // texto livre) — é isso que precisa ficar visível na listagem, não os campos
+        // legados de Meta Template (nome/idioma, movidos pro fim do form, opcionais).
+        id: "conteudo",
+        header: "Conteúdo enviado",
+        cell: ({ row }) => {
+          const conteudo = row.original.existente?.conteudo;
+          if (!conteudo) return <span className="text-t3">— não configurado —</span>;
+          return <span className="whitespace-pre-wrap break-words">{conteudo}</span>;
+        },
+        meta: { headerClassName: TH_CLASSE, cellClassName: "px-4 py-3 max-w-xs" },
       },
       {
         id: "status",
@@ -379,7 +380,7 @@ function TenantDetalheContent({ tenantId }: { tenantId: string }) {
               loading={templates === null || acoesCliente === null}
               loadingContent={
                 <tr>
-                  <td colSpan={6} className="px-4 py-6 text-center text-t2">
+                  <td colSpan={5} className="px-4 py-6 text-center text-t2">
                     Carregando...
                   </td>
                 </tr>

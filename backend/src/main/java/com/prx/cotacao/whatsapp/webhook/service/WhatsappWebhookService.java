@@ -153,7 +153,8 @@ public class WhatsappWebhookService {
         if (classificacao.isEmpty()) {
             log.info("Mensagem WhatsApp com formato não reconhecido: messageId={}", mensagem.messageId());
             mensageriaService.enviarMensagemErro(new ContextoNotificacao(
-                    tenantId, mensagem.numeroOrigem(), AcaoClienteEnum.NAO_IDENTIFICADO, parametrosFactory.paraFormatoDesconhecido()));
+                    tenantId, mensagem.numeroOrigem(), AcaoClienteEnum.NAO_IDENTIFICADO, mensagem.timestamp(),
+                    parametrosFactory.paraFormatoDesconhecido()));
             return;
         }
 
@@ -166,14 +167,16 @@ public class WhatsappWebhookService {
                 case RESPOSTA_FORNECEDOR ->
                         parametrosFactory.paraRespostaSucesso(respostaFornecedorService.processar(usuarioId, corpo));
             };
-            mensageriaService.enviarMensagemSucesso(new ContextoNotificacao(tenantId, mensagem.numeroOrigem(), acao, parametros));
+            mensageriaService.enviarMensagemSucesso(
+                    new ContextoNotificacao(tenantId, mensagem.numeroOrigem(), acao, mensagem.timestamp(), parametros));
         } catch (RuntimeException e) {
             log.warn("Falha ao processar mensagem WhatsApp: messageId={}, tipo={}", mensagem.messageId(), tipo, e);
             Map<String, String> parametros = switch (tipo) {
                 case LISTA_PRODUTOS -> parametrosFactory.paraListaErro();
                 case RESPOSTA_FORNECEDOR -> parametrosFactory.paraRespostaErro();
             };
-            mensageriaService.enviarMensagemErro(new ContextoNotificacao(tenantId, mensagem.numeroOrigem(), acao, parametros));
+            mensageriaService.enviarMensagemErro(
+                    new ContextoNotificacao(tenantId, mensagem.numeroOrigem(), acao, mensagem.timestamp(), parametros));
         }
     }
 
