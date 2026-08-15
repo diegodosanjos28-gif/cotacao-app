@@ -31,8 +31,6 @@ function TemplateMensagemForm({
   onClose: () => void;
   onSalvo: (template: TemplateMensagem) => void;
 }) {
-  const [nomeTemplateMeta, setNomeTemplateMeta] = useState(template?.nomeTemplateMeta ?? "");
-  const [idioma, setIdioma] = useState(template?.idioma ?? "");
   const [conteudo, setConteudo] = useState(template?.conteudo ?? "");
   const [ativo, setAtivo] = useState(template?.ativo ?? true);
   const [salvando, setSalvando] = useState(false);
@@ -81,8 +79,6 @@ function TemplateMensagemForm({
     try {
       const dados: TemplateMensagemRequest = {
         acaoClienteId: acaoCliente.id,
-        nomeTemplateMeta: nomeTemplateMeta || null,
-        idioma: idioma || null,
         conteudo: conteudo || null,
         ativo,
       };
@@ -132,33 +128,6 @@ function TemplateMensagemForm({
           {catalogo.length === 0 && <span className="text-xs text-t3">Nenhum parâmetro disponível para este cenário.</span>}
         </div>
       </div>
-      <details className="rounded-md border border-bdr px-3 py-2">
-        <summary className="cursor-pointer text-xs font-medium text-t2">
-          Campos legados (Meta Template) — opcional, uso histórico
-        </summary>
-        <div className="mt-2 space-y-3">
-          <div>
-            <label className="text-xs font-medium text-t2">Nome do template (Meta)</label>
-            <input
-              type="text"
-              value={nomeTemplateMeta}
-              onChange={(e) => setNomeTemplateMeta(e.target.value)}
-              placeholder="Não usado no envio atual — mantido só como referência histórica"
-              className="mt-1 w-full rounded-md border border-bdr px-3 py-2 text-sm outline-none focus:border-prx"
-            />
-          </div>
-          <div>
-            <label className="text-xs font-medium text-t2">Idioma</label>
-            <input
-              type="text"
-              value={idioma}
-              onChange={(e) => setIdioma(e.target.value)}
-              placeholder="Não usado no envio atual — mantido só como referência histórica"
-              className="mt-1 w-full rounded-md border border-bdr px-3 py-2 text-sm outline-none focus:border-prx"
-            />
-          </div>
-        </div>
-      </details>
       <label className="flex items-center gap-2 text-sm text-t2">
         <input type="checkbox" checked={ativo} onChange={(e) => setAtivo(e.target.checked)} />
         Ativo

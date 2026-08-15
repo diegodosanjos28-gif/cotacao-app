@@ -457,6 +457,19 @@ export interface ItemCatalogoParametro {
   rotulo: string;
 }
 
+// Uma "vaga" é o par (AcaoCliente, template já configurado para ela ou null). O grid de
+// Templates de Mensagens (Prompt 21) agrupa vagas por evento: o Fallback fica isolado
+// (tipo "fallback"), as demais viram uma linha por `acao` com Sucesso e Erro juntos
+// (tipo "evento") — mesma origem de dados de sempre, só reorganizada na apresentação.
+export interface VagaTemplate {
+  acaoCliente: AcaoCliente;
+  existente: TemplateMensagem | null;
+}
+
+export type VagaTemplateLinha =
+  | { tipo: "fallback"; vaga: VagaTemplate }
+  | { tipo: "evento"; acao: TipoAcaoCliente; label: string; sucesso: VagaTemplate; erro: VagaTemplate };
+
 export interface UsuarioTelefone {
   id: string;
   numeroWhatsapp: string;

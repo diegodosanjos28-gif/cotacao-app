@@ -979,6 +979,36 @@ A troca de marca do exemplo original (cliente pede "bombom nestle", fornecedor c
 >   por uma coluna "Conteúdo enviado" — é isso que reflete o que de fato é mandado ao
 >   cliente desde este prompt.
 
+> **Atualizado a partir de 15/08/2026 (Prompt 21) — grid de Templates agrupado por
+> evento.** Reorganização **puramente de apresentação** da tela Admin > Tenant >
+> "Templates de Mensagens" — nenhum impacto no mecanismo de resolução/envio de template
+> (Prompts 19/20 acima continuam valendo tal como descritos), no schema, ou nos
+> endpoints de `TemplateMensagemAdminController`.
+>
+> - **Grid**: de 5 linhas (uma por combinação `acao×resultado`) para **3 linhas** — o
+>   fallback `NAO_IDENTIFICADO` continua isolado, com o modal simples de sempre; as
+>   outras duas linhas agrupam por `acao` (`INSERIR_PRODUTOS` → "Lista de Produtos",
+>   `REGISTRAR_RESPOSTA` → "Resposta de Fornecedor"), cada uma representando os dois
+>   registros `TemplateMensagem` (Sucesso e Erro) daquele `acao`. O agrupamento é feito
+>   inteiramente no frontend, sobre os mesmos dois recursos já buscados antes
+>   (`GET /admin/tenants/{id}/templates-mensagem` + `GET /admin/acoes-cliente`) — nenhuma
+>   chamada nova, nenhum endpoint de batch.
+> - **Modal de evento**: ao clicar "Configurar"/"Editar" numa linha de evento, abre um
+>   modal novo (`TemplateMensagemEventoFormModal`) com abas Sucesso/Erro — cada aba tem
+>   seu próprio conteúdo, checkbox Ativo e catálogo de parâmetros (buscado
+>   independentemente por `acaoClienteId`, já que Sucesso e Erro têm catálogos
+>   diferentes desde o Prompt 19). Um único botão "Salvar" dispara a criação/atualização
+>   das duas seções em paralelo (`POST`/`PUT` continuam sendo 1 chamada por
+>   `(tenant, acaoClienteId)`, como sempre foram); só fecha o modal se as duas tiverem
+>   sucesso — numa falha parcial, mantém o modal aberto na seção com erro, e uma seção já
+>   salva com sucesso passa a usar `PUT` (nunca repete `POST`) numa nova tentativa.
+> - **Campos legados de Meta Template removidos da UI**: `nomeTemplateMeta`/`idioma`
+>   (antes numa seção recolhível "Campos legados") saíram dos dois modais (Fallback e
+>   Evento). Mudança só de apresentação — as colunas no banco continuam existindo,
+>   nullable, sem uso (ver nota do Prompt 20 acima); como o `PUT` sempre substitui os
+>   campos editáveis por completo, salvar um template pela tela agora zera esses dois
+>   campos se algum valor legado ainda existisse.
+
 **Texto original (v2.0-2.2, mantido para histórico — não reflete mais o comportamento real):**
 Sem conduzir conversa, o sistema ainda responde **uma única mensagem de confirmação** por entrada processada — por exemplo, `"✅ Lista recebida e adicionada à sua cotação."`, `"✅ Resposta do fornecedor recebida, aguardando conferência do operador."` (texto ajustado no Prompt 15 — "registrada" deixou de ser verdade a partir da unificação Web/WhatsApp, ver seção 10.6), ou, quando a 1ª linha não é reconhecida (seção 10.3), `"⚠️ Não consegui identificar o formato da sua mensagem. Comece com LISTA_PRODUTOS ou RESPOSTA_FORNECEDOR na primeira linha."`. Isso não é fluxo conversacional (não há passos nem botões), é só um recibo — sem ele, o cliente manda a lista e não tem nenhum sinal de que funcionou.
 
@@ -1448,6 +1478,27 @@ concreta WhatsApp. Decida o que fazer com os campos remanescentes de Meta Templa
 cadastro pra deixar claro que o conteúdo é o texto realmente enviado, não mais um
 preview decorativo.
 ```
+
+**Prompt 21 — Agrupar Configuração de Templates por Evento (1 linha, 2 resultados no mesmo modal)** — ✅ concluído (15/08)
+```
+A tela Admin > Tenant > "Templates de Mensagens" mostra hoje 5 linhas (uma por
+combinação evento×resultado). Reduza pra 3 linhas — uma por evento (Fallback universal
+continua isolado, sem grupo), agrupando Lista de Produtos e Resposta de Fornecedor.
+Clicar em "Configurar" numa linha de evento abre um modal que permite configurar os
+dois resultados possíveis daquele evento (Sucesso e Erro) no mesmo lugar, com um
+catálogo de parâmetros próprio por resultado e um Ativo independente por resultado.
+Diagnostique primeiro, pelo código, a origem real dos dados do grid e o modelo por trás
+de Sucesso/Erro/Fallback antes de desenhar em cima — não assuma. É reorganização de
+apresentação: não muda o mecanismo de envio, resolução de template, ou o catálogo de
+parâmetros dos Prompts 19/20. Decida (documentando a escolha) abas vs. blocos
+empilhados dentro do modal, salvar único vs. por seção, e o formato da prévia de
+conteúdo no grid — mantendo a tabela legível.
+```
+Implementado 100% no frontend (`frontend/`), sem mudança de backend/schema/endpoints —
+o agrupamento por evento é feito client-side sobre os mesmos dois recursos já buscados
+antes (`listarTemplatesMensagem` + `listarAcoesCliente`). Ver a nota do Prompt 21 na
+seção 10.7 para o detalhamento técnico (grid, modal com abas Sucesso/Erro, orquestração
+de salvamento parcial, remoção dos campos legados de Meta Template da UI).
 
 ### 12.1 Subagents do Claude Code utilizados neste projeto
 

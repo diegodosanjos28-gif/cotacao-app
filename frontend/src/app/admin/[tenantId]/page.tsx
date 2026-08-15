@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useMemo, useState } from "react";
+import { ReactNode, use, useMemo, useState } from "react";
 import Link from "next/link";
 import { ColumnDef, getCoreRowModel, useReactTable } from "@tanstack/react-table";
 import DataGrid from "@/components/grid/DataGrid";
@@ -19,10 +19,18 @@ import {
 import { formatarData } from "@/lib/format";
 import { getErrorMessage } from "@/lib/errors";
 import { useAsync } from "@/hooks/useAsync";
-import { AcaoCliente, ResultadoAcaoCliente, TemplateMensagem, UsuarioAdmin } from "@/lib/types";
+import {
+  ResultadoAcaoCliente,
+  TemplateMensagem,
+  TipoAcaoCliente,
+  UsuarioAdmin,
+  VagaTemplate,
+  VagaTemplateLinha,
+} from "@/lib/types";
 import TenantFormModal from "../components/TenantFormModal";
 import UsuarioFormModal from "./components/UsuarioFormModal";
 import TemplateMensagemFormModal from "./components/TemplateMensagemFormModal";
+import TemplateMensagemEventoFormModal from "./components/TemplateMensagemEventoFormModal";
 
 const TH_CLASSE = "px-4 py-3 font-medium";
 
@@ -35,9 +43,14 @@ function labelResultado(resultado: ResultadoAcaoCliente): string {
   return resultado ? LABEL_RESULTADO[resultado] : "—";
 }
 
-interface VagaTemplate {
-  acaoCliente: AcaoCliente;
-  existente: TemplateMensagem | null;
+const LABEL_EVENTO: Record<Exclude<TipoAcaoCliente, "NAO_IDENTIFICADO">, string> = {
+  INSERIR_PRODUTOS: "Lista de Produtos",
+  REGISTRAR_RESPOSTA: "Resposta de Fornecedor",
+};
+
+function truncar(conteudo: string | null | undefined): ReactNode {
+  if (!conteudo) return <span className="text-t3">— não configurado —</span>;
+  return <span className="text-t2">{conteudo.length > 60 ? `${conteudo.slice(0, 60)}…` : conteudo}</span>;
 }
 
 function SenhaGeradaModal({ senha, onClose }: { senha: string | null; onClose: () => void }) {
@@ -88,7 +101,8 @@ function TenantDetalheContent({ tenantId }: { tenantId: string }) {
   const [abaAtiva, setAbaAtiva] = useState<"usuarios" | "templates">("usuarios");
   const [editarTenantAberto, setEditarTenantAberto] = useState(false);
   const [modalUsuario, setModalUsuario] = useState<{ usuario: UsuarioAdmin | null } | null>(null);
-  const [modalTemplate, setModalTemplate] = useState<VagaTemplate | null>(null);
+  const [modalFallback, setModalFallback] = useState<VagaTemplate | null>(null);
+  const [modalEvento, setModalEvento] = useState<(VagaTemplateLinha & { tipo: "evento" }) | null>(null);
   const [senhaGerada, setSenhaGerada] = useState<string | null>(null);
   const [resetando, setResetando] = useState<string | null>(null);
   const [erroReset, setErroReset] = useState<string | null>(null);
@@ -108,6 +122,10 @@ function TenantDetalheContent({ tenantId }: { tenantId: string }) {
       const existe = lista.some((t) => t.id === template.id);
       return existe ? lista.map((t) => (t.id === template.id ? template : t)) : [template, ...lista];
     });
+  }
+
+  function onTemplatesEventoSalvos(salvos: TemplateMensagem[]) {
+    salvos.forEach(onTemplateSalvo);
   }
 
   async function onResetarSenha(usuario: UsuarioAdmin) {
@@ -177,65 +195,134 @@ function TenantDetalheContent({ tenantId }: { tenantId: string }) {
     getCoreRowModel: getCoreRowModel(),
   });
 
-  const vagasTemplate = useMemo<VagaTemplate[]>(
-    () =>
-      (acoesCliente ?? []).map((acaoCliente) => ({
-        acaoCliente,
-        existente: templates?.find((t) => t.acaoClienteId === acaoCliente.id) ?? null,
-      })),
-    [acoesCliente, templates],
-  );
+  const linhasTemplate = useMemo<VagaTemplateLinha[]>(() => {
+    const vagas: VagaTemplate[] = (acoesCliente ?? []).map((acaoCliente) => ({
+      acaoCliente,
+      existente: templates?.find((t) => t.acaoClienteId === acaoCliente.id) ?? null,
+    }));
 
-  const colunasTemplates = useMemo<ColumnDef<VagaTemplate>[]>(
+    const linhas: VagaTemplateLinha[] = vagas
+      .filter((v) => v.acaoCliente.acao === "NAO_IDENTIFICADO")
+      .map((vaga) => ({ tipo: "fallback" as const, vaga }));
+
+    const porAcao = new Map<TipoAcaoCliente, VagaTemplate[]>();
+    for (const v of vagas) {
+      if (v.acaoCliente.acao === "NAO_IDENTIFICADO") continue;
+      const lista = porAcao.get(v.acaoCliente.acao) ?? [];
+      lista.push(v);
+      porAcao.set(v.acaoCliente.acao, lista);
+    }
+
+    for (const [acao, lista] of porAcao) {
+      const sucesso = lista.find((v) => v.acaoCliente.resultado === "SUCESSO");
+      const erro = lista.find((v) => v.acaoCliente.resultado === "ERRO");
+      if (!sucesso || !erro) {
+        // Defensivo: o seed garante o par Sucesso+Erro, mas não deve travar a tela
+        // inteira se o catálogo estiver incompleto por algum motivo.
+        console.warn(`Catálogo acoesCliente incompleto para acao=${acao}: falta ${!sucesso ? "SUCESSO" : "ERRO"}.`);
+        continue;
+      }
+      linhas.push({ tipo: "evento", acao, label: LABEL_EVENTO[acao as Exclude<TipoAcaoCliente, "NAO_IDENTIFICADO">], sucesso, erro });
+    }
+
+    return linhas;
+  }, [acoesCliente, templates]);
+
+  const colunasTemplates = useMemo<ColumnDef<VagaTemplateLinha>[]>(
     () => [
       {
         id: "evento",
         header: "Evento",
-        cell: ({ row }) => row.original.acaoCliente.descricao,
+        cell: ({ row }) => (row.original.tipo === "fallback" ? row.original.vaga.acaoCliente.descricao : row.original.label),
         meta: { headerClassName: TH_CLASSE, cellClassName: "px-4 py-3 text-t2" },
       },
       {
         id: "resultado",
         header: "Resultado",
-        cell: ({ row }) => labelResultado(row.original.acaoCliente.resultado),
+        cell: ({ row }) =>
+          row.original.tipo === "fallback" ? labelResultado(row.original.vaga.acaoCliente.resultado) : "Sucesso / Erro",
         meta: { headerClassName: TH_CLASSE, cellClassName: "px-4 py-3 font-medium text-t1" },
       },
       {
         // Conteúdo é o texto REALMENTE enviado desde o Prompt 20 (Service Message em
-        // texto livre) — é isso que precisa ficar visível na listagem, não os campos
-        // legados de Meta Template (nome/idioma, movidos pro fim do form, opcionais).
+        // texto livre) — é isso que precisa ficar visível na listagem.
         id: "conteudo",
         header: "Conteúdo enviado",
         cell: ({ row }) => {
-          const conteudo = row.original.existente?.conteudo;
-          if (!conteudo) return <span className="text-t3">— não configurado —</span>;
-          return <span className="whitespace-pre-wrap break-words">{conteudo}</span>;
+          const linha = row.original;
+          if (linha.tipo === "fallback") {
+            const conteudo = linha.vaga.existente?.conteudo;
+            if (!conteudo) return <span className="text-t3">— não configurado —</span>;
+            return <span className="whitespace-pre-wrap break-words">{conteudo}</span>;
+          }
+          return (
+            <div className="space-y-1">
+              <div className="flex items-baseline gap-1 truncate">
+                <span className="text-xs text-t3">S:</span>
+                {truncar(linha.sucesso.existente?.conteudo)}
+              </div>
+              <div className="flex items-baseline gap-1 truncate">
+                <span className="text-xs text-t3">E:</span>
+                {truncar(linha.erro.existente?.conteudo)}
+              </div>
+            </div>
+          );
         },
         meta: { headerClassName: TH_CLASSE, cellClassName: "px-4 py-3 max-w-xs" },
       },
       {
         id: "status",
         header: "Status",
-        cell: ({ row }) =>
-          row.original.existente ? (
-            <StatusBadge status={row.original.existente.ativo ? "ATIVO" : "INATIVO"} />
-          ) : (
-            <span className="text-t3">—</span>
-          ),
+        cell: ({ row }) => {
+          const linha = row.original;
+          if (linha.tipo === "fallback") {
+            return linha.vaga.existente ? (
+              <StatusBadge status={linha.vaga.existente.ativo ? "ATIVO" : "INATIVO"} />
+            ) : (
+              <span className="text-t3">—</span>
+            );
+          }
+          return (
+            <div className="space-y-1">
+              <div className="flex items-center gap-1">
+                <span className="text-xs text-t3">S:</span>
+                {linha.sucesso.existente ? (
+                  <StatusBadge status={linha.sucesso.existente.ativo ? "ATIVO" : "INATIVO"} />
+                ) : (
+                  <span className="text-t3">—</span>
+                )}
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="text-xs text-t3">E:</span>
+                {linha.erro.existente ? (
+                  <StatusBadge status={linha.erro.existente.ativo ? "ATIVO" : "INATIVO"} />
+                ) : (
+                  <span className="text-t3">—</span>
+                )}
+              </div>
+            </div>
+          );
+        },
         meta: { headerClassName: TH_CLASSE, cellClassName: "px-4 py-3" },
       },
       {
         id: "acoes",
         header: "Ações",
-        cell: ({ row }) => (
-          <button
-            type="button"
-            onClick={() => setModalTemplate(row.original)}
-            className="text-prx hover:underline"
-          >
-            {row.original.existente ? "Editar" : "Configurar"}
-          </button>
-        ),
+        cell: ({ row }) => {
+          const linha = row.original;
+          if (linha.tipo === "fallback") {
+            return (
+              <button type="button" onClick={() => setModalFallback(linha.vaga)} className="text-prx hover:underline">
+                {linha.vaga.existente ? "Editar" : "Configurar"}
+              </button>
+            );
+          }
+          return (
+            <button type="button" onClick={() => setModalEvento(linha)} className="text-prx hover:underline">
+              {linha.sucesso.existente || linha.erro.existente ? "Editar" : "Configurar"}
+            </button>
+          );
+        },
         meta: { headerClassName: TH_CLASSE, cellClassName: "px-4 py-3" },
       },
     ],
@@ -243,9 +330,9 @@ function TenantDetalheContent({ tenantId }: { tenantId: string }) {
   );
 
   const tableTemplates = useReactTable({
-    data: vagasTemplate,
+    data: linhasTemplate,
     columns: colunasTemplates,
-    getRowId: (v) => v.acaoCliente.id,
+    getRowId: (l) => (l.tipo === "fallback" ? l.vaga.acaoCliente.id : l.acao),
     getCoreRowModel: getCoreRowModel(),
   });
 
@@ -361,11 +448,11 @@ function TenantDetalheContent({ tenantId }: { tenantId: string }) {
         {abaAtiva === "templates" && (
           <>
             <p className="mt-4 text-sm text-t2">
-              Confirmação enviada por WhatsApp após cada mensagem recebida. A vaga &quot;Não identificado&quot; serve
+              Confirmação enviada por WhatsApp após cada mensagem recebida. A linha &quot;Não identificado&quot; serve
               de fallback universal (usada quando não há um template específico configurado, e sempre usada para
-              mensagens de formato não reconhecido). As outras 4 vagas são opcionais — configure-as se quiser
-              personalizar a mensagem de Lista de Produtos e Resposta de Fornecedor separadamente, com parâmetros
-              próprios de cada cenário.
+              mensagens de formato não reconhecido). As outras duas linhas — Lista de Produtos e Resposta de
+              Fornecedor — são opcionais e agrupam os cenários de Sucesso e Erro no mesmo formulário, cada um com
+              conteúdo, ativação e parâmetros próprios.
             </p>
 
             {erroTemplates && <p className="mt-2 text-sm text-er">{erroTemplates}</p>}
@@ -407,14 +494,25 @@ function TenantDetalheContent({ tenantId }: { tenantId: string }) {
           onSalvo={onUsuarioSalvo}
         />
       )}
-      {modalTemplate && (
+      {modalFallback && (
         <TemplateMensagemFormModal
-          open={modalTemplate !== null}
-          onClose={() => setModalTemplate(null)}
+          open={modalFallback !== null}
+          onClose={() => setModalFallback(null)}
           tenantId={tenantId}
-          acaoCliente={modalTemplate.acaoCliente}
-          template={modalTemplate.existente}
+          acaoCliente={modalFallback.acaoCliente}
+          template={modalFallback.existente}
           onSalvo={onTemplateSalvo}
+        />
+      )}
+      {modalEvento && (
+        <TemplateMensagemEventoFormModal
+          open={modalEvento !== null}
+          onClose={() => setModalEvento(null)}
+          tenantId={tenantId}
+          label={modalEvento.label}
+          sucesso={modalEvento.sucesso}
+          erro={modalEvento.erro}
+          onSalvos={onTemplatesEventoSalvos}
         />
       )}
       <SenhaGeradaModal senha={senhaGerada} onClose={() => setSenhaGerada(null)} />
