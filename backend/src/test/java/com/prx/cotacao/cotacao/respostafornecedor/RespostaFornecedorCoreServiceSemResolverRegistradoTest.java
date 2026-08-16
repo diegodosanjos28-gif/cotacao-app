@@ -13,6 +13,7 @@ import com.prx.cotacao.cotacao.respostafornecedor.processor.resolver.whats.Param
 import com.prx.cotacao.cotacao.respostafornecedor.repository.CotacaoFornecedorRepository;
 import com.prx.cotacao.cotacao.respostafornecedor.repository.CotacaoProdutoFornecedorRepository;
 import com.prx.cotacao.cotacao.respostafornecedor.service.ClassificacaoConferenciaService;
+import com.prx.cotacao.cotacao.respostafornecedor.service.ItemBaseCatalogoResolver;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -56,6 +57,7 @@ class RespostaFornecedorCoreServiceSemResolverRegistradoTest {
                 mock(ConciliacaoRespostaService.class),
                 mock(ClassificacaoConferenciaService.class),
                 mock(PrecoReferenciaService.class),
+                mock(ItemBaseCatalogoResolver.class),
                 List.of(new StrategyFalsaQueSoAceitaWeb()));
 
         assertThrows(IllegalStateException.class, () -> core.processar(

@@ -20,6 +20,7 @@ import com.prx.cotacao.cotacao.respostafornecedor.repository.CotacaoFornecedorRe
 import com.prx.cotacao.cotacao.respostafornecedor.repository.CotacaoProdutoFornecedorRepository;
 import com.prx.cotacao.cotacao.respostafornecedor.service.ClassificacaoConferenciaService;
 import com.prx.cotacao.cotacao.respostafornecedor.service.ConfirmacaoRespostaService;
+import com.prx.cotacao.cotacao.respostafornecedor.service.ItemBaseCatalogoResolver;
 import com.prx.cotacao.shared.error.ConflictException;
 import com.prx.cotacao.shared.error.ResourceNotFoundException;
 import org.slf4j.Logger;
@@ -74,6 +75,7 @@ public class RespostaFornecedorCoreService {
     private final ConciliacaoRespostaService conciliacaoResposta;
     private final ClassificacaoConferenciaService classificacaoConferencia;
     private final PrecoReferenciaService precoReferencia;
+    private final ItemBaseCatalogoResolver itemBaseCatalogoResolver;
     private final Map<Class<? extends ParametroResolucaoFornecedor>, ResolvedorFornecedorRespostaStrategy> resolvedoresPorTipo;
 
     public RespostaFornecedorCoreService(CotacaoRepository cotacaoRepository,
@@ -84,6 +86,7 @@ public class RespostaFornecedorCoreService {
                                           ConciliacaoRespostaService conciliacaoResposta,
                                           ClassificacaoConferenciaService classificacaoConferencia,
                                           PrecoReferenciaService precoReferencia,
+                                          ItemBaseCatalogoResolver itemBaseCatalogoResolver,
                                           List<ResolvedorFornecedorRespostaStrategy> resolvedores) {
         this.cotacaoRepository = cotacaoRepository;
         this.cotacaoProdutoRepository = cotacaoProdutoRepository;
@@ -93,6 +96,7 @@ public class RespostaFornecedorCoreService {
         this.conciliacaoResposta = conciliacaoResposta;
         this.classificacaoConferencia = classificacaoConferencia;
         this.precoReferencia = precoReferencia;
+        this.itemBaseCatalogoResolver = itemBaseCatalogoResolver;
         // Collectors.toMap já falha rápido (Duplicate key) na subida do contexto se
         // dois beans um dia declararem o mesmo tipoAceito() — guarda de configuração,
         // não precisa de teste dedicado.
@@ -133,13 +137,9 @@ public class RespostaFornecedorCoreService {
                         "Fornecedor " + fornecedorId + " não foi adicionado à cotação " + cotacaoId));
 
         List<CotacaoProduto> itensBase = cotacaoProdutoRepository.findByCotacaoIdAndRemovidoEmIsNullOrderByOrdem(cotacaoId);
-        List<ProdutoCatalogo> produtosBase = itensBase.stream()
-                .map(cp -> new ProdutoCatalogo(cp.getId(), cp.getTextoOriginal()))
-                .toList();
-        Map<UUID, String> nomesPorItemBase = new HashMap<>();
-        for (CotacaoProduto cp : itensBase) {
-            nomesPorItemBase.put(cp.getId(), cp.getTextoOriginal());
-        }
+        ItemBaseCatalogoResolver.ItensBaseResolvidos itensBaseResolvidos = itemBaseCatalogoResolver.resolver(itensBase);
+        List<ProdutoCatalogo> produtosBase = itensBaseResolvidos.produtosBase();
+        Map<UUID, String> nomesPorItemBase = itensBaseResolvidos.nomesPorItemBase();
 
         ResultadoResposta resposta = parserResposta.parsear(texto);
         List<LinhaFornecedor> linhasValidas = resposta.linhas().stream()

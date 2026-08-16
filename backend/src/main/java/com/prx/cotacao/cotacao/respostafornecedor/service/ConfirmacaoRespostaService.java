@@ -71,6 +71,7 @@ public class ConfirmacaoRespostaService {
     private final ClassificacaoConferenciaService classificacaoConferencia;
     private final MatchingProdutoService matchingProduto;
     private final PrecoReferenciaService precoReferencia;
+    private final ItemBaseCatalogoResolver itemBaseCatalogoResolver;
 
     public ConfirmacaoRespostaService(CotacaoRepository cotacaoRepository,
                                        CotacaoProdutoRepository cotacaoProdutoRepository,
@@ -81,7 +82,8 @@ public class ConfirmacaoRespostaService {
                                        ConciliacaoRespostaService conciliacaoResposta,
                                        ClassificacaoConferenciaService classificacaoConferencia,
                                        MatchingProdutoService matchingProduto,
-                                       PrecoReferenciaService precoReferencia) {
+                                       PrecoReferenciaService precoReferencia,
+                                       ItemBaseCatalogoResolver itemBaseCatalogoResolver) {
         this.cotacaoRepository = cotacaoRepository;
         this.cotacaoProdutoRepository = cotacaoProdutoRepository;
         this.cpfRepository = cpfRepository;
@@ -92,6 +94,7 @@ public class ConfirmacaoRespostaService {
         this.classificacaoConferencia = classificacaoConferencia;
         this.matchingProduto = matchingProduto;
         this.precoReferencia = precoReferencia;
+        this.itemBaseCatalogoResolver = itemBaseCatalogoResolver;
     }
 
     @Transactional
@@ -109,13 +112,9 @@ public class ConfirmacaoRespostaService {
                         "Fornecedor " + fornecedorId + " não foi adicionado à cotação " + cotacaoId));
 
         List<CotacaoProduto> itensBase = new ArrayList<>(cotacaoProdutoRepository.findByCotacaoIdAndRemovidoEmIsNullOrderByOrdem(cotacaoId));
-        List<ProdutoCatalogo> produtosBase = itensBase.stream()
-                .map(cp -> new ProdutoCatalogo(cp.getId(), cp.getTextoOriginal()))
-                .toList();
-        Map<UUID, String> nomesPorItemBase = new HashMap<>();
-        for (CotacaoProduto cp : itensBase) {
-            nomesPorItemBase.put(cp.getId(), cp.getTextoOriginal());
-        }
+        ItemBaseCatalogoResolver.ItensBaseResolvidos itensBaseResolvidos = itemBaseCatalogoResolver.resolver(itensBase);
+        List<ProdutoCatalogo> produtosBase = itensBaseResolvidos.produtosBase();
+        Map<UUID, String> nomesPorItemBase = itensBaseResolvidos.nomesPorItemBase();
 
         // Recomputa o mesmo pipeline do preview — o texto é a única fonte de verdade
         // reenviada pelo cliente; preço/marca/texto finais de itens auto-aceitos vêm
