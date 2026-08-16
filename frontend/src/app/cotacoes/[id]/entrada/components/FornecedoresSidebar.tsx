@@ -87,7 +87,10 @@ export default function FornecedoresSidebar({
 
       {erro && <p className="mt-2 text-xs text-er">{erro}</p>}
 
-      <div className="mt-3 max-h-[480px] space-y-2.5 overflow-y-auto pr-0.5">
+      {/* Sem altura/scroll próprios (Prompt 25, feedback 2026-08-16) — a página já tem
+          um único contêiner de scroll (entrada/page.tsx); um overflow-y-auto aqui
+          dentro criava scroll aninhado. */}
+      <div className="mt-3 space-y-2.5">
         {fornecedoresFiltrados.map((f, i) => {
           const jaAdicionado = fornecedoresJaAdicionadosIds.includes(f.id);
           const selecionavel = !jaAdicionado;

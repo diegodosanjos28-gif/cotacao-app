@@ -27,7 +27,6 @@ import {
   ResolucaoItemRequest,
 } from "@/lib/types";
 import GridProdutosSection from "./components/GridProdutosSection";
-import GuiaFormatacao from "./components/GuiaFormatacao";
 import FornecedoresCotacoesSection from "./components/FornecedoresCotacoesSection";
 import EntradaFooter from "./components/EntradaFooter";
 import EntradaStepper, { PassoEntrada, PassoInfo } from "./components/EntradaStepper";
@@ -204,6 +203,12 @@ function EntradaContent({ cotacaoId }: { cotacaoId: string }) {
     }
   }
 
+  // Botão único do passo 1 no rodapé (Prompt 25, feedback 2026-08-16) — só avança a
+  // timeline, mesma navegação de clicar no marcador "2" do EntradaStepper.
+  function onAvancarPasso() {
+    setPassoAtivo(2);
+  }
+
   // "Cancelar Conferência" (achado do usuário, 2026-08-04): diferente de onClosePreview
   // (que só esconde o modal preservando tudo), isto apaga a resposta do fornecedor de
   // verdade — no backend (DELETE .../resposta, volta cotacao_fornecedor.status pra
@@ -268,7 +273,7 @@ function EntradaContent({ cotacaoId }: { cotacaoId: string }) {
     return (
       <>
         <NavBar />
-        <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-8">
+        <main className="mx-auto w-full max-w-[1680px] flex-1 px-6 py-8">
           {erro ? <p className="text-sm text-er">{erro}</p> : <p className="text-sm text-t2">Carregando...</p>}
         </main>
       </>
@@ -301,27 +306,35 @@ function EntradaContent({ cotacaoId }: { cotacaoId: string }) {
   return (
     <>
       <NavBar />
-      <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-8 space-y-8">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-t1">{cotacao.titulo}</h1>
-          <div className="mt-1">
-            <StatusBadge status={cotacao.status} />
+      {/* Altura fixa (viewport - NavBar de 3.5rem) e sem scroll na página inteira
+          (Prompt 25, feedback 2026-08-16) — só a área do passo ativo, logo abaixo,
+          rola internamente se o conteúdo não couber; header, stepper e o rodapé de
+          ações ficam sempre visíveis, sem precisar rolar. max-w bem mais largo que o
+          antigo max-w-6xl pra não sobrar tanto espaço em branco nas laterais em
+          telas largas. */}
+      <main className="mx-auto flex h-[calc(100vh-3.5rem)] w-full max-w-[1680px] flex-col overflow-hidden px-6 py-6">
+        <div className="shrink-0 space-y-3">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight text-t1">{cotacao.titulo}</h1>
+            <div className="mt-1">
+              <StatusBadge status={cotacao.status} />
+            </div>
           </div>
+
+          {erro && <p className="text-sm text-er">{erro}</p>}
+
+          {precisaAjuste && (
+            <p className="rounded-md border border-wa/30 bg-wa-d px-4 py-3 text-sm text-t2">
+              Revise os itens recebidos por WhatsApp antes de seguir para a conferência de fornecedores —
+              corrija quantidade, unidade ou o produto identificado. Fornecedores e Conferência ficam
+              disponíveis depois de concluir este ajuste.
+            </p>
+          )}
         </div>
 
-        {erro && <p className="text-sm text-er">{erro}</p>}
-
-        {precisaAjuste && (
-          <p className="rounded-md border border-wa/30 bg-wa-d px-4 py-3 text-sm text-t2">
-            Revise os itens recebidos por WhatsApp antes de seguir para a conferência de fornecedores —
-            corrija quantidade, unidade ou o produto identificado. Fornecedores e Conferência ficam
-            disponíveis depois de concluir este ajuste.
-          </p>
-        )}
-
         {precisaAjuste ? (
-          <>
-            <div className="flex flex-col">
+          <div className="mt-4 flex min-h-0 flex-1 flex-col gap-4">
+            <div className="min-h-0 flex-1 overflow-y-auto">
               <GridProdutosSection
                 cotacaoId={cotacaoId}
                 itens={itensLista}
@@ -332,7 +345,7 @@ function EntradaContent({ cotacaoId }: { cotacaoId: string }) {
                 cotacaoFinalizada={cotacao.status === "FINALIZADA"}
               />
             </div>
-            <div className="flex items-center justify-end">
+            <div className="shrink-0 flex items-center justify-end">
               <button
                 type="button"
                 onClick={onConcluirAjuste}
@@ -342,72 +355,82 @@ function EntradaContent({ cotacaoId }: { cotacaoId: string }) {
                 {concluindoAjuste ? "Concluindo..." : "Concluir ajuste e seguir para conferência"}
               </button>
             </div>
-          </>
+          </div>
         ) : (
           <>
-            <EntradaStepper passos={passos} passoAtivo={passoAtivo} onSelecionar={onSelecionarPasso} />
+            <div className="mt-4 shrink-0">
+              <EntradaStepper passos={passos} passoAtivo={passoAtivo} onSelecionar={onSelecionarPasso} />
+            </div>
 
-            {/* Passo 1 — Lista de produtos. Grid ocupa a tela toda; o Guia de
-                formatação virou um botão com ícone (canto superior) que abre um modal,
-                em vez de coluna lateral fixa. Fica sempre montado (nunca desmontado
-                condicionalmente) e só escondido via classe: GridProdutosSection guarda
-                rascunho local (ex: modal "Colar do WhatsApp" com texto ainda não
-                importado) que se perderia se o componente desmontasse ao trocar de
-                passo. */}
-            <div className={passoAtivo === 1 ? "flex flex-col gap-3" : "hidden"}>
-              <div className="flex justify-end">
-                <GuiaFormatacao />
+            {/* Única área com scroll interno da tela — o passo ativo (o outro fica
+                escondido via classe, sempre montado, ver comentários abaixo). */}
+            <div className="mt-4 min-h-0 flex-1 overflow-y-auto">
+              {/* Passo 1 — Lista de produtos. Grid ocupa a tela toda; o Guia de
+                  formatação virou um ícone de dica dentro do próprio Card (ver
+                  GridProdutosSection), no lugar de uma coluna lateral fixa ou de uma
+                  linha própria acima do Card (que desalinhava a altura deste passo com
+                  a do passo 2/3 — achado do usuário, 2026-08-16). Fica sempre montado
+                  (nunca desmontado condicionalmente) e só escondido via classe:
+                  GridProdutosSection guarda rascunho local (ex: modal "Colar do
+                  WhatsApp" com texto ainda não importado) que se perderia se o
+                  componente desmontasse ao trocar de passo. */}
+              <div className={passoAtivo === 1 ? "flex h-full flex-col gap-3" : "hidden"}>
+                <GridProdutosSection
+                  cotacaoId={cotacaoId}
+                  itens={itensLista}
+                  produtos={produtos}
+                  onListaAtualizada={setItensLista}
+                  onProdutosAtualizados={setProdutos}
+                  setErro={setErro}
+                  cotacaoFinalizada={cotacao.status === "FINALIZADA"}
+                />
               </div>
-              <GridProdutosSection
-                cotacaoId={cotacaoId}
-                itens={itensLista}
-                produtos={produtos}
-                onListaAtualizada={setItensLista}
-                onProdutosAtualizados={setProdutos}
-                setErro={setErro}
-                cotacaoFinalizada={cotacao.status === "FINALIZADA"}
-              />
+
+              {/* Passos 2 e 3 — Fornecedores e cotações / Conferência. Só o painel
+                  "Fornecedores e cotações" (o botão "Abrir fornecedores" dentro dele dá
+                  acesso ao catálogo). O passo 3 não tem conteúdo próprio ainda (Prompt
+                  26): reaproveita o mesmo painel do passo 2, só que onSelecionarPasso já
+                  dispara a Conferência do primeiro fornecedor PROCESSADO ao clicar.
+                  Também sempre montado pelo mesmo motivo do passo 1 (estado local do
+                  painel de fornecedores não pode se perder). */}
+              <div className={passoAtivo === 2 || passoAtivo === 3 ? "" : "hidden"}>
+                <FornecedoresCotacoesSection
+                  cotacao={cotacao}
+                  cotacaoId={cotacaoId}
+                  cotacaoFornecedores={cotacaoFornecedores}
+                  todosFornecedores={fornecedores}
+                  onCotacaoFornecedoresAtualizados={recarregarFornecedoresDaCotacao}
+                  onFornecedorAtualizado={onFornecedorSalvo}
+                  onFornecedorInativado={onFornecedorInativado}
+                  onAtivoAlterado={onAtivoAlterado}
+                  onConferirResposta={onConferirResposta}
+                  onCancelarConferencia={onCancelarConferencia}
+                  texto={texto}
+                  setTexto={setTexto}
+                  preview={preview}
+                  modalAberto={rascunhoAtivo.modalAberto}
+                  onClosePreview={() => onEstadoResolucaoChange({ modalAberto: false })}
+                  estadoResolucao={estadoResolucao}
+                  onEstadoResolucaoChange={onEstadoResolucaoChange}
+                  setErro={setErro}
+                />
+              </div>
             </div>
 
-            {/* Passos 2 e 3 — Fornecedores e cotações / Conferência. Só o painel
-                "Fornecedores e cotações" (o botão "Abrir fornecedores" dentro dele dá
-                acesso ao catálogo). O passo 3 não tem conteúdo próprio ainda (Prompt
-                26): reaproveita o mesmo painel do passo 2, só que onSelecionarPasso já
-                dispara a Conferência do primeiro fornecedor PROCESSADO ao clicar.
-                Também sempre montado pelo mesmo motivo do passo 1 (estado local do
-                painel de fornecedores não pode se perder). */}
-            <div className={passoAtivo === 2 || passoAtivo === 3 ? "" : "hidden"}>
-              <FornecedoresCotacoesSection
+            <div className="shrink-0">
+              <EntradaFooter
                 cotacao={cotacao}
-                cotacaoId={cotacaoId}
-                cotacaoFornecedores={cotacaoFornecedores}
-                todosFornecedores={fornecedores}
-                onCotacaoFornecedoresAtualizados={recarregarFornecedoresDaCotacao}
-                onFornecedorAtualizado={onFornecedorSalvo}
-                onFornecedorInativado={onFornecedorInativado}
-                onAtivoAlterado={onAtivoAlterado}
-                onConferirResposta={onConferirResposta}
-                onCancelarConferencia={onCancelarConferencia}
-                texto={texto}
-                setTexto={setTexto}
-                preview={preview}
-                modalAberto={rascunhoAtivo.modalAberto}
-                onClosePreview={() => onEstadoResolucaoChange({ modalAberto: false })}
-                estadoResolucao={estadoResolucao}
-                onEstadoResolucaoChange={onEstadoResolucaoChange}
+                numFornecedores={cotacaoFornecedores.length}
+                onCotacaoAtualizada={setCotacao}
+                passoAtivo={passoAtivo}
+                podeAvancarPasso1={itensLista.length > 0}
+                onAvancarPasso={onAvancarPasso}
+                onProcessar={onProcessar}
+                processando={enviando}
+                podeProcessar={fornecedorAtivo != null && texto.trim() !== ""}
                 setErro={setErro}
               />
             </div>
-
-            <EntradaFooter
-              cotacao={cotacao}
-              numFornecedores={cotacaoFornecedores.length}
-              onCotacaoAtualizada={setCotacao}
-              onProcessar={onProcessar}
-              processando={enviando}
-              podeProcessar={fornecedorAtivo != null && texto.trim() !== ""}
-              setErro={setErro}
-            />
           </>
         )}
       </main>

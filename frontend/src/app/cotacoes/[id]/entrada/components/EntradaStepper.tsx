@@ -23,16 +23,20 @@ interface Props {
 }
 
 export default function EntradaStepper({ passos, passoAtivo, onSelecionar }: Props) {
+  // As linhas conectoras (não os passos) são os elementos flex-1 diretos do
+  // container — é isso que estica a timeline pra ocupar toda a largura do card,
+  // em vez de cada bloco "botão+linha" reivindicar 1/3 fixo e sobrar espaço em
+  // branco depois do último passo (achado do usuário, 2026-08-16).
   return (
     <div className="flex items-center rounded-lg border border-bdr bg-card p-4">
       {passos.map((passo, idx) => {
         const atual = passo.numero === passoAtivo;
         return (
-          <div key={passo.numero} className="flex flex-1 items-center">
+          <div key={passo.numero} className="contents">
             <button
               type="button"
               onClick={() => onSelecionar(passo.numero)}
-              className="flex items-center gap-2.5 text-left"
+              className="flex shrink-0 items-center gap-2.5 text-left"
             >
               <span
                 className={`flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full text-xs font-semibold ${

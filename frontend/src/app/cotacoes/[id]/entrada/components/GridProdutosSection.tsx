@@ -12,6 +12,7 @@ import { normTxt } from "@/lib/normalizacao";
 import { classificarStatusItemGrid } from "@/lib/statusItemGrid";
 import { UNIDADES } from "@/lib/unidades";
 import ColarWhatsappModal from "./ColarWhatsappModal";
+import GuiaFormatacao from "./GuiaFormatacao";
 import NovaLinhaGridProdutos from "./NovaLinhaGridProdutos";
 import ProdutoAutocomplete from "./ProdutoAutocomplete";
 
@@ -433,6 +434,12 @@ export default function GridProdutosSection({
   });
 
   return (
+    // h-full (Prompt 25, feedback 2026-08-16): o passo "Lista de produtos" tem uma
+    // altura disponível fixa (page.tsx reserva o resto da viewport pro passo ativo) —
+    // este Card preenche até o limite dela em vez de encolher pro tamanho do
+    // conteúdo e deixar espaço em branco na página abaixo. Só a tabela (ver mais
+    // abaixo) rola internamente quando o conteúdo excede esse limite — o Card em si
+    // nunca cresce além da altura disponível.
     <Card className="flex h-full flex-col">
       <div className="flex items-center justify-between gap-3">
         <div>
@@ -441,7 +448,13 @@ export default function GridProdutosSection({
             Adicione, edite ou exclua produtos individualmente — ou cole uma lista do WhatsApp de uma vez.
           </p>
         </div>
-        <div className="flex shrink-0 gap-2">
+        <div className="flex shrink-0 items-center gap-2">
+          {/* Guia de formatação (Prompt 25) — vive dentro deste Card como um ícone de
+              dica ao lado das outras ações, em vez de flutuar acima dele numa linha
+              própria (achado do usuário, 2026-08-16: isso desalinhava a altura deste
+              Card com o de "Fornecedores e cotações" no passo ao lado, que não tinha
+              nenhum elemento equivalente empurrando seu topo). */}
+          <GuiaFormatacao />
           <button
             type="button"
             onClick={() => setModalAberto(true)}
@@ -498,20 +511,19 @@ export default function GridProdutosSection({
               value={filtro}
               onChange={(e) => setFiltro(e.target.value)}
               placeholder="Buscar por produto, unidade ou texto original..."
-              className="mt-4 rounded-md border border-bdr px-3 py-2 text-sm outline-none focus:border-prx"
+              className="mt-4 shrink-0 rounded-md border border-bdr px-3 py-2 text-sm outline-none focus:border-prx"
             />
           )}
 
-          {/* Altura fixa em vez de flex-1: mesmo paginado, uma flex-basis dinâmica
-              (flex-1) ainda deixava a altura variar com o conteúdo da página atual —
-              página cheia "empurrava" o Card (esticado pelo CSS Grid pra acompanhar a
-              coluna da direita) além da altura das páginas mais curtas (achado do
-              usuário: "a altura tá mudando de acordo com as linhas"). Um valor
-              numérico (não relativo a flex/grid) é imune ao auto-sizing por
-              min-content do CSS Grid — por isso a altura abaixo é um valor fixo em
-              px, com overflow-y-auto só como rede de segurança pra alguma linha que
-              quebre mais que o normal. */}
-          <div className="mt-4 h-[650px] overflow-y-auto rounded-md border border-bdr">
+          {/* Antes tinha altura fixa (h-[650px]) — um valor imune ao auto-sizing por
+              min-content da antiga CSS Grid de 2 colunas. O Prompt 25 removeu esse
+              layout; agora este Card ocupa min-h-0 flex-1 dentro de uma coluna de
+              altura fixa (a área do passo ativo em page.tsx), então esta é a única
+              caixa com scroll interno — preenche todo o espaço disponível e só rola
+              se o conteúdo (linhas da tabela) ultrapassar esse limite, sem nunca
+              crescer além dele nem duplicar o scroll da página (achado do usuário,
+              2026-08-16). */}
+          <div className="mt-4 min-h-0 flex-1 overflow-y-auto rounded-md border border-bdr">
             <DataGrid
               table={table}
               tableClassName="w-full text-sm"

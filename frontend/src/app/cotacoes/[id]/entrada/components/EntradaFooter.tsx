@@ -9,6 +9,7 @@ import { setCotacaoAtivaId } from "@/lib/cotacaoAtiva";
 import { finalizarCotacao } from "@/lib/api";
 import { getErrorMessage } from "@/lib/errors";
 import { Cotacao } from "@/lib/types";
+import { PassoEntrada } from "./EntradaStepper";
 
 function ClockIcon() {
   return (
@@ -23,6 +24,13 @@ interface Props {
   cotacao: Cotacao;
   numFornecedores: number;
   onCotacaoAtualizada: (cotacao: Cotacao) => void;
+  // Rodapé passa a ter comportamento dinâmico por passo da timeline (Prompt 25 —
+  // feedback de 2026-08-16): no passo 1 (Lista de produtos) é só o botão de avançar
+  // pro próximo passo; nos passos 2/3 (Fornecedores/Conferência) são os botões de
+  // processamento que já existiam.
+  passoAtivo: PassoEntrada;
+  podeAvancarPasso1: boolean;
+  onAvancarPasso: () => void;
   onProcessar: () => void;
   processando: boolean;
   podeProcessar: boolean;
@@ -31,15 +39,17 @@ interface Props {
 
 // Botões e barra de status do fim da tela de Entrada de Dados, espelhando o rodapé
 // do protótipo COTA&TESTA V5 (rBtnCotacao/banner-cotacao-status). "Limpar Cotação"
-// fica desabilitado: removeria fornecedores já vinculados à cotação, e não existe
-// endpoint pra isso hoje (ver diagnóstico do prompt) — não é algo que dê pra compor
-// com segurança a partir dos endpoints atuais sem risco de estado inconsistente.
-// "Processar Cotação" é o único botão de processamento da tela (igual ao protótipo):
-// envia o texto colado no painel do fornecedor ativo para o parser/matching.
+// foi removido (achado do usuário, 2026-08-16): ficava sempre desabilitado, sem
+// endpoint pra isso e sem uso real. "Processar Resposta Cotação" (renomeado de
+// "Processar Cotação") envia o texto colado no painel do fornecedor ativo para o
+// parser/matching.
 export default function EntradaFooter({
   cotacao,
   numFornecedores,
   onCotacaoAtualizada,
+  passoAtivo,
+  podeAvancarPasso1,
+  onAvancarPasso,
   onProcessar,
   processando,
   podeProcessar,
@@ -90,7 +100,7 @@ export default function EntradaFooter({
     : "—";
 
   return (
-    <div className="space-y-3 border-t border-bdr pt-6">
+    <div className="space-y-3 border-t border-bdr pt-4">
       {finalizada ? (
         <div className="flex flex-wrap items-center gap-3 rounded-lg border border-ok/30 bg-ok-d px-4 py-3 text-sm text-t2">
           <span className="text-ok">
@@ -107,30 +117,38 @@ export default function EntradaFooter({
       ) : (
         <>
           <div className="flex flex-wrap items-center justify-center gap-2.5">
-            <button
-              type="button"
-              disabled
-              title="Ainda não há endpoint para remover fornecedores de uma cotação — pendência de backend."
-              className="cursor-not-allowed rounded-md border border-er/40 px-4 py-2 text-sm font-medium text-er opacity-50"
-            >
-              Limpar Cotação
-            </button>
-            <button
-              type="button"
-              onClick={onProcessar}
-              disabled={processando || !podeProcessar}
-              className="rounded-md bg-prx px-5 py-2.5 text-sm font-semibold text-white hover:bg-prx-l disabled:opacity-50"
-            >
-              {processando ? "Processando..." : "Processar Cotação"}
-            </button>
-            <button
-              type="button"
-              onClick={onFinalizar}
-              disabled={finalizando}
-              className="rounded-md border border-prx px-4 py-2 text-sm font-medium text-prx hover:bg-prx/10 disabled:opacity-50"
-            >
-              {finalizando ? "Finalizando..." : "✓ Finalizar Cotação"}
-            </button>
+            {passoAtivo === 1 ? (
+              podeAvancarPasso1 ? (
+                <button
+                  type="button"
+                  onClick={onAvancarPasso}
+                  className="rounded-md bg-prx px-5 py-2.5 text-sm font-semibold text-white hover:bg-prx-l"
+                >
+                  Avançar para o próximo passo →
+                </button>
+              ) : (
+                <p className="text-xs text-t3">Adicione ao menos um produto à lista para avançar.</p>
+              )
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={onProcessar}
+                  disabled={processando || !podeProcessar}
+                  className="rounded-md bg-prx px-5 py-2.5 text-sm font-semibold text-white hover:bg-prx-l disabled:opacity-50"
+                >
+                  {processando ? "Processando..." : "Processar Resposta Cotação"}
+                </button>
+                <button
+                  type="button"
+                  onClick={onFinalizar}
+                  disabled={finalizando}
+                  className="rounded-md border border-prx px-4 py-2 text-sm font-medium text-prx hover:bg-prx/10 disabled:opacity-50"
+                >
+                  {finalizando ? "Finalizando..." : "✓ Finalizar Cotação"}
+                </button>
+              </>
+            )}
           </div>
           <div className="flex flex-wrap items-center gap-3 rounded-lg border border-prx/30 bg-prx/5 px-4 py-3 text-sm text-t2">
             <span className="text-prx">
@@ -147,9 +165,10 @@ export default function EntradaFooter({
         </>
       )}
 
-      {/* Sticky ao rodapé da viewport, igual ao .entrada-footer do protótipo — só este
-          bloco é sticky, os botões e a barra de status acima seguem no fluxo normal. */}
-      <div className="sticky bottom-0 z-10 mt-6 flex justify-end rounded-t-lg border-t-2 border-prx bg-bg px-5 py-4 shadow-[0_-4px_20px_rgba(37,34,32,.08)]">
+      {/* Antes era sticky ao rodapé da viewport — agora a página inteira não rola
+          (Prompt 25, feedback 2026-08-16: o rodapé já fica sempre visível dentro da
+          altura fixa da tela), então isso basta como divisor no fluxo normal. */}
+      <div className="flex justify-end border-t border-prx pt-3">
         <button
           type="button"
           onClick={() => setCriandoNova(true)}

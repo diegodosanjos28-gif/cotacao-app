@@ -146,7 +146,7 @@ function textareaResposta() {
 }
 
 function botaoProcessar() {
-  return screen.getByRole("button", { name: /Processar Cotação/ });
+  return screen.getByRole("button", { name: /Processar Resposta Cotação/ });
 }
 
 beforeEach(() => {
