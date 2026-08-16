@@ -13,9 +13,8 @@ import {
   Fornecedor,
   PreviewRespostaResponse,
 } from "@/lib/types";
-import FornecedorAutocomplete from "./FornecedorAutocomplete";
-import FornecedorFormModal from "./FornecedorFormModal";
 import FornecedorRespostaBlock from "./FornecedorRespostaBlock";
+import FornecedoresSidebar from "./FornecedoresSidebar";
 
 interface Props {
   cotacao: Cotacao;
@@ -24,6 +23,7 @@ interface Props {
   todosFornecedores: Fornecedor[];
   onCotacaoFornecedoresAtualizados: () => void;
   onFornecedorAtualizado: (fornecedor: Fornecedor) => void;
+  onFornecedorInativado: (id: string) => void;
   onAtivoAlterado: (cotacaoFornecedor: CotacaoFornecedorResponse | null) => void;
   onConferirResposta: (cotacaoFornecedor: CotacaoFornecedorResponse) => Promise<boolean>;
   onCancelarConferencia: (cotacaoFornecedor: CotacaoFornecedorResponse) => Promise<void>;
@@ -58,6 +58,7 @@ export default function FornecedoresCotacoesSection({
   todosFornecedores,
   onCotacaoFornecedoresAtualizados,
   onFornecedorAtualizado,
+  onFornecedorInativado,
   onAtivoAlterado,
   onConferirResposta,
   onCancelarConferencia,
@@ -72,10 +73,14 @@ export default function FornecedoresCotacoesSection({
 }: Props) {
   const router = useRouter();
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [modoAdicionar, setModoAdicionar] = useState(cotacaoFornecedores.length === 0);
-  const [cadastrandoNome, setCadastrandoNome] = useState<string | null>(null);
   const [adicionando, setAdicionando] = useState(false);
   const [carregandoConferencia, setCarregandoConferencia] = useState(false);
+  // Painel "Abrir fornecedores" (Prompt 25) — substitui o antigo fluxo de
+  // "+ Adicionar Fornecedor" (autocomplete): agora é o mesmo painel de catálogo
+  // (FornecedoresSidebar) que já existia abaixo, só que sob demanda dentro deste
+  // Card. Começa aberto quando a cotação ainda não tem nenhum fornecedor, mesmo
+  // motivo do antigo default de modoAdicionar.
+  const [painelFornecedoresAberto, setPainelFornecedoresAberto] = useState(cotacaoFornecedores.length === 0);
 
   const ultimo = cotacaoFornecedores[cotacaoFornecedores.length - 1];
   const podeAdicionarProximo = cotacaoFornecedores.length === 0 || ultimo?.status === "CONFIRMADO";
@@ -96,7 +101,7 @@ export default function FornecedoresCotacoesSection({
   const totalPendentes = cotacaoFornecedores.filter((cf) => cf.status !== "CONFIRMADO").length;
 
   function irPara(id: string) {
-    setModoAdicionar(false);
+    setPainelFornecedoresAberto(false);
     setActiveId(id);
   }
 
@@ -135,25 +140,22 @@ export default function FornecedoresCotacoesSection({
     await abrirConferencia(proximo);
   }
 
-  async function onSelecionarExistente(fornecedor: Fornecedor) {
+  // Único caminho de adicionar fornecedor à cotação (Prompt 25 — antes também existia
+  // um autocomplete separado, absorvido pelo painel "Abrir fornecedores"). Fecha o
+  // painel ao concluir pra voltar direto pro fornecedor recém-adicionado.
+  async function onAdicionarCotacaoDoPainel(fornecedor: Fornecedor) {
     setAdicionando(true);
     setErro(null);
     try {
       const cf = await adicionarFornecedorNaCotacao(cotacaoId, { fornecedorId: fornecedor.id });
       onCotacaoFornecedoresAtualizados();
-      setModoAdicionar(false);
+      setPainelFornecedoresAberto(false);
       setActiveId(cf.id);
     } catch (err) {
       setErro(getErrorMessage(err, "Não foi possível adicionar o fornecedor à cotação."));
     } finally {
       setAdicionando(false);
     }
-  }
-
-  async function onNovoFornecedorCriado(fornecedor: Fornecedor) {
-    onFornecedorAtualizado(fornecedor);
-    setCadastrandoNome(null);
-    await onSelecionarExistente(fornecedor);
   }
 
   // Ponto único de abertura da Conferência — usado tanto pelo clique do operador
@@ -178,23 +180,34 @@ export default function FornecedoresCotacoesSection({
   }
 
   useEffect(() => {
-    onAtivoAlterado(modoAdicionar ? null : (atual ?? null));
+    onAtivoAlterado(painelFornecedoresAberto ? null : (atual ?? null));
     // Depende só do id (não do objeto `atual`, que muda de referência a cada refetch
     // dos mesmos fornecedores) — senão um reprocessamento reseta texto/preview do pai
     // no meio do fluxo. onAtivoAlterado não entra nas deps de propósito (recriada a
     // cada render do pai).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [atual?.id, modoAdicionar]);
+  }, [atual?.id, painelFornecedoresAberto]);
 
   const podeNavegar = sequencia.length > 1;
 
   return (
     <Card>
-      <h2 className="font-semibold text-t1">Fornecedores e cotações</h2>
-      <p className="mt-1 text-sm text-t2">
-        Navegue livremente entre os fornecedores já adicionados — cada um mantém suas respostas e resoluções em
-        andamento. Confirme a Conferência de um para liberar a adição do próximo.
-      </p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h2 className="font-semibold text-t1">Fornecedores e cotações</h2>
+          <p className="mt-1 text-sm text-t2">
+            Navegue livremente entre os fornecedores já adicionados — cada um mantém suas respostas e resoluções em
+            andamento. Confirme a Conferência de um para liberar a adição do próximo.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setPainelFornecedoresAberto((v) => !v)}
+          className="shrink-0 rounded-md border border-prx px-3 py-1.5 text-sm font-medium text-prx hover:bg-prx/10"
+        >
+          {painelFornecedoresAberto ? "Voltar para seleção" : "Abrir fornecedores"}
+        </button>
+      </div>
 
       {cotacao.canalOrigem === "WHATSAPP" && cotacaoFornecedores.length === 0 && (
         <p className="mt-3 rounded-md border border-wa/30 bg-wa/10 px-3 py-2 text-sm text-t1">
@@ -204,7 +217,7 @@ export default function FornecedoresCotacoesSection({
         </p>
       )}
 
-      {cotacaoFornecedores.length > 0 && !modoAdicionar && atual && (
+      {cotacaoFornecedores.length > 0 && !painelFornecedoresAberto && atual && (
         <div className="mt-4 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <button
@@ -242,7 +255,7 @@ export default function FornecedoresCotacoesSection({
           {cotacaoFornecedores.map((cf) => {
             const dadosPendentes =
               todosFornecedores.find((f) => f.id === cf.fornecedorId)?.status === "PENDENTE_DADOS";
-            const ativa = !modoAdicionar && cf.id === atual?.id;
+            const ativa = !painelFornecedoresAberto && cf.id === atual?.id;
             return (
               <button
                 key={cf.id}
@@ -274,7 +287,7 @@ export default function FornecedoresCotacoesSection({
       )}
 
       <div className="relative mt-4">
-        {cotacaoFornecedores.length > 1 && (
+        {cotacaoFornecedores.length > 1 && !painelFornecedoresAberto && (
           <>
             {/* Card tem p-6 (24px) de padding — este bloco de conteúdo (FornecedorRespostaBlock)
                 começa exatamente na borda desse padding, então um botão largo demais ou
@@ -304,26 +317,16 @@ export default function FornecedoresCotacoesSection({
             </button>
           </>
         )}
-        {modoAdicionar ? (
-          <div className="rounded-lg border border-dashed border-bdr p-4">
-            <p className="mb-2 text-sm font-medium text-t1">Adicionar fornecedor</p>
-            <FornecedorAutocomplete
-              fornecedores={todosFornecedores}
-              excluirIds={cotacaoFornecedores.map((cf) => cf.fornecedorId)}
-              onSelecionar={onSelecionarExistente}
-              onCadastrarNovo={(nome) => setCadastrandoNome(nome)}
-              disabled={adicionando}
-            />
-            {cotacaoFornecedores.length > 0 && (
-              <button
-                type="button"
-                onClick={() => setModoAdicionar(false)}
-                className="mt-3 text-xs font-medium text-t3 hover:text-t2"
-              >
-                Cancelar
-              </button>
-            )}
-          </div>
+        {painelFornecedoresAberto ? (
+          <FornecedoresSidebar
+            fornecedores={todosFornecedores}
+            fornecedoresJaAdicionadosIds={cotacaoFornecedores.map((cf) => cf.fornecedorId)}
+            onFornecedorSalvo={onFornecedorAtualizado}
+            onFornecedorInativado={onFornecedorInativado}
+            onAdicionarCotacao={onAdicionarCotacaoDoPainel}
+            adicionando={adicionando}
+            podeAdicionar={podeAdicionarProximo}
+          />
         ) : atual ? (
           <FornecedorRespostaBlock
             key={atual.id}
@@ -344,56 +347,33 @@ export default function FornecedoresCotacoesSection({
         ) : null}
       </div>
 
-      <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-bdr pt-4">
-        <button
-          type="button"
-          onClick={() => setModoAdicionar(true)}
-          disabled={!podeAdicionarProximo || modoAdicionar}
-          className="rounded-md border border-prx px-4 py-2 text-sm font-medium text-prx hover:bg-prx/10 disabled:cursor-not-allowed disabled:border-bdr disabled:text-t3 disabled:hover:bg-transparent"
-        >
-          + Adicionar Fornecedor
-        </button>
-        {atual?.status === "PROCESSADO" && (
-          // Ponto único de entrada da Conferência (unifica o antigo "Continuar
-          // Conferência" do FornecedorRespostaBlock com o botão que reconstruía o
-          // preview de uma resposta já persistida, achado do usuário 2026-08-04): age
-          // sempre sobre o fornecedor ABERTO no carrossel — page.tsx (onConferirResposta)
-          // decide entre reusar o preview em memória, processar o texto colado, ou
-          // reconstruir do texto persistido (GET .../resposta-persistida).
-          //
-          // Só aparece quando o fornecedor aberto tem algo PENDENTE de conferir
-          // (status PROCESSADO — achado do usuário, 2026-08-04): PENDENTE significa
-          // "ainda não respondeu" (nada pra conferir ainda — o botão relevante ali é
-          // "Processar Cotação", que continua sempre visível no rodapé/EntradaFooter),
-          // e CONFIRMADO significa "já revisado" (reabrir reverteria silenciosamente o
-          // status pra PROCESSADO, efeito colateral de gerarPreview no backend —
-          // reconferir um confirmado continua possível colando o texto de novo em
-          // "Processar Cotação", onde esse efeito é explícito).
-          // Tier 1 (bg-prx sólido) — mesma hierarquia de "Processar Cotação"/"Confirmar
-          // e Processar" (achado da revisão de UX da Fase 4.1): é o gate bloqueante, não
-          // uma ação opcional como "+ Adicionar Fornecedor".
+      {!painelFornecedoresAberto && atual?.status === "PROCESSADO" && (
+        // Ponto único de entrada da Conferência (unifica o antigo "Continuar
+        // Conferência" do FornecedorRespostaBlock com o botão que reconstruía o
+        // preview de uma resposta já persistida, achado do usuário 2026-08-04): age
+        // sempre sobre o fornecedor ABERTO no carrossel — page.tsx (onConferirResposta)
+        // decide entre reusar o preview em memória, processar o texto colado, ou
+        // reconstruir do texto persistido (GET .../resposta-persistida).
+        //
+        // Só aparece quando o fornecedor aberto tem algo PENDENTE de conferir
+        // (status PROCESSADO — achado do usuário, 2026-08-04): PENDENTE significa
+        // "ainda não respondeu" (nada pra conferir ainda — o botão relevante ali é
+        // "Processar Cotação", que continua sempre visível no rodapé/EntradaFooter),
+        // e CONFIRMADO significa "já revisado" (reabrir reverteria silenciosamente o
+        // status pra PROCESSADO, efeito colateral de gerarPreview no backend —
+        // reconferir um confirmado continua possível colando o texto de novo em
+        // "Processar Cotação", onde esse efeito é explícito).
+        <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-bdr pt-4">
           <button
             type="button"
             onClick={onConferirAtual}
-            disabled={carregandoConferencia || modoAdicionar}
+            disabled={carregandoConferencia}
             className="rounded-md bg-prx px-4 py-2 text-sm font-medium text-white hover:bg-prx-l disabled:cursor-not-allowed disabled:opacity-50"
           >
             {carregandoConferencia ? "Carregando..." : `Conferir resposta do fornecedor (${totalPendentes})`}
           </button>
-        )}
-        {!podeAdicionarProximo && !modoAdicionar && (
-          <p className="w-full text-xs text-t3">
-            Processe a cotação atual para liberar o próximo fornecedor.
-          </p>
-        )}
-      </div>
-
-      <FornecedorFormModal
-        open={cadastrandoNome !== null}
-        onClose={() => setCadastrandoNome(null)}
-        nomeInicial={cadastrandoNome ?? ""}
-        onSalvo={onNovoFornecedorCriado}
-      />
+        </div>
+      )}
     </Card>
   );
 }

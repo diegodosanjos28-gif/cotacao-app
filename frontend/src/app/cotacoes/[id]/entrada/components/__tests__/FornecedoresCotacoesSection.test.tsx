@@ -128,6 +128,7 @@ function renderSection(overrides: {
       todosFornecedores={overrides.todosFornecedores ?? []}
       onCotacaoFornecedoresAtualizados={overrides.onCotacaoFornecedoresAtualizados ?? vi.fn()}
       onFornecedorAtualizado={vi.fn()}
+      onFornecedorInativado={vi.fn()}
       onAtivoAlterado={overrides.onAtivoAlterado ?? vi.fn()}
       onConferirResposta={overrides.onConferirResposta ?? vi.fn().mockResolvedValue(true)}
       onCancelarConferencia={overrides.onCancelarConferencia ?? vi.fn().mockResolvedValue(undefined)}
@@ -171,10 +172,10 @@ describe("FornecedoresCotacoesSection — banner WhatsApp sem fornecedores", () 
     expect(screen.queryByText(new RegExp(BANNER))).toBeNull();
   });
 
-  it("a UI manual de 'Adicionar fornecedor' continua presente ao lado do banner (não é escondida)", () => {
+  it("o painel de fornecedores continua presente ao lado do banner (não é escondido) — abre sozinho quando a cotação ainda não tem nenhum", () => {
     renderSection({ cotacao: makeCotacao({ canalOrigem: "WHATSAPP" }), cotacaoFornecedores: [] });
     expect(screen.getByText(new RegExp(BANNER))).toBeTruthy();
-    expect(screen.getByPlaceholderText("Buscar fornecedor...")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "+ Novo" })).toBeTruthy();
   });
 });
 

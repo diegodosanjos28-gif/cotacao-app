@@ -28,9 +28,9 @@ import {
 } from "@/lib/types";
 import GridProdutosSection from "./components/GridProdutosSection";
 import GuiaFormatacao from "./components/GuiaFormatacao";
-import FornecedoresSidebar from "./components/FornecedoresSidebar";
 import FornecedoresCotacoesSection from "./components/FornecedoresCotacoesSection";
 import EntradaFooter from "./components/EntradaFooter";
+import EntradaStepper, { PassoEntrada, PassoInfo } from "./components/EntradaStepper";
 
 // Rascunho da Conferência de um fornecedor — vive por cotacaoFornecedorId, não como
 // estado único da página, pra que trocar de fornecedor (ou fechar o modal) não perca
@@ -48,6 +48,14 @@ function rascunhoVazio(): RascunhoFornecedor {
   return { texto: "", preview: null, modalAberto: false, resolucoes: {}, spinOffs: {}, excluidos: {} };
 }
 
+// Passo inicial da timeline (Prompt 25) — "retoma de onde parou" em vez de sempre
+// abrir no passo 1, calculado só na 1ª carga da cotação (ver carregar()).
+function calcularPassoInicial(cfs: CotacaoFornecedorResponse[]): PassoEntrada {
+  if (cfs.some((cf) => cf.status === "PROCESSADO")) return 3;
+  if (cfs.length > 0) return 2;
+  return 1;
+}
+
 function EntradaContent({ cotacaoId }: { cotacaoId: string }) {
   const [cotacao, setCotacao] = useState<Cotacao | null>(null);
   const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
@@ -59,6 +67,7 @@ function EntradaContent({ cotacaoId }: { cotacaoId: string }) {
   const [enviando, setEnviando] = useState(false);
   const [concluindoAjuste, setConcluindoAjuste] = useState(false);
   const [rascunhos, setRascunhos] = useState<Record<string, RascunhoFornecedor>>({});
+  const [passoAtivo, setPassoAtivo] = useState<PassoEntrada>(1);
 
   const rascunhoAtivo = fornecedorAtivo ? (rascunhos[fornecedorAtivo.id] ?? rascunhoVazio()) : rascunhoVazio();
   const texto = rascunhoAtivo.texto;
@@ -102,6 +111,7 @@ function EntradaContent({ cotacaoId }: { cotacaoId: string }) {
       setCotacaoFornecedores(cf);
       setItensLista(itens);
       setProdutos(catalogo);
+      setPassoAtivo(calcularPassoInicial(cf));
     } catch (err) {
       setErro(getErrorMessage(err, "Não foi possível carregar a cotação."));
     }
@@ -181,6 +191,19 @@ function EntradaContent({ cotacaoId }: { cotacaoId: string }) {
     }
   }
 
+  // Clique num marcador da timeline (Prompt 25). O passo 3 (Conferência) não tem
+  // conteúdo próprio ainda (Prompt 26) — reaproveita o mesmo painel do passo 2, só que
+  // clicar nele já dispara onConferirResposta pro primeiro fornecedor PROCESSADO
+  // (mesma função do botão "Conferir resposta do fornecedor" que já existe), abrindo a
+  // Conferência de cara em vez de exigir mais um clique.
+  function onSelecionarPasso(passo: PassoEntrada) {
+    setPassoAtivo(passo);
+    if (passo === 3) {
+      const pendente = cotacaoFornecedores.find((cf) => cf.status === "PROCESSADO");
+      if (pendente) onConferirResposta(pendente);
+    }
+  }
+
   // "Cancelar Conferência" (achado do usuário, 2026-08-04): diferente de onClosePreview
   // (que só esconde o modal preservando tudo), isto apaga a resposta do fornecedor de
   // verdade — no backend (DELETE .../resposta, volta cotacao_fornecedor.status pra
@@ -252,6 +275,29 @@ function EntradaContent({ cotacaoId }: { cotacaoId: string }) {
     );
   }
 
+  // Labels/marcadores da timeline (Prompt 25) — reaproveita a mesma definição de
+  // "pendente pra conferir" já usada em FornecedoresCotacoesSection (status !==
+  // CONFIRMADO), sem inventar um segundo critério de pendência.
+  const totalPendentesConferencia = cotacaoFornecedores.filter((cf) => cf.status !== "CONFIRMADO").length;
+  const confirmadosCount = cotacaoFornecedores.filter((cf) => cf.status === "CONFIRMADO").length;
+  const passos: PassoInfo[] = [
+    { numero: 1, label: "Lista de produtos", done: itensLista.length > 0 },
+    {
+      numero: 2,
+      label:
+        cotacaoFornecedores.length === 0
+          ? "Fornecedores e cotações"
+          : `${confirmadosCount} de ${cotacaoFornecedores.length} fornecedores`,
+      done: cotacaoFornecedores.length > 0,
+    },
+    {
+      numero: 3,
+      label: totalPendentesConferencia > 0 ? `Conferência (${totalPendentesConferencia} pendentes)` : "Conferência",
+      done: cotacaoFornecedores.length > 0 && totalPendentesConferencia === 0,
+      atencao: totalPendentesConferencia > 0,
+    },
+  ];
+
   return (
     <>
       <NavBar />
@@ -273,70 +319,85 @@ function EntradaContent({ cotacaoId }: { cotacaoId: string }) {
           </p>
         )}
 
-        <div className={precisaAjuste ? "" : "grid gap-6 lg:grid-cols-[2fr_1fr]"}>
-          <div className="flex flex-col">
-            <GridProdutosSection
-              cotacaoId={cotacaoId}
-              itens={itensLista}
-              produtos={produtos}
-              onListaAtualizada={setItensLista}
-              onProdutosAtualizados={setProdutos}
-              setErro={setErro}
-              cotacaoFinalizada={cotacao.status === "FINALIZADA"}
-            />
-          </div>
-          {!precisaAjuste && (
-            <div className="flex h-full flex-col gap-6">
-              <GuiaFormatacao />
-              {/* flex-1 + min-h-0: faz o card de Fornecedores esticar até a mesma
-                  altura do grid à esquerda (CSS Grid estica as duas colunas pra
-                  altura da mais alta) em vez de sobrar espaço em branco invisível
-                  abaixo dele quando o grid tem mais itens — min-h-0 é o que permite o
-                  scroll interno (overflow-y-auto) funcionar dentro de um item flex,
-                  senão ele nunca encolhe abaixo da altura do conteúdo. */}
-              <div className="flex min-h-0 flex-1 flex-col">
-                <FornecedoresSidebar
-                  fornecedores={fornecedores}
-                  onFornecedorSalvo={onFornecedorSalvo}
-                  onFornecedorInativado={onFornecedorInativado}
-                />
-              </div>
-            </div>
-          )}
-        </div>
-
         {precisaAjuste ? (
-          <div className="flex items-center justify-end">
-            <button
-              type="button"
-              onClick={onConcluirAjuste}
-              disabled={concluindoAjuste || itensLista.length === 0}
-              className="rounded-md bg-prx px-4 py-2 text-sm font-medium text-white hover:bg-prx-l disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {concluindoAjuste ? "Concluindo..." : "Concluir ajuste e seguir para conferência"}
-            </button>
-          </div>
+          <>
+            <div className="flex flex-col">
+              <GridProdutosSection
+                cotacaoId={cotacaoId}
+                itens={itensLista}
+                produtos={produtos}
+                onListaAtualizada={setItensLista}
+                onProdutosAtualizados={setProdutos}
+                setErro={setErro}
+                cotacaoFinalizada={cotacao.status === "FINALIZADA"}
+              />
+            </div>
+            <div className="flex items-center justify-end">
+              <button
+                type="button"
+                onClick={onConcluirAjuste}
+                disabled={concluindoAjuste || itensLista.length === 0}
+                className="rounded-md bg-prx px-4 py-2 text-sm font-medium text-white hover:bg-prx-l disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {concluindoAjuste ? "Concluindo..." : "Concluir ajuste e seguir para conferência"}
+              </button>
+            </div>
+          </>
         ) : (
           <>
-            <FornecedoresCotacoesSection
-              cotacao={cotacao}
-              cotacaoId={cotacaoId}
-              cotacaoFornecedores={cotacaoFornecedores}
-              todosFornecedores={fornecedores}
-              onCotacaoFornecedoresAtualizados={recarregarFornecedoresDaCotacao}
-              onFornecedorAtualizado={onFornecedorSalvo}
-              onAtivoAlterado={onAtivoAlterado}
-              onConferirResposta={onConferirResposta}
-              onCancelarConferencia={onCancelarConferencia}
-              texto={texto}
-              setTexto={setTexto}
-              preview={preview}
-              modalAberto={rascunhoAtivo.modalAberto}
-              onClosePreview={() => onEstadoResolucaoChange({ modalAberto: false })}
-              estadoResolucao={estadoResolucao}
-              onEstadoResolucaoChange={onEstadoResolucaoChange}
-              setErro={setErro}
-            />
+            <EntradaStepper passos={passos} passoAtivo={passoAtivo} onSelecionar={onSelecionarPasso} />
+
+            {/* Passo 1 — Lista de produtos. Grid ocupa a tela toda; o Guia de
+                formatação virou um botão com ícone (canto superior) que abre um modal,
+                em vez de coluna lateral fixa. Fica sempre montado (nunca desmontado
+                condicionalmente) e só escondido via classe: GridProdutosSection guarda
+                rascunho local (ex: modal "Colar do WhatsApp" com texto ainda não
+                importado) que se perderia se o componente desmontasse ao trocar de
+                passo. */}
+            <div className={passoAtivo === 1 ? "flex flex-col gap-3" : "hidden"}>
+              <div className="flex justify-end">
+                <GuiaFormatacao />
+              </div>
+              <GridProdutosSection
+                cotacaoId={cotacaoId}
+                itens={itensLista}
+                produtos={produtos}
+                onListaAtualizada={setItensLista}
+                onProdutosAtualizados={setProdutos}
+                setErro={setErro}
+                cotacaoFinalizada={cotacao.status === "FINALIZADA"}
+              />
+            </div>
+
+            {/* Passos 2 e 3 — Fornecedores e cotações / Conferência. Só o painel
+                "Fornecedores e cotações" (o botão "Abrir fornecedores" dentro dele dá
+                acesso ao catálogo). O passo 3 não tem conteúdo próprio ainda (Prompt
+                26): reaproveita o mesmo painel do passo 2, só que onSelecionarPasso já
+                dispara a Conferência do primeiro fornecedor PROCESSADO ao clicar.
+                Também sempre montado pelo mesmo motivo do passo 1 (estado local do
+                painel de fornecedores não pode se perder). */}
+            <div className={passoAtivo === 2 || passoAtivo === 3 ? "" : "hidden"}>
+              <FornecedoresCotacoesSection
+                cotacao={cotacao}
+                cotacaoId={cotacaoId}
+                cotacaoFornecedores={cotacaoFornecedores}
+                todosFornecedores={fornecedores}
+                onCotacaoFornecedoresAtualizados={recarregarFornecedoresDaCotacao}
+                onFornecedorAtualizado={onFornecedorSalvo}
+                onFornecedorInativado={onFornecedorInativado}
+                onAtivoAlterado={onAtivoAlterado}
+                onConferirResposta={onConferirResposta}
+                onCancelarConferencia={onCancelarConferencia}
+                texto={texto}
+                setTexto={setTexto}
+                preview={preview}
+                modalAberto={rascunhoAtivo.modalAberto}
+                onClosePreview={() => onEstadoResolucaoChange({ modalAberto: false })}
+                estadoResolucao={estadoResolucao}
+                onEstadoResolucaoChange={onEstadoResolucaoChange}
+                setErro={setErro}
+              />
+            </div>
 
             <EntradaFooter
               cotacao={cotacao}
