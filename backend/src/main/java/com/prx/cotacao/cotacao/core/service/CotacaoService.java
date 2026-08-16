@@ -57,6 +57,12 @@ public class CotacaoService {
         return cotacaoRepository.findAll(pageable);
     }
 
+    // Prompt 24: listagem do dashboard com filtro opcional por status e termo de busca
+    // (título ou canal). status/termo nulos preservam o comportamento de listar(Pageable).
+    public Page<Cotacao> listar(Pageable pageable, CotacaoStatus status, String termo) {
+        return cotacaoRepository.buscar(status, termo, pageable);
+    }
+
     public Cotacao buscar(UUID id) {
         // findById já filtra pelo tenant via Hibernate filter
         return cotacaoRepository.findByIdOrThrow(id);

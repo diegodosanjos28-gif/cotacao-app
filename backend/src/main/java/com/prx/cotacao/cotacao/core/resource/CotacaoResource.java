@@ -35,6 +35,7 @@ import com.prx.cotacao.cotacao.respostafornecedor.service.FornecedorRespostaServ
 import com.prx.cotacao.cotacao.mensagem.service.MensagemService;
 import com.prx.cotacao.cotacao.mapacompra.enums.CenarioSelecionado;
 import com.prx.cotacao.cotacao.core.entity.Cotacao;
+import com.prx.cotacao.cotacao.core.enums.CotacaoStatus;
 import com.prx.cotacao.cotacao.respostafornecedor.entity.CotacaoProdutoFornecedor;
 
 @RestController
@@ -75,8 +76,11 @@ public class CotacaoResource {
     }
 
     @GetMapping
-    public Page<CotacaoResponse> listar(Pageable pageable) {
-        return cotacaoService.listar(pageable).map(CotacaoResponse::from);
+    public Page<CotacaoResponse> listar(
+            Pageable pageable,
+            @RequestParam(required = false) CotacaoStatus status,
+            @RequestParam(required = false) String q) {
+        return cotacaoService.listar(pageable, status, q).map(CotacaoResponse::from);
     }
 
     @GetMapping("/{id}")

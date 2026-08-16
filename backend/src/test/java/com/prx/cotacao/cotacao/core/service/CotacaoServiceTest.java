@@ -12,8 +12,11 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import java.util.List;
 import java.util.UUID;
 import java.util.function.Supplier;
+
+import org.springframework.data.domain.PageRequest;
 
 import static org.junit.jupiter.api.Assertions.*;
 import com.prx.cotacao.cotacao.core.enums.CanalOrigem;
@@ -75,8 +78,12 @@ class CotacaoServiceTest {
     }
 
     private UUID criarCotacao(CotacaoStatus status, CanalOrigem canalOrigem, boolean listaRevisada) {
+        return criarCotacao(status, canalOrigem, listaRevisada, "Cotação Finalizar Test " + UUID.randomUUID());
+    }
+
+    private UUID criarCotacao(CotacaoStatus status, CanalOrigem canalOrigem, boolean listaRevisada, String titulo) {
         Cotacao c = new Cotacao();
-        c.setTitulo("Cotação Finalizar Test " + UUID.randomUUID());
+        c.setTitulo(titulo);
         c.setStatus(status);
         c.setCanalOrigem(canalOrigem);
         c.setListaRevisada(listaRevisada);
@@ -216,5 +223,69 @@ class CotacaoServiceTest {
         UUID idInexistente = UUID.randomUUID();
         assertThrows(ResourceNotFoundException.class,
                 () -> comoTenant(() -> cotacaoService.concluirAjusteLista(idInexistente)));
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // listar(Pageable, status, termo) — Prompt 24: filtro server-side por status e
+    // por termo de busca (título OU canal), usado pelo lembrete de EM_ANDAMENTO e
+    // pela busca da tabela "Todas as cotações" no dashboard.
+
+    @Test
+    void listar_sem_status_e_sem_termo_retorna_tudo_do_tenant() {
+        comoTenant(() -> criarCotacao(CotacaoStatus.EM_ANDAMENTO));
+        comoTenant(() -> criarCotacao(CotacaoStatus.FINALIZADA));
+
+        List<Cotacao> resultado = comoTenant(
+                () -> cotacaoService.listar(PageRequest.of(0, 20), null, null).getContent());
+
+        assertEquals(2, resultado.size());
+    }
+
+    @Test
+    void listar_filtra_por_status() {
+        comoTenant(() -> criarCotacao(CotacaoStatus.EM_ANDAMENTO));
+        comoTenant(() -> criarCotacao(CotacaoStatus.FINALIZADA));
+
+        List<Cotacao> resultado = comoTenant(
+                () -> cotacaoService.listar(PageRequest.of(0, 20), CotacaoStatus.EM_ANDAMENTO, null).getContent());
+
+        assertEquals(1, resultado.size());
+        assertEquals(CotacaoStatus.EM_ANDAMENTO, resultado.get(0).getStatus());
+    }
+
+    @Test
+    void listar_filtra_por_termo_no_titulo() {
+        comoTenant(() -> criarCotacao(CotacaoStatus.RASCUNHO, CanalOrigem.WEB, true, "Compra de Hortifruti Semanal"));
+        comoTenant(() -> criarCotacao(CotacaoStatus.RASCUNHO, CanalOrigem.WEB, true, "Reposição de Bebidas"));
+
+        List<Cotacao> resultado = comoTenant(
+                () -> cotacaoService.listar(PageRequest.of(0, 20), null, "hortifruti").getContent());
+
+        assertEquals(1, resultado.size());
+        assertEquals("Compra de Hortifruti Semanal", resultado.get(0).getTitulo());
+    }
+
+    @Test
+    void listar_filtra_por_termo_no_canal_case_insensitive() {
+        comoTenant(() -> criarCotacao(CotacaoStatus.RASCUNHO, CanalOrigem.WHATSAPP, true, "Cotação A"));
+        comoTenant(() -> criarCotacao(CotacaoStatus.RASCUNHO, CanalOrigem.WEB, true, "Cotação B"));
+
+        List<Cotacao> resultado = comoTenant(
+                () -> cotacaoService.listar(PageRequest.of(0, 20), null, "WhatsApp").getContent());
+
+        assertEquals(1, resultado.size());
+        assertEquals(CanalOrigem.WHATSAPP, resultado.get(0).getCanalOrigem());
+    }
+
+    @Test
+    void listar_combina_status_e_termo() {
+        comoTenant(() -> criarCotacao(CotacaoStatus.EM_ANDAMENTO, CanalOrigem.WHATSAPP, true, "Cotação Alfa"));
+        comoTenant(() -> criarCotacao(CotacaoStatus.FINALIZADA, CanalOrigem.WHATSAPP, true, "Cotação Alfa"));
+
+        List<Cotacao> resultado = comoTenant(() -> cotacaoService
+                .listar(PageRequest.of(0, 20), CotacaoStatus.EM_ANDAMENTO, "alfa").getContent());
+
+        assertEquals(1, resultado.size());
+        assertEquals(CotacaoStatus.EM_ANDAMENTO, resultado.get(0).getStatus());
     }
 }

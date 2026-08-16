@@ -5,6 +5,7 @@ import {
   ConfirmarRespostaRequest,
   Cotacao,
   CotacaoFornecedorResponse,
+  CotacaoStatus,
   EditarItemCotacaoRequest,
   Fornecedor,
   FornecedorRequest,
@@ -130,8 +131,20 @@ export function selecionarTenant(tenantId: string | null): Promise<TokenResponse
 
 // ── Cotações ──────────────────────────────────────────────────────────────
 
-export function listarCotacoes(page = 0, size = 20): Promise<Page<Cotacao>> {
-  return request<Page<Cotacao>>(`/cotacoes?page=${page}&size=${size}&sort=criadoEm,desc`);
+interface ListarCotacoesOpcoes {
+  page?: number;
+  size?: number;
+  status?: CotacaoStatus;
+  q?: string;
+  sort?: string;
+}
+
+export function listarCotacoes(opcoes: ListarCotacoesOpcoes = {}): Promise<Page<Cotacao>> {
+  const { page = 0, size = 20, status, q, sort = "criadoEm,desc" } = opcoes;
+  const params = new URLSearchParams({ page: String(page), size: String(size), sort });
+  if (status) params.set("status", status);
+  if (q) params.set("q", q);
+  return request<Page<Cotacao>>(`/cotacoes?${params.toString()}`);
 }
 
 export function buscarCotacao(id: string): Promise<Cotacao> {

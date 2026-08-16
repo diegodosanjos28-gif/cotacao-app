@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { ColumnDef, getCoreRowModel, getExpandedRowModel, useReactTable } from "@tanstack/react-table";
@@ -9,6 +9,7 @@ import AuthGuard from "@/components/AuthGuard";
 import NavBar from "@/components/NavBar";
 import StatCard from "@/components/StatCard";
 import StatusBadge from "@/components/StatusBadge";
+import { CanalIcon } from "@/components/icons/CanalIcons";
 import { comparativo, listarCotacoes } from "@/lib/api";
 import {
   fornecedorMaisCompetitivo,
@@ -20,6 +21,7 @@ import {
 } from "@/lib/comparativo";
 import { formatarData, formatarMoeda, formatarPercentual } from "@/lib/format";
 import { useAsync } from "@/hooks/useAsync";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { ComparativoItemResponse, Cotacao } from "@/lib/types";
 import CotacaoResumoExpandido from "./components/CotacaoResumoExpandido";
 import EconomiaCotacaoDetalhe from "./components/EconomiaCotacaoDetalhe";
@@ -60,7 +62,41 @@ function DashboardContent() {
   }, [cotacoes], "");
 
   const carregando = cotacoes === null || itensPorCotacao === null;
-  const emAndamento = cotacoes?.filter((c) => c.status === "EM_ANDAMENTO").length ?? 0;
+
+  // "Todas as cotações" (Prompt 24): fetch próprio, sensível à busca — filtra por
+  // título/canal no servidor (CotacaoRepository.buscar), independente do fetch de
+  // `cotacoes`/`itensPorCotacao` acima, que segue alimentando só KPIs e "Economia de
+  // Cotações" sem filtro (fora de escopo deste prompt).
+  const [termoBusca, setTermoBusca] = useState("");
+  const termoBuscaDebounced = useDebouncedValue(termoBusca.trim(), 300);
+
+  const { data: cotacoesTabela } = useAsync(
+    () => listarCotacoes({ q: termoBuscaDebounced || undefined, size: 50 }).then((pagina) => pagina.content),
+    [termoBuscaDebounced],
+    "Não foi possível carregar as cotações.",
+  );
+
+  const { data: itensPorCotacaoTabela } = useAsync(async () => {
+    if (!cotacoesTabela || cotacoesTabela.length === 0) return new Map<string, ComparativoItemResponse[]>();
+    const resultados = await Promise.allSettled(cotacoesTabela.map((c) => comparativo(c.id)));
+    const mapa = new Map<string, ComparativoItemResponse[]>();
+    cotacoesTabela.forEach((c, i) => {
+      const r = resultados[i];
+      mapa.set(c.id, r.status === "fulfilled" ? r.value : []);
+    });
+    return mapa;
+  }, [cotacoesTabela], "");
+
+  // Lembrete de cotações aguardando conferência: contagem e lista vêm de um fetch
+  // dedicado filtrado por status no servidor (não de `cotacoes`, que só cobre a 1ª
+  // página) — garante que a contagem exibida seja real em qualquer escala de tenant.
+  const { data: emAndamentoPagina } = useAsync(
+    () => listarCotacoes({ status: "EM_ANDAMENTO", size: 50, sort: "ultimaAtividadeEm,desc" }),
+    [],
+    "",
+  );
+  const emAndamentoLista = emAndamentoPagina?.content ?? [];
+  const emAndamentoTotal = emAndamentoPagina?.totalElements ?? 0;
 
   // Memoizado: `data` do tableEconomia — um array/objetos novos a cada render (mesmo
   // problema descrito em COTACOES_VAZIO acima) trava a aba num loop de render infinito
@@ -206,7 +242,10 @@ function DashboardContent() {
           const precisaAjuste = c.canalOrigem === "WHATSAPP" && !c.listaRevisada;
           return (
             <>
-              {c.canalOrigem}
+              <span className="inline-flex items-center gap-1.5">
+                <CanalIcon canal={c.canalOrigem} />
+                {c.canalOrigem}
+              </span>
               {precisaAjuste && (
                 <div className="mt-1">
                   <StatusBadge status="AJUSTE_PENDENTE" />
@@ -218,6 +257,31 @@ function DashboardContent() {
         meta: { headerClassName: TH_COTACOES, cellClassName: "px-4 py-3 text-t2" },
       },
       {
+        id: "progresso",
+        header: "Progresso",
+        cell: ({ row }) => {
+          const itens = itensPorCotacaoTabela?.get(row.original.id);
+          if (!itens) return "…";
+          const total = itens.length;
+          const conferidos = total - itensSemCotacao(itens).length;
+          const pct = total > 0 ? Math.round((conferidos / total) * 100) : 0;
+          const completo = total > 0 && conferidos === total;
+          const corBarra = total === 0 ? "bg-bdr-m" : completo ? "bg-ok" : "bg-wa";
+          const corTexto = total === 0 ? "text-t3" : completo ? "text-ok" : "text-t2";
+          return (
+            <div className="flex items-center gap-2">
+              <div className="h-1.5 w-16 overflow-hidden rounded-full bg-surf">
+                <div className={`h-full rounded-full ${corBarra}`} style={{ width: `${pct}%` }} />
+              </div>
+              <span className={`text-xs font-medium ${corTexto}`}>
+                {conferidos}/{total}
+              </span>
+            </div>
+          );
+        },
+        meta: { headerClassName: TH_COTACOES, cellClassName: "px-4 py-3" },
+      },
+      {
         id: "ultimaAtividade",
         header: "Última atividade",
         cell: ({ row }) => formatarData(row.original.ultimaAtividadeEm),
@@ -227,7 +291,7 @@ function DashboardContent() {
         id: "economiaPotencial",
         header: "Economia potencial",
         cell: ({ row }) => {
-          const itens = itensPorCotacao?.get(row.original.id);
+          const itens = itensPorCotacaoTabela?.get(row.original.id);
           const economia = itens ? totalEconomia(itens) : 0;
           return itens ? (
             <span className={economia > 0 ? "font-medium text-ok" : ""}>{formatarMoeda(economia)}</span>
@@ -238,11 +302,11 @@ function DashboardContent() {
         meta: { headerClassName: TH_COTACOES, cellClassName: "px-4 py-3 text-t2" },
       },
     ],
-    [itensPorCotacao],
+    [itensPorCotacaoTabela],
   );
 
   const tableCotacoes = useReactTable({
-    data: cotacoes ?? COTACOES_VAZIO,
+    data: cotacoesTabela ?? COTACOES_VAZIO,
     columns: colunasCotacoes,
     getRowId: (c) => c.id,
     getCoreRowModel: getCoreRowModel(),
@@ -372,12 +436,50 @@ function DashboardContent() {
 
         {/* Todas as cotações */}
         <section className="mt-10">
-          <div className="flex items-center justify-between gap-4">
+          <div className="flex flex-wrap items-center justify-between gap-4">
             <h2 className="text-lg font-semibold tracking-tight text-t1">Todas as cotações</h2>
-            {emAndamento > 0 && (
-              <span className="text-sm text-t2">{emAndamento} em andamento</span>
-            )}
+            <input
+              type="text"
+              value={termoBusca}
+              onChange={(e) => setTermoBusca(e.target.value)}
+              placeholder="Buscar por título ou canal"
+              className="w-full max-w-xs rounded-md border border-bdr bg-card px-3 py-1.5 text-sm text-t1 placeholder:text-t3 focus:border-prx focus:outline-none"
+            />
           </div>
+
+          {emAndamentoTotal > 0 && (
+            <div className="mt-4 flex flex-wrap items-center gap-3 rounded-lg border border-wa/30 bg-wa-d px-4 py-3">
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden
+                className="shrink-0 text-wa-txt"
+              >
+                <circle cx="12" cy="12" r="10" />
+                <polyline points="12 6 12 12 16 14" />
+              </svg>
+              <span className="text-sm font-medium text-wa-txt">
+                {emAndamentoTotal} cotaç{emAndamentoTotal === 1 ? "ão" : "ões"} aguardando conferência
+              </span>
+              <div className="flex flex-wrap gap-2 sm:ml-auto">
+                {emAndamentoLista.map((c) => (
+                  <Link
+                    key={c.id}
+                    href={`/cotacoes/${c.id}/entrada`}
+                    className="rounded-full border border-wa/40 bg-card px-3 py-1 text-xs font-medium text-wa-txt hover:bg-hov"
+                  >
+                    {c.titulo}
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
 
           <DataGrid
             table={tableCotacoes}
@@ -387,22 +489,24 @@ function DashboardContent() {
             tbodyClassName="divide-y divide-bdr"
             rowClassName="hover:bg-hov"
             renderRowDetail={(row) => (
-              <CotacaoResumoExpandido cotacao={row.original} itens={itensPorCotacao?.get(row.original.id)} />
+              <CotacaoResumoExpandido cotacao={row.original} itens={itensPorCotacaoTabela?.get(row.original.id)} />
             )}
             rowDetailClassName="bg-surf"
             rowDetailCellClassName="px-4 py-4"
-            loading={cotacoes === null}
+            loading={cotacoesTabela === null}
             loadingContent={
               <tr>
-                <td colSpan={5} className="px-4 py-6 text-center text-t2">
+                <td colSpan={6} className="px-4 py-6 text-center text-t2">
                   Carregando...
                 </td>
               </tr>
             }
             emptyContent={
               <tr>
-                <td colSpan={5} className="px-4 py-6 text-center text-t2">
-                  Nenhuma cotação ainda. Clique em qualquer aba de navegação para criar a primeira.
+                <td colSpan={6} className="px-4 py-6 text-center text-t2">
+                  {termoBuscaDebounced
+                    ? "Nenhuma cotação encontrada para essa busca."
+                    : "Nenhuma cotação ainda. Clique em qualquer aba de navegação para criar a primeira."}
                 </td>
               </tr>
             }
