@@ -15,7 +15,7 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import FornecedorRespostaBlock from "@/app/cotacoes/[id]/entrada/components/FornecedorRespostaBlock";
-import { CotacaoFornecedorResponse, Fornecedor, PreviewRespostaResponse } from "@/lib/types";
+import { CotacaoFornecedorResponse, Fornecedor } from "@/lib/types";
 
 const { atualizarFornecedorMock } = vi.hoisted(() => ({ atualizarFornecedorMock: vi.fn() }));
 
@@ -54,45 +54,14 @@ function makeCotacaoFornecedor(overrides: Partial<CotacaoFornecedorResponse> = {
   };
 }
 
-function makePreview(): PreviewRespostaResponse {
-  return {
-    contadores: { total: 1, ok: 1, atencao: 0, revisar: 0 },
-    itens: [
-      {
-        itemBaseId: "item-1",
-        nomeItemBase: "Item Teste",
-        status: "OK",
-        motivos: [],
-        candidatos: [
-          { textoOriginal: "5un item teste", marcaOferecida: null, precoInformado: 10, confiancaMatch: 0.95, semEstoque: false },
-        ],
-        preservado: false,
-        precoAnteriorConfirmado: null,
-      },
-    ],
-  };
-}
-
-function bloco(
-  cotacaoFornecedor: CotacaoFornecedorResponse,
-  fornecedor: Fornecedor | undefined,
-  overrides: { preview?: PreviewRespostaResponse | null; modalAberto?: boolean } = {},
-) {
+function bloco(cotacaoFornecedor: CotacaoFornecedorResponse, fornecedor: Fornecedor | undefined) {
   return (
     <FornecedorRespostaBlock
-      cotacaoId="cot-1"
       cotacaoFornecedor={cotacaoFornecedor}
       fornecedor={fornecedor}
       onFornecedorAtualizado={vi.fn()}
-      onConfirmado={vi.fn()}
       texto=""
       setTexto={vi.fn()}
-      preview={overrides.preview ?? null}
-      modalAberto={overrides.modalAberto ?? false}
-      onClosePreview={vi.fn()}
-      onCancelarConferencia={vi.fn().mockResolvedValue(undefined)}
-      estadoResolucao={{ resolucoes: {}, spinOffs: {}, excluidos: {} }}
-      onEstadoResolucaoChange={vi.fn()}
     />
   );
 }
@@ -161,9 +130,9 @@ describe("FornecedorRespostaBlock — Fase 4: ressincronização de dados quando
 // FornecedoresCotacoesSection ("Conferir resposta do fornecedor"), que age sobre o
 // fornecedor aberto no carrossel em vez de exigir um botão por bloco.
 describe("FornecedorRespostaBlock — sem botão de retomada de Conferência", () => {
-  it("com preview em memória e modal fechado, não renderiza 'Continuar Conferência' e mostra o rótulo de status completo", () => {
+  it("fornecedor PROCESSADO não renderiza 'Continuar Conferência' e mostra o rótulo de status completo (o botão de conferir agora vive em FornecedoresCotacoesSection)", () => {
     const cf = makeCotacaoFornecedor({ status: "PROCESSADO" });
-    render(bloco(cf, makeFornecedor(), { preview: makePreview(), modalAberto: false }));
+    render(bloco(cf, makeFornecedor()));
 
     expect(screen.queryByText(/Continuar Conferência/)).toBeNull();
     expect(

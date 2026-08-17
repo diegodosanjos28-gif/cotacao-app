@@ -28,23 +28,23 @@ import {
 } from "@/lib/types";
 import GridProdutosSection from "./components/GridProdutosSection";
 import FornecedoresCotacoesSection from "./components/FornecedoresCotacoesSection";
+import ConferenciaPanel from "./components/ConferenciaPanel";
 import EntradaFooter from "./components/EntradaFooter";
 import EntradaStepper, { PassoEntrada, PassoInfo } from "./components/EntradaStepper";
 
 // Rascunho da Conferência de um fornecedor — vive por cotacaoFornecedorId, não como
-// estado único da página, pra que trocar de fornecedor (ou fechar o modal) não perca
-// nem misture texto colado, preview e resoluções em andamento de outro fornecedor.
+// estado único da página, pra que trocar de fornecedor (ou de passo) não perca nem
+// misture texto colado, preview e resoluções em andamento de outro fornecedor.
 interface RascunhoFornecedor {
   texto: string;
   preview: PreviewRespostaResponse | null;
-  modalAberto: boolean;
   resolucoes: Record<string, ResolucaoItemRequest>;
   spinOffs: Record<string, ResolucaoItemRequest[]>;
   excluidos: Record<string, Set<string>>;
 }
 
 function rascunhoVazio(): RascunhoFornecedor {
-  return { texto: "", preview: null, modalAberto: false, resolucoes: {}, spinOffs: {}, excluidos: {} };
+  return { texto: "", preview: null, resolucoes: {}, spinOffs: {}, excluidos: {} };
 }
 
 // Passo inicial da timeline (Prompt 25) — "retoma de onde parou" em vez de sempre
@@ -134,8 +134,13 @@ function EntradaContent({ cotacaoId }: { cotacaoId: string }) {
     setErro(null);
     try {
       const resultado = await enviarResposta(cotacaoId, fornecedorAtivo.fornecedorId, texto);
-      atualizarRascunho(fornecedorAtivo.id, { preview: resultado, modalAberto: true });
+      atualizarRascunho(fornecedorAtivo.id, { preview: resultado });
       await recarregarFornecedoresDaCotacao();
+      // Processar já entrega pro passo 3 (achado do usuário, 2026-08-16) — antes o
+      // operador precisava clicar num botão "Conferir resposta do fornecedor" à parte
+      // dentro do passo 2, que foi removido; agora a Conferência do que acabou de ser
+      // processado já aparece na tela ao concluir o processamento.
+      setPassoAtivo(3);
     } catch (err) {
       setErro(getErrorMessage(err, "Não foi possível processar a resposta."));
     } finally {
@@ -149,20 +154,19 @@ function EntradaContent({ cotacaoId }: { cotacaoId: string }) {
   // WhatsApp — WhatsappRespostaFornecedorService persiste direto em
   // cotacao_produto_fornecedor, sem nunca passar por preview). Recebe o
   // cotacaoFornecedor alvo explicitamente em vez de depender de fornecedorAtivo — quem
-  // chama (FornecedoresCotacoesSection) pode estar mudando de fornecedor ativo no
+  // chama (ConferenciaPanel, Prompt 26) pode estar mudando de fornecedor ativo no
   // mesmo clique, inclusive em cadeia automática após confirmar outro fornecedor.
-  // Retorna true se um modal foi de fato aberto — o chamador usa isso pra decidir se
-  // um encadeamento automático deve parar. Nunca lança: ConferenciaModal.confirmar()
+  // Retorna true se um preview foi de fato carregado — o chamador usa isso pra decidir
+  // se um encadeamento automático deve parar. Nunca lança: ConferenciaPendente.confirmar()
   // chama onConfirmado() sem await dentro do próprio try, então uma rejeição vinda
   // daqui escaparia como unhandled rejection.
   async function onConferirResposta(cf: CotacaoFornecedorResponse): Promise<boolean> {
     setErro(null);
     const rascunho = rascunhos[cf.id];
 
-    // 1) Preview já em memória (processou e fechou sem confirmar) — reabre
+    // 1) Preview já em memória (aberto e deixado pra depois, sem confirmar) — reabre
     //    exatamente como foi deixado, sem chamada de rede.
     if (rascunho?.preview) {
-      atualizarRascunho(cf.id, { modalAberto: true });
       return true;
     }
 
@@ -176,12 +180,12 @@ function EntradaContent({ cotacaoId }: { cotacaoId: string }) {
       }
       if (!textoParaConferir.trim()) {
         setErro(
-          "Não há resposta registrada para conferir deste fornecedor. Cole a resposta no campo ao lado e clique em Processar Cotação.",
+          "Não há resposta registrada para conferir deste fornecedor. Cole a resposta no passo 2 e clique em Processar Resposta Cotação.",
         );
         return false;
       }
       const resultado = await enviarResposta(cotacaoId, cf.fornecedorId, textoParaConferir);
-      atualizarRascunho(cf.id, { texto: textoParaConferir, preview: resultado, modalAberto: true });
+      atualizarRascunho(cf.id, { texto: textoParaConferir, preview: resultado });
       await recarregarFornecedoresDaCotacao();
       return true;
     } catch (err) {
@@ -190,17 +194,12 @@ function EntradaContent({ cotacaoId }: { cotacaoId: string }) {
     }
   }
 
-  // Clique num marcador da timeline (Prompt 25). O passo 3 (Conferência) não tem
-  // conteúdo próprio ainda (Prompt 26) — reaproveita o mesmo painel do passo 2, só que
-  // clicar nele já dispara onConferirResposta pro primeiro fornecedor PROCESSADO
-  // (mesma função do botão "Conferir resposta do fornecedor" que já existe), abrindo a
-  // Conferência de cara em vez de exigir mais um clique.
+  // Clique num marcador da timeline (Prompt 25). O passo 3 (Conferência) tem seu
+  // próprio painel a partir do Prompt 26 (ConferenciaPanel) — ele é quem decide sozinho
+  // qual fornecedor abrir (pendente-primeiro) e quando chamar onConferirResposta, não
+  // mais um efeito colateral do clique no marcador.
   function onSelecionarPasso(passo: PassoEntrada) {
     setPassoAtivo(passo);
-    if (passo === 3) {
-      const pendente = cotacaoFornecedores.find((cf) => cf.status === "PROCESSADO");
-      if (pendente) onConferirResposta(pendente);
-    }
   }
 
   // Botão único do passo 1 no rodapé (Prompt 25, feedback 2026-08-16) — só avança a
@@ -209,15 +208,14 @@ function EntradaContent({ cotacaoId }: { cotacaoId: string }) {
     setPassoAtivo(2);
   }
 
-  // "Cancelar Conferência" (achado do usuário, 2026-08-04): diferente de onClosePreview
-  // (que só esconde o modal preservando tudo), isto apaga a resposta do fornecedor de
-  // verdade — no backend (DELETE .../resposta, volta cotacao_fornecedor.status pra
-  // PENDENTE) e no rascunho local (texto/preview/resoluções). Sem o DELETE no backend,
-  // "Conferir resposta do fornecedor" reconstruiria a mesma resposta cancelada no
-  // próximo clique (ver onConferirResposta, branch 3). Propositalmente NÃO captura
-  // erro aqui — deixa propagar pra ConferenciaModal.cancelarConferencia(), que mostra
-  // o erro dentro do próprio modal (mesmo padrão de confirmar()), não no banner do
-  // topo da página.
+  // "Cancelar Conferência" (achado do usuário, 2026-08-04): apaga a resposta do
+  // fornecedor de verdade — no backend (DELETE .../resposta, volta
+  // cotacao_fornecedor.status pra PENDENTE) e no rascunho local (texto/preview/
+  // resoluções). Sem o DELETE no backend, "Conferir resposta do fornecedor"
+  // reconstruiria a mesma resposta cancelada no próximo clique (ver onConferirResposta,
+  // branch 3). Propositalmente NÃO captura erro aqui — deixa propagar pra
+  // ConferenciaPendente.confirmarCancelamento(), que mostra o erro dentro do próprio
+  // painel (mesmo padrão de confirmar()), não no banner do topo da página.
   async function onCancelarConferencia(cf: CotacaoFornecedorResponse) {
     await cancelarRespostaFornecedor(cotacaoId, cf.fornecedorId);
     atualizarRascunho(cf.id, {
@@ -226,7 +224,6 @@ function EntradaContent({ cotacaoId }: { cotacaoId: string }) {
       resolucoes: {},
       spinOffs: {},
       excluidos: {},
-      modalAberto: false,
     });
     await recarregarFornecedoresDaCotacao();
   }
@@ -386,14 +383,10 @@ function EntradaContent({ cotacaoId }: { cotacaoId: string }) {
                 />
               </div>
 
-              {/* Passos 2 e 3 — Fornecedores e cotações / Conferência. Só o painel
-                  "Fornecedores e cotações" (o botão "Abrir fornecedores" dentro dele dá
-                  acesso ao catálogo). O passo 3 não tem conteúdo próprio ainda (Prompt
-                  26): reaproveita o mesmo painel do passo 2, só que onSelecionarPasso já
-                  dispara a Conferência do primeiro fornecedor PROCESSADO ao clicar.
-                  Também sempre montado pelo mesmo motivo do passo 1 (estado local do
-                  painel de fornecedores não pode se perder). */}
-              <div className={passoAtivo === 2 || passoAtivo === 3 ? "" : "hidden"}>
+              {/* Passo 2 — Fornecedores e cotações: dados cadastrais + colar/processar
+                  texto. Sempre montado (mesmo motivo do passo 1) — estado local do
+                  painel de fornecedores não pode se perder ao trocar de passo. */}
+              <div className={passoAtivo === 2 ? "" : "hidden"}>
                 <FornecedoresCotacoesSection
                   cotacao={cotacao}
                   cotacaoId={cotacaoId}
@@ -403,16 +396,30 @@ function EntradaContent({ cotacaoId }: { cotacaoId: string }) {
                   onFornecedorAtualizado={onFornecedorSalvo}
                   onFornecedorInativado={onFornecedorInativado}
                   onAtivoAlterado={onAtivoAlterado}
-                  onConferirResposta={onConferirResposta}
-                  onCancelarConferencia={onCancelarConferencia}
                   texto={texto}
                   setTexto={setTexto}
+                  ativo={passoAtivo === 2}
+                  setErro={setErro}
+                />
+              </div>
+
+              {/* Passo 3 — Conferência (Prompt 26): painel dedicado, dono da própria
+                  navegação entre fornecedores pendentes/já confirmados — ver
+                  ConferenciaPanel. Também sempre montado, mesmo motivo dos passos 1/2. */}
+              <div className={passoAtivo === 3 ? "" : "hidden"}>
+                <ConferenciaPanel
+                  cotacaoId={cotacaoId}
+                  cotacaoFornecedores={cotacaoFornecedores}
+                  onConferirResposta={onConferirResposta}
+                  onCancelarConferencia={onCancelarConferencia}
+                  onAtivoAlterado={onAtivoAlterado}
+                  onCotacaoFornecedoresAtualizados={recarregarFornecedoresDaCotacao}
+                  ativo={passoAtivo === 3}
+                  fornecedorFocoId={fornecedorAtivo?.id}
+                  texto={texto}
                   preview={preview}
-                  modalAberto={rascunhoAtivo.modalAberto}
-                  onClosePreview={() => onEstadoResolucaoChange({ modalAberto: false })}
                   estadoResolucao={estadoResolucao}
                   onEstadoResolucaoChange={onEstadoResolucaoChange}
-                  setErro={setErro}
                 />
               </div>
             </div>

@@ -341,7 +341,6 @@ export interface EstadoResolucao {
 
 export interface ConferenciaPatch extends Partial<EstadoResolucao> {
   preview?: PreviewRespostaResponse | null;
-  modalAberto?: boolean;
 }
 
 // Corpo de erro do backend (Spring ProblemDetail) — ver GlobalExceptionHandler.

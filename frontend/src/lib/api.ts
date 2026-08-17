@@ -223,6 +223,18 @@ export function confirmarResposta(
   });
 }
 
+// Leitura somente-consulta da conferência já confirmada de um fornecedor (Prompt 26) —
+// usada pela aba de Conferência pra navegar por conferências já realizadas sem
+// reprocessar a resposta (o que rebaixaria o fornecedor de volta pra PROCESSADO).
+export function buscarConferenciaConfirmada(
+  cotacaoId: string,
+  fornecedorId: string,
+): Promise<ItemRespostaResponse[]> {
+  return request<ItemRespostaResponse[]>(
+    `/cotacoes/${cotacaoId}/fornecedores/${fornecedorId}/conferencia-confirmada`,
+  );
+}
+
 // ── Fornecedores da cotação (fluxo sequencial) ──────────────────────────────
 
 export function listarFornecedoresDaCotacao(cotacaoId: string): Promise<CotacaoFornecedorResponse[]> {

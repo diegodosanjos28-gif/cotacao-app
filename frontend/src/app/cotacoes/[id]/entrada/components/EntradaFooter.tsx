@@ -129,7 +129,7 @@ export default function EntradaFooter({
               ) : (
                 <p className="text-xs text-t3">Adicione ao menos um produto à lista para avançar.</p>
               )
-            ) : (
+            ) : passoAtivo === 2 ? (
               <>
                 <button
                   type="button"
@@ -148,6 +148,17 @@ export default function EntradaFooter({
                   {finalizando ? "Finalizando..." : "✓ Finalizar Cotação"}
                 </button>
               </>
+            ) : (
+              // Passo 3 (Conferência, Prompt 26): não tem mais textarea de colar
+              // resposta — o botão de processar pertence só ao passo 2.
+              <button
+                type="button"
+                onClick={onFinalizar}
+                disabled={finalizando}
+                className="rounded-md border border-prx px-4 py-2 text-sm font-medium text-prx hover:bg-prx/10 disabled:opacity-50"
+              >
+                {finalizando ? "Finalizando..." : "✓ Finalizar Cotação"}
+              </button>
             )}
           </div>
           <div className="flex flex-wrap items-center gap-3 rounded-lg border border-prx/30 bg-prx/5 px-4 py-3 text-sm text-t2">

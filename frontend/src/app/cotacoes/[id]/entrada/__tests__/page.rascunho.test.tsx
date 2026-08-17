@@ -1,12 +1,24 @@
 // Fase 4.1: o rascunho da Conferência de um fornecedor (texto colado, preview
-// processado, resoluções/spin-offs/exclusões em andamento) foi elevado para um mapa
-// por cotacaoFornecedorId em page.tsx (`rascunhos`/`RascunhoFornecedor`), pra sobreviver
-// à troca de fornecedor ativo e ao fechar/reabrir do modal de Conferência — antes esse
-// estado vivia solto (useState local do ConferenciaModal + estado único não-particionado
-// em page.tsx) e era perdido nessas duas situações. Estes testes exercitam o fluxo
-// completo (EntradaPage) com fornecedores reais e mocks de rede, diferente de
-// FornecedoresCotacoesSection.test.tsx (que mocka estadoResolucao com vi.fn(), sem
-// estado real) e ConferenciaModal.test.tsx (que testa o modal isolado).
+// processado, resoluções/spin-offs/exclusões em andamento) vive num mapa por
+// cotacaoFornecedorId em page.tsx (`rascunhos`/`RascunhoFornecedor`), pra sobreviver à
+// troca de fornecedor ativo dentro do painel de Conferência.
+//
+// Prompt 26 (painel dedicado) + feedback pós-review 2026-08-16 mudaram bastante o
+// fluxo end-to-end coberto por este arquivo em relação à versão anterior (que ainda
+// testava o antigo ConferenciaModal via role="dialog"):
+//   - Não existe mais Modal envolvendo a Conferência — ConferenciaPendente é conteúdo
+//     inline do passo 3 (EntradaStepper), sem "Fechar"/backdrop.
+//   - O botão "Conferir resposta do fornecedor" foi removido: "Processar Resposta
+//     Cotação" (passo 2) já entrega direto no passo 3 (setPassoAtivo(3) em
+//     onProcessar), pousando no fornecedor recém-processado via
+//     ConferenciaPanel.fornecedorFocoId.
+//   - Passo 2 (FornecedoresCotacoesSection) e passo 3 (ConferenciaPanel) ficam SEMPRE
+//     montados ao mesmo tempo (só escondidos por classe CSS, que o ambiente de teste
+//     não aplica) — os dois têm sua própria lista de pills com o mesmo nome de
+//     fornecedor; a prop `ativo` (guarda de qual dos dois pode escrever em
+//     fornecedorAtivo) evita o ping-pong, mas as consultas de texto/role precisam
+//     desambiguar entre as duas listas quando ambas têm um fornecedor com o mesmo nome
+//     (ver `pillDoPainelConferencia` abaixo).
 
 import { Suspense } from "react";
 import { describe, expect, it, vi, beforeEach } from "vitest";
@@ -149,6 +161,20 @@ function botaoProcessar() {
   return screen.getByRole("button", { name: /Processar Resposta Cotação/ });
 }
 
+function botaoConfirmar() {
+  return screen.getByRole("button", { name: "Confirmar e Processar" });
+}
+
+// FornecedoresCotacoesSection (passo 2) e ConferenciaPanel (passo 3) ficam sempre
+// montados ao mesmo tempo (só escondidos por classe CSS que o jsdom não aplica) — os
+// dois têm sua própria lista de pills de navegação com o mesmo texto de fornecedor. A
+// lista do ConferenciaPanel é sempre a que aparece por último no documento (passo 3 é
+// renderizado depois do passo 2 em page.tsx), então pega a última ocorrência.
+function pillDoPainelConferencia(nome: string): HTMLElement {
+  const pills = screen.getAllByRole("button", { name: nome });
+  return pills[pills.length - 1];
+}
+
 beforeEach(() => {
   pushMock.mockReset();
   buscarCotacaoMock.mockReset();
@@ -164,10 +190,10 @@ beforeEach(() => {
   localStorage.setItem("cotacao.accessToken", "fake-token");
 });
 
-describe("EntradaPage — rascunho por fornecedor sobrevive à troca de fornecedor ativo", () => {
+describe("EntradaPage — rascunho por fornecedor sobrevive à troca de fornecedor dentro do painel de Conferência", () => {
   it("resolução em andamento no Fornecedor A permanece intacta ao ir para B e voltar", async () => {
-    const a = makeCotacaoFornecedor({ id: "cf-a", fornecedorId: "forn-a", nomeFornecedor: "Fornecedor A", ordem: 0 });
-    const b = makeCotacaoFornecedor({ id: "cf-b", fornecedorId: "forn-b", nomeFornecedor: "Fornecedor B", ordem: 1 });
+    const a = makeCotacaoFornecedor({ id: "cf-a", fornecedorId: "forn-a", nomeFornecedor: "Fornecedor A", ordem: 0, status: "PROCESSADO" });
+    const b = makeCotacaoFornecedor({ id: "cf-b", fornecedorId: "forn-b", nomeFornecedor: "Fornecedor B", ordem: 1, status: "PROCESSADO" });
     buscarCotacaoMock.mockResolvedValue(makeCotacao());
     buscarListaMock.mockResolvedValue([]);
     listarFornecedoresMock.mockResolvedValue([
@@ -175,116 +201,88 @@ describe("EntradaPage — rascunho por fornecedor sobrevive à troca de forneced
       makeFornecedor({ id: "forn-b", nome: "Fornecedor B" }),
     ]);
     listarFornecedoresDaCotacaoMock.mockResolvedValue([a, b]);
+    // Nenhum rascunho local ainda para A/B (ex.: página recarregada) — o painel
+    // reconstrói via texto persistido (branch 3 de onConferirResposta).
+    buscarRespostaPersistidaMock.mockResolvedValue({ texto: "5un item teste - R$ 10,00" });
     enviarRespostaMock.mockResolvedValue(makePreviewRevisar([makeItemRevisar()]));
 
     await renderPage();
 
-    await waitFor(() => expect(screen.getByText("Fornecedor 1 de 2")).toBeTruthy());
+    // cf com algum PROCESSADO faz calcularPassoInicial pousar direto no passo 3, e o
+    // painel seleciona o primeiro pendente (A) sozinho.
+    await waitFor(() => expect(screen.getByText("Conferência do Fornecedor — Fornecedor A")).toBeTruthy());
+    await waitFor(() => expect(buscarRespostaPersistidaMock).toHaveBeenCalledWith("cot-1", "forn-a"));
 
-    // Cola o texto e processa a resposta do Fornecedor A — a Conferência abre sozinha.
-    fireEvent.change(textareaResposta(), { target: { value: "5un item teste - R$ 10,00" } });
-    fireEvent.click(botaoProcessar());
-
-    const dialogA = await screen.findByRole("dialog", { name: /Fornecedor A/ });
-    expect(within(dialogA).getByRole("radio")).toBeTruthy();
-
-    // Resolve o único item (REVISAR), sem clicar em "Confirmar e Processar" — a
-    // resolução fica pendente, nada é persistido no backend ainda.
-    fireEvent.click(within(dialogA).getByRole("radio"));
-    expect(within(dialogA).getByText("Resolvido")).toBeTruthy();
+    fireEvent.click(screen.getByRole("radio"));
+    expect(screen.getByText("Resolvido")).toBeTruthy();
     expect(confirmarRespostaMock).not.toHaveBeenCalled();
 
-    // Navega para o Fornecedor B — o painel dele deve estar vazio (nenhum rascunho).
-    fireEvent.click(screen.getByRole("button", { name: "Fornecedor B" }));
-    await waitFor(() => expect(screen.getByText("Fornecedor 2 de 2")).toBeTruthy());
-    expect(screen.queryByRole("dialog")).toBeNull();
-    expect(textareaResposta().value).toBe("");
+    // Navega para o Fornecedor B pela lista de pills do próprio painel de Conferência.
+    fireEvent.click(pillDoPainelConferencia("Fornecedor B"));
+    await waitFor(() => expect(screen.getByText("Conferência do Fornecedor — Fornecedor B")).toBeTruthy());
+    await waitFor(() => expect(buscarRespostaPersistidaMock).toHaveBeenCalledWith("cot-1", "forn-b"));
+    // B nunca foi resolvido — nenhum "Resolvido" na tela dele.
+    expect(screen.queryByText("Resolvido")).toBeNull();
 
-    // Volta para o Fornecedor A — texto, preview e resolução continuam exatamente
-    // como foram deixados (o modal reabre sozinho porque modalAberto ficou true).
-    fireEvent.click(screen.getByRole("button", { name: "Fornecedor A" }));
-    await waitFor(() => expect(screen.getByText("Fornecedor 1 de 2")).toBeTruthy());
-
-    const dialogANovamente = await screen.findByRole("dialog", { name: /Fornecedor A/ });
-    expect(within(dialogANovamente).getByText("Resolvido")).toBeTruthy();
-    expect(textareaResposta().value).toBe("5un item teste - R$ 10,00");
-    expect(enviarRespostaMock).toHaveBeenCalledTimes(1);
-  });
-});
-
-describe("EntradaPage — rascunho sobrevive ao fechar e reabrir a Conferência do mesmo fornecedor", () => {
-  it('clicar em "Fechar" com uma resolução pendente e reabrir via "Conferir resposta do fornecedor" preserva o estado', async () => {
-    const a = makeCotacaoFornecedor({ id: "cf-a", fornecedorId: "forn-a", nomeFornecedor: "Fornecedor A", ordem: 0 });
-    buscarCotacaoMock.mockResolvedValue(makeCotacao());
-    buscarListaMock.mockResolvedValue([]);
-    listarFornecedoresMock.mockResolvedValue([makeFornecedor({ id: "forn-a", nome: "Fornecedor A" })]);
-    // 1ª carga (antes de processar) = PENDENTE; após enviarResposta o backend real
-    // marca PROCESSADO como efeito colateral de gerarPreview (ver
-    // FornecedorRespostaService.java) — recarregarFornecedoresDaCotacao já busca de
-    // novo depois disso, então as chamadas seguintes simulam esse status atualizado
-    // (é o que faz "Conferir resposta do fornecedor" aparecer pra reabrir).
-    listarFornecedoresDaCotacaoMock.mockResolvedValueOnce([a]).mockResolvedValue([{ ...a, status: "PROCESSADO" }]);
-    enviarRespostaMock.mockResolvedValue(makePreviewRevisar([makeItemRevisar()]));
-
-    await renderPage();
-
-    await waitFor(() => expect(textareaResposta()).toBeTruthy());
-    fireEvent.change(textareaResposta(), { target: { value: "5un item teste - R$ 10,00" } });
-    fireEvent.click(botaoProcessar());
-
-    const dialog = await screen.findByRole("dialog", { name: /Fornecedor A/ });
-    fireEvent.click(within(dialog).getByRole("radio"));
-    expect(within(dialog).getByText("Resolvido")).toBeTruthy();
-
-    // Fechar não deve limpar nada — só esconder o modal (decisão explícita da Fase 4.1).
-    fireEvent.click(within(dialog).getByRole("button", { name: "Fechar" }));
-    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-    expect(confirmarRespostaMock).not.toHaveBeenCalled();
-
-    // Reabre via o botão unificado — atua sobre o fornecedor aberto (A) e reusa o
-    // preview em memória (branch 1 de onConferirResposta), sem chamada de rede.
-    const conferir = screen.getByRole("button", { name: /Conferir resposta do fornecedor/ });
-    fireEvent.click(conferir);
-
-    const dialogReaberto = await screen.findByRole("dialog", { name: /Fornecedor A/ });
-    expect(within(dialogReaberto).getByText("Resolvido")).toBeTruthy();
-    expect(within(dialogReaberto).getByRole("radio")).toHaveProperty("checked", true);
-    // O processamento não é refeito ao reabrir — o mesmo preview do rascunho é reusado.
-    expect(enviarRespostaMock).toHaveBeenCalledTimes(1);
+    // Volta para o Fornecedor A — a resolução continua exatamente como foi deixada, e
+    // o preview não é refeito (reusa o rascunho já em memória).
+    fireEvent.click(pillDoPainelConferencia("Fornecedor A"));
+    await waitFor(() => expect(screen.getByText("Conferência do Fornecedor — Fornecedor A")).toBeTruthy());
+    expect(screen.getByText("Resolvido")).toBeTruthy();
+    expect(enviarRespostaMock).toHaveBeenCalledTimes(2); // uma vez por fornecedor, nunca refeito.
   });
 });
 
 describe("EntradaPage — fluxo de fornecedor único permanece sem regressão", () => {
-  it("processar, resolver e confirmar o único fornecedor pendente navega para o comparativo", async () => {
+  it("processar entrega direto no passo 3, e resolver + confirmar o único fornecedor pendente navega para o comparativo", async () => {
     const a = makeCotacaoFornecedor({ id: "cf-a", fornecedorId: "forn-a", nomeFornecedor: "Fornecedor A", ordem: 0 });
     buscarCotacaoMock.mockResolvedValue(makeCotacao());
     buscarListaMock.mockResolvedValue([]);
     listarFornecedoresMock.mockResolvedValue([makeFornecedor({ id: "forn-a", nome: "Fornecedor A" })]);
-    listarFornecedoresDaCotacaoMock.mockResolvedValue([a]);
+    // 1ª carga = PENDENTE; após enviarResposta o backend real marca PROCESSADO como
+    // efeito colateral (recarregarFornecedoresDaCotacao já busca de novo); após
+    // confirmarResposta, CONFIRMADO — o real ConfirmacaoRespostaService.confirmar
+    // sempre deixa esse rastro, e ConferenciaPanel.onFornecedorConfirmado aguarda
+    // exatamente este refetch antes de decidir/navegar (ver comentário lá) — um mock
+    // que nunca retorna CONFIRMADO não conseguiria validar essa espera.
+    listarFornecedoresDaCotacaoMock
+      .mockResolvedValueOnce([a])
+      .mockResolvedValueOnce([{ ...a, status: "PROCESSADO" }])
+      .mockResolvedValue([{ ...a, status: "CONFIRMADO" }]);
     enviarRespostaMock.mockResolvedValue(makePreviewRevisar([makeItemRevisar()]));
     confirmarRespostaMock.mockResolvedValue([]);
 
     await renderPage();
 
+    // cf único PENDENTE (nenhum PROCESSADO ainda) pousa no passo 2.
     await waitFor(() => expect(textareaResposta()).toBeTruthy());
     fireEvent.change(textareaResposta(), { target: { value: "5un item teste - R$ 10,00" } });
     fireEvent.click(botaoProcessar());
 
-    const dialog = await screen.findByRole("dialog", { name: /Fornecedor A/ });
-    fireEvent.click(within(dialog).getByRole("radio"));
-    fireEvent.click(within(dialog).getByRole("button", { name: "Confirmar e Processar" }));
+    // "Processar Resposta Cotação" já entrega direto no passo 3, no fornecedor
+    // recém-processado — sem precisar de nenhum botão de "Conferir resposta".
+    await waitFor(() => expect(screen.getByText("Conferência do Fornecedor — Fornecedor A")).toBeTruthy());
+    fireEvent.click(screen.getByRole("radio"));
+    fireEvent.click(botaoConfirmar());
 
     await waitFor(() => expect(confirmarRespostaMock).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(pushMock).toHaveBeenCalledWith("/cotacoes/cot-1/comparativo"));
+    // Achado do usuário 2026-08-16, corrigido: ConferenciaPanel.onFornecedorConfirmado
+    // aguarda o refetch de cotacaoFornecedores ANTES de navegar, e
+    // ConferenciaPendente.confirmar() só limpa o preview em memória depois disso — sem
+    // essa ordem, o efeito de auto-fetch via um instante onde o fornecedor recém-
+    // confirmado ainda aparecia como PROCESSADO (refetch não tinha voltado) com preview
+    // já nulo, e reprocessava a mesma resposta à toa. Exatamente 1 chamada agora.
+    expect(enviarRespostaMock).toHaveBeenCalledTimes(1);
   });
 });
 
-// Achado do usuário, 2026-08-04: confirmar um fornecedor agora encadeia
-// automaticamente pro próximo PROCESSADO, abrindo a Conferência dele sozinho — sem
-// precisar clicar em nada. Cenário aqui simula 2 fornecedores que já chegaram
-// PROCESSADO do servidor sem preview local (ex.: página recarregada, ou resposta
-// persistida direto via WhatsApp) — exercita o branch 3 de onConferirResposta
-// (reconstrução via GET .../resposta-persistida) pros dois, em sequência.
+// Achado do usuário, 2026-08-04, comportamento preservado no Prompt 26: confirmar um
+// fornecedor encadeia automaticamente pro próximo PROCESSADO, abrindo a Conferência
+// dele sozinho — sem precisar de clique adicional. Cenário aqui simula 2 fornecedores
+// que já chegaram PROCESSADO do servidor sem preview local (ex.: página recarregada, ou
+// resposta persistida direto via WhatsApp) — exercita o branch 3 de onConferirResposta
+// pros dois, em sequência, sem nenhum botão de "Conferir resposta" (removido).
 describe("EntradaPage — encadeamento automático entre fornecedores PROCESSADO", () => {
   it("confirmar o Fornecedor A abre a Conferência do Fornecedor B sozinha, sem clique adicional", async () => {
     const a = makeCotacaoFornecedor({ id: "cf-a", fornecedorId: "forn-a", nomeFornecedor: "Fornecedor A", ordem: 0, status: "PROCESSADO" });
@@ -302,39 +300,32 @@ describe("EntradaPage — encadeamento automático entre fornecedores PROCESSADO
 
     await renderPage();
 
-    await waitFor(() => expect(screen.getByText("Fornecedor 1 de 2")).toBeTruthy());
-
-    // Nenhum preview local ainda pra A — o botão unificado reconstrói do persistido.
-    fireEvent.click(screen.getByRole("button", { name: /Conferir resposta do fornecedor/ }));
-    const dialogA = await screen.findByRole("dialog", { name: /Fornecedor A/ });
+    // Landing automático no passo 3, no primeiro pendente (A) — sem clique nenhum.
+    await waitFor(() => expect(screen.getByText("Conferência do Fornecedor — Fornecedor A")).toBeTruthy());
     await waitFor(() => expect(buscarRespostaPersistidaMock).toHaveBeenCalledWith("cot-1", "forn-a"));
 
-    fireEvent.click(within(dialogA).getByRole("radio"));
-    fireEvent.click(within(dialogA).getByRole("button", { name: "Confirmar e Processar" }));
+    fireEvent.click(screen.getByRole("radio"));
+    fireEvent.click(botaoConfirmar());
     await waitFor(() => expect(confirmarRespostaMock).toHaveBeenCalledTimes(1));
 
     // Sem nenhum clique a mais: o encadeamento automático já reconstrói e abre B.
-    const dialogB = await screen.findByRole("dialog", { name: /Fornecedor B/ });
-    expect(within(dialogB).getByRole("radio")).toBeTruthy();
+    await waitFor(() => expect(screen.getByText("Conferência do Fornecedor — Fornecedor B")).toBeTruthy());
     await waitFor(() => expect(buscarRespostaPersistidaMock).toHaveBeenCalledWith("cot-1", "forn-b"));
     expect(pushMock).not.toHaveBeenCalled();
   });
 });
 
 // Achado do usuário, 2026-08-04: "Cancelar Conferência" não descarta só as resoluções
-// — limpa a resposta do fornecedor inteira (texto colado + preview). Só é observável
-// de ponta a ponta (via EntradaPage) porque ConferenciaModal.test.tsx testa o modal
-// isolado com um harness que não reflete texto/preview reativamente.
+// — limpa a resposta do fornecedor inteira (texto colado + preview), voltando o
+// status pra PENDENTE.
 describe("EntradaPage — Cancelar Conferência limpa a resposta do fornecedor", () => {
-  it("após confirmar o cancelamento no aviso, apaga a resposta no backend, o textarea volta vazio e o modal fecha", async () => {
-    // status muda pra PENDENTE depois de cancelarResposta (mesmo efeito colateral do
-    // backend real — CotacaoFornecedorStatus volta a "ainda não respondeu") — sem
-    // isso, o botão "Conferir resposta do fornecedor" (visível só quando PROCESSADO)
-    // ficaria com estado desatualizado depois do recarregarFornecedoresDaCotacao.
+  it("após confirmar o cancelamento no aviso, apaga a resposta no backend, o textarea volta vazio e a Conferência mostra 'ainda não respondeu'", async () => {
     const a = makeCotacaoFornecedor({ id: "cf-a", fornecedorId: "forn-a", nomeFornecedor: "Fornecedor A", ordem: 0, status: "PENDENTE" });
     buscarCotacaoMock.mockResolvedValue(makeCotacao());
     buscarListaMock.mockResolvedValue([]);
     listarFornecedoresMock.mockResolvedValue([makeFornecedor({ id: "forn-a", nome: "Fornecedor A" })]);
+    // 1ª carga (antes de processar) = PENDENTE; após enviarResposta o backend real
+    // marca PROCESSADO como efeito colateral; depois de cancelar, volta a PENDENTE.
     listarFornecedoresDaCotacaoMock
       .mockResolvedValueOnce([a])
       .mockResolvedValueOnce([{ ...a, status: "PROCESSADO" }])
@@ -348,22 +339,23 @@ describe("EntradaPage — Cancelar Conferência limpa a resposta do fornecedor",
     fireEvent.change(textareaResposta(), { target: { value: "5un item teste - R$ 10,00" } });
     fireEvent.click(botaoProcessar());
 
-    const dialog = await screen.findByRole("dialog", { name: /Fornecedor A/ });
-    fireEvent.click(within(dialog).getByRole("radio"));
-    expect(within(dialog).getByText("Resolvido")).toBeTruthy();
+    await waitFor(() => expect(screen.getByText("Conferência do Fornecedor — Fornecedor A")).toBeTruthy());
+    fireEvent.click(screen.getByRole("radio"));
+    expect(screen.getByText("Resolvido")).toBeTruthy();
 
-    // 1º clique só abre o aviso — não é mais um window.confirm nativo.
-    fireEvent.click(within(dialog).getByRole("button", { name: "Cancelar Conferência" }));
+    // 1º clique só abre o aviso — não é um window.confirm nativo.
+    fireEvent.click(screen.getByRole("button", { name: "Cancelar Conferência" }));
     expect(cancelarRespostaFornecedorMock).not.toHaveBeenCalled();
     const aviso = await screen.findByRole("dialog", { name: "Cancelar conferência deste fornecedor?" });
     fireEvent.click(within(aviso).getByRole("button", { name: "Cancelar conferência" }));
 
     await waitFor(() => expect(cancelarRespostaFornecedorMock).toHaveBeenCalledWith("cot-1", "forn-a"));
-    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await waitFor(() =>
+      expect(
+        screen.getByText("Este fornecedor ainda não respondeu — volte ao passo 2 pra colar a resposta dele."),
+      ).toBeTruthy(),
+    );
     expect(textareaResposta().value).toBe("");
     expect(confirmarRespostaMock).not.toHaveBeenCalled();
-    // Botão "Conferir resposta do fornecedor" some — status voltou pra PENDENTE, nada
-    // pendente de conferir (achado do usuário: a resposta cancelada não reaparece).
-    await waitFor(() => expect(screen.queryByText(/Conferir resposta do fornecedor/)).toBeNull());
   });
 });

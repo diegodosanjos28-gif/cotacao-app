@@ -3,30 +3,14 @@
 import { Dispatch, SetStateAction, useState } from "react";
 import { atualizarFornecedor } from "@/lib/api";
 import { getErrorMessage } from "@/lib/errors";
-import {
-  ConferenciaPatch,
-  CotacaoFornecedorResponse,
-  EstadoResolucao,
-  Fornecedor,
-  FornecedorRequest,
-  PreviewRespostaResponse,
-} from "@/lib/types";
-import ConferenciaModal from "./ConferenciaModal";
+import { CotacaoFornecedorResponse, Fornecedor, FornecedorRequest } from "@/lib/types";
 
 interface Props {
-  cotacaoId: string;
   cotacaoFornecedor: CotacaoFornecedorResponse;
   fornecedor: Fornecedor | undefined;
   onFornecedorAtualizado: (fornecedor: Fornecedor) => void;
-  onConfirmado: (cotacaoFornecedorId: string) => void;
   texto: string;
   setTexto: Dispatch<SetStateAction<string>>;
-  preview: PreviewRespostaResponse | null;
-  modalAberto: boolean;
-  onClosePreview: () => void;
-  onCancelarConferencia: () => Promise<void>;
-  estadoResolucao: EstadoResolucao;
-  onEstadoResolucaoChange: (patch: ConferenciaPatch) => void;
 }
 
 const STATUS_LABEL: Record<string, string> = {
@@ -51,19 +35,11 @@ function dadosDe(fornecedor: Fornecedor | undefined): FornecedorRequest {
 // esta é a única tela que precisa dos campos abertos pra edição rápida durante o
 // processamento sequencial da cotação.
 export default function FornecedorRespostaBlock({
-  cotacaoId,
   cotacaoFornecedor,
   fornecedor,
   onFornecedorAtualizado,
-  onConfirmado,
   texto,
   setTexto,
-  preview,
-  modalAberto,
-  onClosePreview,
-  onCancelarConferencia,
-  estadoResolucao,
-  onEstadoResolucaoChange,
 }: Props) {
   const [dados, setDados] = useState<FornecedorRequest>(() => dadosDe(fornecedor));
   const [salvandoCampo, setSalvandoCampo] = useState<string | null>(null);
@@ -202,22 +178,6 @@ export default function FornecedorRespostaBlock({
           />
         </div>
       </div>
-
-      {preview && modalAberto && (
-        <ConferenciaModal
-          open
-          onClose={onClosePreview}
-          onConfirmado={() => onConfirmado(cotacaoFornecedor.id)}
-          onCancelarConferencia={onCancelarConferencia}
-          cotacaoId={cotacaoId}
-          fornecedorId={cotacaoFornecedor.fornecedorId}
-          fornecedorNome={cotacaoFornecedor.nomeFornecedor ?? ""}
-          textoOriginal={texto}
-          preview={preview}
-          estadoResolucao={estadoResolucao}
-          onEstadoResolucaoChange={onEstadoResolucaoChange}
-        />
-      )}
     </div>
   );
 }

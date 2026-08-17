@@ -1,18 +1,10 @@
 "use client";
 
 import { Dispatch, SetStateAction, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import Card from "@/components/Card";
 import { adicionarFornecedorNaCotacao } from "@/lib/api";
 import { getErrorMessage } from "@/lib/errors";
-import {
-  Cotacao,
-  ConferenciaPatch,
-  CotacaoFornecedorResponse,
-  EstadoResolucao,
-  Fornecedor,
-  PreviewRespostaResponse,
-} from "@/lib/types";
+import { Cotacao, CotacaoFornecedorResponse, Fornecedor } from "@/lib/types";
 import FornecedorRespostaBlock from "./FornecedorRespostaBlock";
 import FornecedoresSidebar from "./FornecedoresSidebar";
 
@@ -25,15 +17,15 @@ interface Props {
   onFornecedorAtualizado: (fornecedor: Fornecedor) => void;
   onFornecedorInativado: (id: string) => void;
   onAtivoAlterado: (cotacaoFornecedor: CotacaoFornecedorResponse | null) => void;
-  onConferirResposta: (cotacaoFornecedor: CotacaoFornecedorResponse) => Promise<boolean>;
-  onCancelarConferencia: (cotacaoFornecedor: CotacaoFornecedorResponse) => Promise<void>;
   texto: string;
   setTexto: Dispatch<SetStateAction<string>>;
-  preview: PreviewRespostaResponse | null;
-  modalAberto: boolean;
-  onClosePreview: () => void;
-  estadoResolucao: EstadoResolucao;
-  onEstadoResolucaoChange: (patch: ConferenciaPatch) => void;
+  // Passo 2 e passo 3 (ConferenciaPanel) ficam sempre montados ao mesmo tempo (Prompt
+  // 25/26) — sem essa guarda os dois brigam por qual fornecedor é "ativo" na página
+  // (cada um chamando onAtivoAlterado com o seu próprio `atual`), causando um
+  // ping-pong de re-renders que nunca estabiliza (achado do usuário, 2026-08-16: a
+  // Conferência ficava "Carregando..." pra sempre com chamadas de rede duplicadas).
+  // Só o passo visível pode escrever em fornecedorAtivo.
+  ativo: boolean;
   setErro: Dispatch<SetStateAction<string | null>>;
 }
 
@@ -60,21 +52,13 @@ export default function FornecedoresCotacoesSection({
   onFornecedorAtualizado,
   onFornecedorInativado,
   onAtivoAlterado,
-  onConferirResposta,
-  onCancelarConferencia,
   texto,
   setTexto,
-  preview,
-  modalAberto,
-  onClosePreview,
-  estadoResolucao,
-  onEstadoResolucaoChange,
+  ativo,
   setErro,
 }: Props) {
-  const router = useRouter();
   const [activeId, setActiveId] = useState<string | null>(null);
   const [adicionando, setAdicionando] = useState(false);
-  const [carregandoConferencia, setCarregandoConferencia] = useState(false);
   // Painel "Abrir fornecedores" (Prompt 25) — substitui o antigo fluxo de
   // "+ Adicionar Fornecedor" (autocomplete): agora é o mesmo painel de catálogo
   // (FornecedoresSidebar) que já existia abaixo, só que sob demanda dentro deste
@@ -112,34 +96,6 @@ export default function FornecedoresCotacoesSection({
     irPara(proximo.id);
   }
 
-  // Chamado quando o operador confirma a Conferência de um fornecedor (ConferenciaModal
-  // reporta o evento, não decide navegação sozinho — Fase 4). Se ainda houver outro
-  // fornecedor pendente de auditoria na cotação, avança pra ele e permanece em
-  // /entrada; só navega pro Comparativo quando não sobra nenhum pendente.
-  async function onFornecedorConfirmado(cotacaoFornecedorId: string) {
-    onCotacaoFornecedoresAtualizados();
-    const restantes = sequencia.filter(
-      (cf) => cf.id !== cotacaoFornecedorId && cf.status !== "CONFIRMADO",
-    );
-    if (restantes.length === 0) {
-      router.push(`/cotacoes/${cotacaoId}/comparativo`);
-      return;
-    }
-    const proximo = restantes[0];
-    irPara(proximo.id);
-    // Encadeamento automático (achado do usuário, 2026-08-04): só auto-abre quem já
-    // tem resposta pra conferir (PROCESSADO). PENDENTE = fornecedor que ainda não
-    // respondeu (nada persistido, nada em memória) — abrir a Conferência dele só
-    // produziria "sem resposta registrada"; nesse caso só navega e para, o botão do
-    // rodapé continua disponível pro operador retomar quando a resposta chegar.
-    // Encadeia auto-ABRINDO, não auto-CONFIRMANDO: se o próximo tiver item REVISAR
-    // sem resolução, "Confirmar e Processar" continua desabilitado e a cadeia pausa
-    // esperando o operador. Se abrirConferencia falhar, a cadeia para aqui com o
-    // erro visível — não pula pro seguinte.
-    if (proximo.status !== "PROCESSADO") return;
-    await abrirConferencia(proximo);
-  }
-
   // Único caminho de adicionar fornecedor à cotação (Prompt 25 — antes também existia
   // um autocomplete separado, absorvido pelo painel "Abrir fornecedores"). Fecha o
   // painel ao concluir pra voltar direto pro fornecedor recém-adicionado.
@@ -158,35 +114,15 @@ export default function FornecedoresCotacoesSection({
     }
   }
 
-  // Ponto único de abertura da Conferência — usado tanto pelo clique do operador
-  // (fornecedor aberto no carrossel) quanto pelo encadeamento automático de
-  // onFornecedorConfirmado. Sempre navega pro alvo antes de abrir, porque o
-  // rascunho (preview/modalAberto) só desce como prop pro fornecedor ativo.
-  async function abrirConferencia(cf: CotacaoFornecedorResponse): Promise<boolean> {
-    setCarregandoConferencia(true);
-    irPara(cf.id);
-    try {
-      return (await onConferirResposta(cf)) === true;
-    } catch {
-      return false; // onConferirResposta já trata/exibe o erro — blindagem contra rejeição
-    } finally {
-      setCarregandoConferencia(false);
-    }
-  }
-
-  async function onConferirAtual() {
-    if (!atual) return;
-    await abrirConferencia(atual);
-  }
-
   useEffect(() => {
+    if (!ativo) return;
     onAtivoAlterado(painelFornecedoresAberto ? null : (atual ?? null));
     // Depende só do id (não do objeto `atual`, que muda de referência a cada refetch
     // dos mesmos fornecedores) — senão um reprocessamento reseta texto/preview do pai
     // no meio do fluxo. onAtivoAlterado não entra nas deps de propósito (recriada a
     // cada render do pai).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [atual?.id, painelFornecedoresAberto]);
+  }, [atual?.id, painelFornecedoresAberto, ativo]);
 
   const podeNavegar = sequencia.length > 1;
 
@@ -223,7 +159,7 @@ export default function FornecedoresCotacoesSection({
             <button
               type="button"
               onClick={() => irParaAdjacente(-1)}
-              disabled={sequencia.length < 2 || carregandoConferencia}
+              disabled={sequencia.length < 2}
               aria-label="Fornecedor anterior"
               className="rounded-md border border-bdr px-2 py-1 text-t2 hover:bg-hov disabled:cursor-not-allowed disabled:opacity-40"
             >
@@ -235,7 +171,7 @@ export default function FornecedoresCotacoesSection({
             <button
               type="button"
               onClick={() => irParaAdjacente(1)}
-              disabled={sequencia.length < 2 || carregandoConferencia}
+              disabled={sequencia.length < 2}
               aria-label="Próximo fornecedor"
               className="rounded-md border border-bdr px-2 py-1 text-t2 hover:bg-hov disabled:cursor-not-allowed disabled:opacity-40"
             >
@@ -261,7 +197,6 @@ export default function FornecedoresCotacoesSection({
                 key={cf.id}
                 type="button"
                 onClick={() => irPara(cf.id)}
-                disabled={carregandoConferencia}
                 title={dadosPendentes ? "Cadastro incompleto — complete os dados deste fornecedor" : undefined}
                 className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border px-3 py-1.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
                   ativa
@@ -300,7 +235,7 @@ export default function FornecedoresCotacoesSection({
             <button
               type="button"
               onClick={() => irParaAdjacente(-1)}
-              disabled={!podeNavegar || carregandoConferencia}
+              disabled={!podeNavegar}
               aria-label="Fornecedor anterior"
               className="absolute -left-6 top-1/2  flex h-16 w-5 -translate-y-1/2 items-center justify-center rounded-full bg-inf text-white shadow-md transition-colors hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-40"
             >
@@ -309,7 +244,7 @@ export default function FornecedoresCotacoesSection({
             <button
               type="button"
               onClick={() => irParaAdjacente(1)}
-              disabled={!podeNavegar || carregandoConferencia}
+              disabled={!podeNavegar}
               aria-label="Próximo fornecedor"
               className="absolute -right-6 top-1/2 flex h-16 w-5 -translate-y-1/2 items-center justify-center rounded-full bg-inf text-white shadow-md transition-colors hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-40"
             >
@@ -330,50 +265,14 @@ export default function FornecedoresCotacoesSection({
         ) : atual ? (
           <FornecedorRespostaBlock
             key={atual.id}
-            cotacaoId={cotacaoId}
             cotacaoFornecedor={atual}
             fornecedor={todosFornecedores.find((f) => f.id === atual.fornecedorId)}
             onFornecedorAtualizado={onFornecedorAtualizado}
-            onConfirmado={onFornecedorConfirmado}
             texto={texto}
             setTexto={setTexto}
-            preview={preview}
-            modalAberto={modalAberto}
-            onClosePreview={onClosePreview}
-            onCancelarConferencia={() => onCancelarConferencia(atual)}
-            estadoResolucao={estadoResolucao}
-            onEstadoResolucaoChange={onEstadoResolucaoChange}
           />
         ) : null}
       </div>
-
-      {!painelFornecedoresAberto && atual?.status === "PROCESSADO" && (
-        // Ponto único de entrada da Conferência (unifica o antigo "Continuar
-        // Conferência" do FornecedorRespostaBlock com o botão que reconstruía o
-        // preview de uma resposta já persistida, achado do usuário 2026-08-04): age
-        // sempre sobre o fornecedor ABERTO no carrossel — page.tsx (onConferirResposta)
-        // decide entre reusar o preview em memória, processar o texto colado, ou
-        // reconstruir do texto persistido (GET .../resposta-persistida).
-        //
-        // Só aparece quando o fornecedor aberto tem algo PENDENTE de conferir
-        // (status PROCESSADO — achado do usuário, 2026-08-04): PENDENTE significa
-        // "ainda não respondeu" (nada pra conferir ainda — o botão relevante ali é
-        // "Processar Cotação", que continua sempre visível no rodapé/EntradaFooter),
-        // e CONFIRMADO significa "já revisado" (reabrir reverteria silenciosamente o
-        // status pra PROCESSADO, efeito colateral de gerarPreview no backend —
-        // reconferir um confirmado continua possível colando o texto de novo em
-        // "Processar Cotação", onde esse efeito é explícito).
-        <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-bdr pt-4">
-          <button
-            type="button"
-            onClick={onConferirAtual}
-            disabled={carregandoConferencia}
-            className="rounded-md bg-prx px-4 py-2 text-sm font-medium text-white hover:bg-prx-l disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {carregandoConferencia ? "Carregando..." : `Conferir resposta do fornecedor (${totalPendentes})`}
-          </button>
-        </div>
-      )}
     </Card>
   );
 }

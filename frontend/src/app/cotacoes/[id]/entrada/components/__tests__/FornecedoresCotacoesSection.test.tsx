@@ -1,39 +1,35 @@
-// Fase 3 (WhatsApp): FornecedoresCotacoesSection ganha um banner informativo quando a
-// cotação é WHATSAPP e ainda não chegou nenhuma resposta de fornecedor (cotacaoFornecedores
-// vazio). Decisão de produto documentada no comentário do componente: o banner convive
-// com a UI manual de "Adicionar fornecedor" — o operador continua podendo adicionar
-// manualmente mesmo numa cotação WhatsApp, o banner não a substitui/esconde.
+// Prompt 26: FornecedoresCotacoesSection virou passo-2-only (dados cadastrais do
+// fornecedor + colar/processar texto). Perdeu por completo a renderização da
+// Conferência (onConferirResposta, onCancelarConferencia, preview, modalAberto,
+// onClosePreview, estadoResolucao, onEstadoResolucaoChange, confirmarResposta) — esse
+// fluxo inteiro (resolver itens, confirmar, encadear pro próximo fornecedor, navegar
+// pro Comparativo) migrou para ConferenciaPanel.tsx, no passo 3 dedicado. O botão
+// "Conferir resposta do fornecedor" foi removido de vez (feedback pós-review,
+// 2026-08-16) — "Processar Resposta Cotação" já entrega direto no passo 3 agora (ver
+// entrada/page.tsx#onProcessar).
 //
-// Fase 4: navegação sequencial entre fornecedores já adicionados. Diferente da versão
-// original da Fase 4, o texto colado e o preview NÃO ficam mais montados por fornecedor
-// dentro desta seção — foram elevados para entrada/page.tsx (texto/preview/onClosePreview
-// chegam como props controladas, e onAtivoAlterado avisa o pai qual fornecedor está ativo
-// para que ele possa resetar texto/preview ao trocar). Só o fornecedor ativo (`atual`) é
-// renderizado por vez; o "Processar Cotação" também saiu daqui, agora é botão único no
-// rodapé (EntradaFooter) — ver comentário em FornecedorRespostaBlock.tsx e EntradaFooter.tsx.
-// Os testes abaixo mockam @/lib/api e next/navigation diretamente (a seção chama useRouter
-// para navegar ao Comparativo quando o último fornecedor pendente é confirmado).
+// Passo 2 e passo 3 ficam sempre montados ao mesmo tempo (só escondidos via classe) —
+// a prop `ativo` existe justamente para que só o passo visível escreva no
+// fornecedorAtivo compartilhado da página (achado do usuário, 2026-08-16: os dois
+// brigando pelo mesmo estado deixava a Conferência "Carregando..." pra sempre).
+//
+// Os testes abaixo cobrem o que sobrou aqui: banner WhatsApp, navegação sequencial
+// entre fornecedores adicionados, onAtivoAlterado (incluindo a guarda `ativo`), e
+// repasse de texto controlado. A cobertura de resolver/confirmar/encadear/navegar pro
+// Comparativo vive em ConferenciaPanel (e no fluxo completo via EntradaPage).
 
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import FornecedoresCotacoesSection from "@/app/cotacoes/[id]/entrada/components/FornecedoresCotacoesSection";
-import { Cotacao, CotacaoFornecedorResponse, Fornecedor, PreviewRespostaResponse } from "@/lib/types";
+import { Cotacao, CotacaoFornecedorResponse, Fornecedor } from "@/lib/types";
 
-const { pushMock } = vi.hoisted(() => ({ pushMock: vi.fn() }));
-const { confirmarRespostaMock, adicionarFornecedorNaCotacaoMock, atualizarFornecedorMock, criarFornecedorMock } =
-  vi.hoisted(() => ({
-    confirmarRespostaMock: vi.fn(),
-    adicionarFornecedorNaCotacaoMock: vi.fn(),
-    atualizarFornecedorMock: vi.fn(),
-    criarFornecedorMock: vi.fn(),
-  }));
-
-vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: pushMock }),
+const { atualizarFornecedorMock, criarFornecedorMock, adicionarFornecedorNaCotacaoMock } = vi.hoisted(() => ({
+  atualizarFornecedorMock: vi.fn(),
+  criarFornecedorMock: vi.fn(),
+  adicionarFornecedorNaCotacaoMock: vi.fn(),
 }));
 
 vi.mock("@/lib/api", () => ({
-  confirmarResposta: confirmarRespostaMock,
   adicionarFornecedorNaCotacao: adicionarFornecedorNaCotacaoMock,
   atualizarFornecedor: atualizarFornecedorMock,
   criarFornecedor: criarFornecedorMock,
@@ -67,44 +63,6 @@ function makeCotacaoFornecedor(overrides: Partial<CotacaoFornecedorResponse> = {
   };
 }
 
-function makeFornecedor(overrides: Partial<Fornecedor> = {}): Fornecedor {
-  return {
-    id: "forn-1",
-    nome: "Fornecedor 1",
-    prazoEntregaPadrao: null,
-    condicaoPagamentoPadrao: null,
-    pedidoMinimoPadrao: null,
-    observacoesPadrao: null,
-    status: "ATIVO",
-    origemCadastro: "MANUAL",
-    criadoEm: "2026-07-30T10:00:00Z",
-    atualizadoEm: null,
-    ...overrides,
-  };
-}
-
-// Item OK (não REVISAR) — não bloqueia "Confirmar e Processar", então os testes desta
-// seção não precisam resolver divergência nenhuma pra chegar em confirmar() (isso já é
-// coberto em detalhe por ConferenciaModal.test.tsx).
-function makePreviewOk(): PreviewRespostaResponse {
-  return {
-    contadores: { total: 1, ok: 1, atencao: 0, revisar: 0 },
-    itens: [
-      {
-        itemBaseId: "item-1",
-        nomeItemBase: "Item Teste",
-        status: "OK",
-        motivos: [],
-        candidatos: [
-          { textoOriginal: "5un item teste", marcaOferecida: null, precoInformado: 10, confiancaMatch: 0.95, semEstoque: false },
-        ],
-        preservado: false,
-        precoAnteriorConfirmado: null,
-      },
-    ],
-  };
-}
-
 const BANNER = "Nenhuma resposta de fornecedor via WhatsApp recebida ainda.";
 
 function renderSection(overrides: {
@@ -114,11 +72,8 @@ function renderSection(overrides: {
   todosFornecedores?: Fornecedor[];
   onCotacaoFornecedoresAtualizados?: () => void;
   onAtivoAlterado?: (cf: CotacaoFornecedorResponse | null) => void;
-  onConferirResposta?: (cf: CotacaoFornecedorResponse) => Promise<boolean>;
-  onCancelarConferencia?: (cf: CotacaoFornecedorResponse) => Promise<void>;
   texto?: string;
-  preview?: PreviewRespostaResponse | null;
-  modalAberto?: boolean;
+  ativo?: boolean;
 } = {}) {
   return render(
     <FornecedoresCotacoesSection
@@ -130,26 +85,17 @@ function renderSection(overrides: {
       onFornecedorAtualizado={vi.fn()}
       onFornecedorInativado={vi.fn()}
       onAtivoAlterado={overrides.onAtivoAlterado ?? vi.fn()}
-      onConferirResposta={overrides.onConferirResposta ?? vi.fn().mockResolvedValue(true)}
-      onCancelarConferencia={overrides.onCancelarConferencia ?? vi.fn().mockResolvedValue(undefined)}
       texto={overrides.texto ?? ""}
       setTexto={vi.fn()}
-      preview={overrides.preview ?? null}
-      // Nos testes existentes (pré-Fase 4.1), um preview não nulo sempre significava
-      // modal aberto — o padrão aqui preserva esse comportamento para não reescrever
-      // os casos que já esperam o dialog visível assim que `preview` é passado.
-      modalAberto={overrides.modalAberto ?? overrides.preview != null}
-      onClosePreview={vi.fn()}
-      estadoResolucao={{ resolucoes: {}, spinOffs: {}, excluidos: {} }}
-      onEstadoResolucaoChange={vi.fn()}
+      ativo={overrides.ativo ?? true}
       setErro={vi.fn()}
     />,
   );
 }
 
 beforeEach(() => {
-  pushMock.mockReset();
-  confirmarRespostaMock.mockReset();
+  atualizarFornecedorMock.mockReset();
+  criarFornecedorMock.mockReset();
   adicionarFornecedorNaCotacaoMock.mockReset();
 });
 
@@ -179,7 +125,7 @@ describe("FornecedoresCotacoesSection — banner WhatsApp sem fornecedores", () 
   });
 });
 
-describe("FornecedoresCotacoesSection — Fase 4: navegação sequencial", () => {
+describe("FornecedoresCotacoesSection — navegação sequencial", () => {
   it("indicador 'X de Y' e chip de pendentes refletem a sequência (pendentes primeiro, ordem preservada)", () => {
     const a = makeCotacaoFornecedor({ id: "cf-a", fornecedorId: "forn-a", ordem: 0, nomeFornecedor: "A", status: "CONFIRMADO" });
     const b = makeCotacaoFornecedor({ id: "cf-b", fornecedorId: "forn-b", ordem: 1, nomeFornecedor: "B", status: "PENDENTE" });
@@ -208,21 +154,6 @@ describe("FornecedoresCotacoesSection — Fase 4: navegação sequencial", () =>
     expect(screen.getByText("Fornecedor 2 de 2")).toBeTruthy();
   });
 
-  it("notifica onAtivoAlterado com o fornecedor ativo assim que montado", () => {
-    const a = makeCotacaoFornecedor({ id: "cf-a", fornecedorId: "forn-a", ordem: 0, nomeFornecedor: "A" });
-    const onAtivoAlterado = vi.fn();
-    renderSection({ cotacaoFornecedores: [a], onAtivoAlterado });
-
-    expect(onAtivoAlterado).toHaveBeenCalledWith(expect.objectContaining({ id: "cf-a" }));
-  });
-
-  it("notifica onAtivoAlterado com null quando não há fornecedores (modo adicionar)", () => {
-    const onAtivoAlterado = vi.fn();
-    renderSection({ cotacaoFornecedores: [], onAtivoAlterado });
-
-    expect(onAtivoAlterado).toHaveBeenCalledWith(null);
-  });
-
   it("repassa texto (controlado pelo pai) para o painel do fornecedor ativo", () => {
     const a = makeCotacaoFornecedor({ id: "cf-a", fornecedorId: "forn-a", ordem: 0, nomeFornecedor: "A" });
     renderSection({ cotacaoFornecedores: [a], texto: "5un item teste - R$ 10,00" });
@@ -231,171 +162,34 @@ describe("FornecedoresCotacoesSection — Fase 4: navegação sequencial", () =>
       "5un item teste - R$ 10,00",
     );
   });
-
-  it("confirmar um fornecedor com outro pendente não navega e avança para o próximo pendente", async () => {
-    const a = makeCotacaoFornecedor({ id: "cf-a", fornecedorId: "forn-a", ordem: 0, nomeFornecedor: "Fornecedor A" });
-    const b = makeCotacaoFornecedor({ id: "cf-b", fornecedorId: "forn-b", ordem: 1, nomeFornecedor: "Fornecedor B" });
-    confirmarRespostaMock.mockResolvedValue([]);
-    const onAtualizado = vi.fn();
-
-    // preview controlado, como se onProcessar (page.tsx) já tivesse processado a
-    // resposta do fornecedor ativo (A, primeiro pendente da sequência).
-    renderSection({
-      cotacaoFornecedores: [a, b],
-      onCotacaoFornecedoresAtualizados: onAtualizado,
-      preview: makePreviewOk(),
-    });
-
-    expect(screen.getByRole("dialog", { name: /Fornecedor A/ })).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Confirmar e Processar" }));
-    await screen.findByText("Fornecedor 2 de 2");
-
-    expect(confirmarRespostaMock).toHaveBeenCalledTimes(1);
-    expect(pushMock).not.toHaveBeenCalled();
-    expect(onAtualizado).toHaveBeenCalled();
-  });
-
-  it("confirmar o único fornecedor pendente navega para o comparativo (regressão do caso mais comum)", async () => {
-    const a = makeCotacaoFornecedor({ id: "cf-a", fornecedorId: "forn-a", ordem: 0, nomeFornecedor: "Fornecedor A" });
-    confirmarRespostaMock.mockResolvedValue([]);
-
-    renderSection({ cotacaoId: "cot-xyz", cotacaoFornecedores: [a], preview: makePreviewOk() });
-
-    fireEvent.click(screen.getByRole("button", { name: "Confirmar e Processar" }));
-
-    await waitFor(() => expect(pushMock).toHaveBeenCalledWith("/cotacoes/cot-xyz/comparativo"));
-  });
 });
 
-// Achado do usuário, 2026-08-04: uma resposta de fornecedor recebida via WhatsApp já
-// chega persistida (StatusItem.PENDENTE_CONFIRMACAO), sem preview em memória — sem
-// este botão, o operador não tinha como reabrir a Conferência pra ela. Unificado com
-// o antigo "Continuar Conferência" (preview já em memória): o botão age sempre sobre o
-// fornecedor ABERTO no carrossel, não mais "o primeiro pendente da sequência" — ver
-// onConferirResposta (entrada/page.tsx) e GET .../resposta-persistida
-// (FornecedorRespostaService.textoPersistido).
-describe("FornecedoresCotacoesSection — botão 'Conferir resposta do fornecedor'", () => {
-  it("não aparece quando não há nenhum fornecedor pendente (lista vazia)", () => {
-    renderSection({ cotacaoFornecedores: [] });
-    expect(screen.queryByText(/Conferir resposta do fornecedor/)).toBeNull();
+// A prop `ativo` guarda o efeito que escreve em onAtivoAlterado — com o passo 2 e o
+// passo 3 (ConferenciaPanel) sempre montados ao mesmo tempo, os dois chamariam
+// onAtivoAlterado com o próprio `atual` sem essa guarda, entrando num ping-pong de
+// re-renders (achado do usuário, 2026-08-16: Conferência ficava "Carregando..." pra
+// sempre, com chamadas de rede duplicadas). Só o passo visível pode escrever.
+describe("FornecedoresCotacoesSection — guarda `ativo` do efeito onAtivoAlterado", () => {
+  it("notifica onAtivoAlterado com o fornecedor ativo quando `ativo=true`", () => {
+    const a = makeCotacaoFornecedor({ id: "cf-a", fornecedorId: "forn-a", ordem: 0, nomeFornecedor: "A" });
+    const onAtivoAlterado = vi.fn();
+    renderSection({ cotacaoFornecedores: [a], onAtivoAlterado, ativo: true });
+
+    expect(onAtivoAlterado).toHaveBeenCalledWith(expect.objectContaining({ id: "cf-a" }));
   });
 
-  it("não aparece quando todos os fornecedores já estão CONFIRMADO", () => {
-    const a = makeCotacaoFornecedor({ id: "cf-a", fornecedorId: "forn-a", ordem: 0, status: "CONFIRMADO" });
-    const b = makeCotacaoFornecedor({ id: "cf-b", fornecedorId: "forn-b", ordem: 1, status: "CONFIRMADO" });
-    renderSection({ cotacaoFornecedores: [a, b] });
-    expect(screen.queryByText(/Conferir resposta do fornecedor/)).toBeNull();
+  it("notifica onAtivoAlterado com null quando não há fornecedores (modo adicionar), com `ativo=true`", () => {
+    const onAtivoAlterado = vi.fn();
+    renderSection({ cotacaoFornecedores: [], onAtivoAlterado, ativo: true });
+
+    expect(onAtivoAlterado).toHaveBeenCalledWith(null);
   });
 
-  it("não aparece quando o fornecedor aberto está PENDENTE (ainda não respondeu — o botão relevante ali é 'Processar Cotação')", () => {
-    // sequência = [b PENDENTE, c PROCESSADO, a CONFIRMADO] — ativo padrão é b.
-    const a = makeCotacaoFornecedor({ id: "cf-a", fornecedorId: "forn-a", ordem: 0, status: "CONFIRMADO" });
-    const b = makeCotacaoFornecedor({ id: "cf-b", fornecedorId: "forn-b", ordem: 1, status: "PENDENTE" });
-    const c = makeCotacaoFornecedor({ id: "cf-c", fornecedorId: "forn-c", ordem: 2, status: "PROCESSADO" });
-    renderSection({ cotacaoFornecedores: [a, b, c] });
+  it("não chama onAtivoAlterado quando `ativo=false` (este passo está escondido atrás de outro)", () => {
+    const a = makeCotacaoFornecedor({ id: "cf-a", fornecedorId: "forn-a", ordem: 0, nomeFornecedor: "A" });
+    const onAtivoAlterado = vi.fn();
+    renderSection({ cotacaoFornecedores: [a], onAtivoAlterado, ativo: false });
 
-    expect(screen.queryByText(/Conferir resposta do fornecedor/)).toBeNull();
-  });
-
-  it("aparece com a contagem correta quando o fornecedor aberto tem resposta pendente de conferir, mesmo em cotação WEB (gate de canal removido)", () => {
-    const a = makeCotacaoFornecedor({ id: "cf-a", fornecedorId: "forn-a", ordem: 0, status: "CONFIRMADO" });
-    const b = makeCotacaoFornecedor({ id: "cf-b", fornecedorId: "forn-b", ordem: 1, status: "PROCESSADO" });
-    renderSection({ cotacao: makeCotacao({ canalOrigem: "WEB" }), cotacaoFornecedores: [a, b] });
-
-    expect(screen.getByRole("button", { name: "Conferir resposta do fornecedor (1)" })).toBeTruthy();
-  });
-
-  it("não aparece quando o fornecedor aberto já está CONFIRMADO (evita reverter o status silenciosamente)", () => {
-    // sequência = [b PROCESSADO, a CONFIRMADO] — ativo padrão é b (PROCESSADO), então
-    // navega explicitamente pra "a" antes de checar o botão.
-    const a = makeCotacaoFornecedor({ id: "cf-a", fornecedorId: "forn-a", ordem: 0, nomeFornecedor: "A", status: "CONFIRMADO" });
-    const b = makeCotacaoFornecedor({ id: "cf-b", fornecedorId: "forn-b", ordem: 1, nomeFornecedor: "B", status: "PROCESSADO" });
-    renderSection({ cotacaoFornecedores: [a, b] });
-
-    fireEvent.click(screen.getByRole("button", { name: "A" }));
-
-    expect(screen.queryByRole("button", { name: /Conferir resposta do fornecedor/ })).toBeNull();
-  });
-
-  it("ao clicar, chama onConferirResposta com o fornecedor padrão-ativo (primeiro da sequência 'pendentes primeiro')", async () => {
-    const a = makeCotacaoFornecedor({ id: "cf-a", fornecedorId: "forn-a", ordem: 0, nomeFornecedor: "Confirmado", status: "CONFIRMADO" });
-    const b = makeCotacaoFornecedor({ id: "cf-b", fornecedorId: "forn-b", ordem: 1, nomeFornecedor: "Primeiro Pendente", status: "PROCESSADO" });
-    const c = makeCotacaoFornecedor({ id: "cf-c", fornecedorId: "forn-c", ordem: 2, nomeFornecedor: "Segundo Pendente", status: "PROCESSADO" });
-    const onConferirResposta = vi.fn().mockResolvedValue(true);
-
-    renderSection({ cotacaoFornecedores: [a, b, c], onConferirResposta });
-
-    fireEvent.click(screen.getByRole("button", { name: "Conferir resposta do fornecedor (2)" }));
-
-    await waitFor(() => expect(onConferirResposta).toHaveBeenCalledTimes(1));
-    expect(onConferirResposta).toHaveBeenCalledWith(expect.objectContaining({ id: "cf-b" }));
-  });
-
-  it("ao clicar, chama onConferirResposta com o fornecedor ABERTO, não com o primeiro pendente (prova a mudança de alvo)", async () => {
-    const a = makeCotacaoFornecedor({ id: "cf-a", fornecedorId: "forn-a", ordem: 0, nomeFornecedor: "Primeiro Pendente", status: "PROCESSADO" });
-    const b = makeCotacaoFornecedor({ id: "cf-b", fornecedorId: "forn-b", ordem: 1, nomeFornecedor: "Segundo Pendente", status: "PROCESSADO" });
-    const onConferirResposta = vi.fn().mockResolvedValue(true);
-
-    renderSection({ cotacaoFornecedores: [a, b], onConferirResposta });
-
-    // navega manualmente pro segundo pendente antes de clicar.
-    fireEvent.click(screen.getByRole("button", { name: "Segundo Pendente" }));
-    await screen.findByText("Fornecedor 2 de 2");
-    fireEvent.click(screen.getByRole("button", { name: "Conferir resposta do fornecedor (2)" }));
-
-    await waitFor(() => expect(onConferirResposta).toHaveBeenCalledTimes(1));
-    expect(onConferirResposta).toHaveBeenCalledWith(expect.objectContaining({ id: "cf-b" }));
-  });
-});
-
-// Achado do usuário, 2026-08-04: antes, confirmar um fornecedor só navegava pro
-// próximo pendente sem reabrir a Conferência dele — exigia clicar em "Conferir
-// resposta do fornecedor" de novo pra cada um. Agora onFornecedorConfirmado encadeia
-// automaticamente, abrindo (não confirmando) o próximo PROCESSADO sozinho.
-describe("FornecedoresCotacoesSection — encadeamento automático após confirmar", () => {
-  it("confirmar um fornecedor com outro PROCESSADO pendente abre a Conferência do próximo sozinho", async () => {
-    const a = makeCotacaoFornecedor({ id: "cf-a", fornecedorId: "forn-a", ordem: 0, nomeFornecedor: "Fornecedor A", status: "PROCESSADO" });
-    const b = makeCotacaoFornecedor({ id: "cf-b", fornecedorId: "forn-b", ordem: 1, nomeFornecedor: "Fornecedor B", status: "PROCESSADO" });
-    confirmarRespostaMock.mockResolvedValue([]);
-    const onConferirResposta = vi.fn().mockResolvedValue(true);
-
-    renderSection({ cotacaoFornecedores: [a, b], preview: makePreviewOk(), onConferirResposta });
-
-    fireEvent.click(screen.getByRole("button", { name: "Confirmar e Processar" }));
-    await screen.findByText("Fornecedor 2 de 2");
-
-    await waitFor(() => expect(onConferirResposta).toHaveBeenCalledTimes(1));
-    expect(onConferirResposta).toHaveBeenCalledWith(expect.objectContaining({ id: "cf-b" }));
-    expect(pushMock).not.toHaveBeenCalled();
-  });
-
-  it("confirmar um fornecedor com outro PENDENTE (sem resposta ainda) navega mas não tenta abrir a Conferência dele", async () => {
-    const a = makeCotacaoFornecedor({ id: "cf-a", fornecedorId: "forn-a", ordem: 0, nomeFornecedor: "Fornecedor A", status: "PROCESSADO" });
-    const b = makeCotacaoFornecedor({ id: "cf-b", fornecedorId: "forn-b", ordem: 1, nomeFornecedor: "Fornecedor B", status: "PENDENTE" });
-    confirmarRespostaMock.mockResolvedValue([]);
-    const onConferirResposta = vi.fn().mockResolvedValue(true);
-
-    renderSection({ cotacaoFornecedores: [a, b], preview: makePreviewOk(), onConferirResposta });
-
-    fireEvent.click(screen.getByRole("button", { name: "Confirmar e Processar" }));
-    await screen.findByText("Fornecedor 2 de 2");
-
-    expect(onConferirResposta).not.toHaveBeenCalled();
-    expect(pushMock).not.toHaveBeenCalled();
-  });
-
-  it("se onConferirResposta falhar durante o encadeamento, para ali (não pula pro próximo nem navega pro comparativo)", async () => {
-    const a = makeCotacaoFornecedor({ id: "cf-a", fornecedorId: "forn-a", ordem: 0, nomeFornecedor: "Fornecedor A", status: "PROCESSADO" });
-    const b = makeCotacaoFornecedor({ id: "cf-b", fornecedorId: "forn-b", ordem: 1, nomeFornecedor: "Fornecedor B", status: "PROCESSADO" });
-    confirmarRespostaMock.mockResolvedValue([]);
-    const onConferirResposta = vi.fn().mockResolvedValue(false);
-
-    renderSection({ cotacaoFornecedores: [a, b], preview: makePreviewOk(), onConferirResposta });
-
-    fireEvent.click(screen.getByRole("button", { name: "Confirmar e Processar" }));
-    await screen.findByText("Fornecedor 2 de 2");
-
-    await waitFor(() => expect(onConferirResposta).toHaveBeenCalledTimes(1));
-    expect(pushMock).not.toHaveBeenCalled();
+    expect(onAtivoAlterado).not.toHaveBeenCalled();
   });
 });
