@@ -67,7 +67,32 @@
   --radius-lg: 12px;
   --radius-md: 8px;
   --radius-full: 20px;
+
+  /* sombras do protótipo — não havia variável de sombra no :root original,
+     mas estes dois valores se repetem sem variação em várias superfícies
+     elevadas (.card, .kpi, .fe, .mpb, .pb, .sdc) e em vários modais
+     (.concl-modal, .move-modal, .rv-modal, .sr-modal), então foram
+     promovidos a token daqui. Nem todo modal do protótipo usa exatamente
+     esse valor — .qtd-modal usa alpha .25 (não .3) e .sr-modal-box tem
+     sombra própria com gradiente azul — então não aplique --shadow-modal
+     de forma cega a um modal novo sem conferir o protótipo primeiro. */
+  --shadow-card: 0 1px 3px rgba(37, 34, 32, 0.08), 0 1px 2px rgba(37, 34, 32, 0.04);
+  --shadow-modal: 0 20px 60px rgba(0, 0, 0, 0.3);
 }
+
+/*
+ * Prompt 22 — mapeamento de nomenclatura de severidade.
+ * O Prompt 22 (docs/qa/...) pede tokens `ok/ok-bg`, `warn/warn-bg`,
+ * `danger/danger-bg` e `accent`. O projeto já tinha esse mesmo sistema
+ * portado do protótipo antes desse prompt existir, sob os nomes abaixo —
+ * já em uso em ~40 componentes (StatusBadge.tsx e outros). Não foi
+ * renomeado para não introduzir risco de regressão visual sem necessidade;
+ * os Prompts 23–26 devem usar os nomes já existentes:
+ *   ok     → --color-ok / --color-ok-d   (bg-ok text-ok / bg-ok-d)
+ *   warn   → --color-wa / --color-wa-d   (bg-wa text-wa / bg-wa-d)
+ *   danger → --color-er / --color-er-d   (bg-er text-er / bg-er-d)
+ *   accent → --color-prx / --color-prx-l (marca, já existente — não mexer)
+ */
 
 body {
   background: var(--background);

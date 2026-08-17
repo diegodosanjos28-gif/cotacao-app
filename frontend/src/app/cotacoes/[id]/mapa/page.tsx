@@ -37,6 +37,15 @@ function BadgeVariacao() {
   return <span className="rounded bg-surf px-1.5 py-0.5 text-[11px] font-medium text-t3">Sem histórico</span>;
 }
 
+function WhatsAppIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden className="shrink-0">
+      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z" />
+      <path d="M12.001 2C6.478 2 2 6.477 2 12c0 1.9.542 3.746 1.564 5.35L2 22l4.797-1.548A9.955 9.955 0 0012 22c5.524 0 10-4.478 10-10S17.524 2 12.001 2zm0 18.166a8.15 8.15 0 01-4.155-1.135l-.298-.177-3.084.995 1.017-3.013-.194-.311A8.164 8.164 0 013.834 12c0-4.5 3.665-8.166 8.167-8.166 4.502 0 8.166 3.666 8.166 8.166 0 4.5-3.664 8.166-8.166 8.166z" />
+    </svg>
+  );
+}
+
 export default function MapaPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   return (
@@ -48,6 +57,7 @@ export default function MapaPage({ params }: { params: Promise<{ id: string }> }
 
 function MapaContent({ cotacaoId }: { cotacaoId: string }) {
   const [cenarioAtivo, setCenarioAtivo] = useState<CenarioSelecionado>("MENOR_PRECO");
+  const [fornecedoresAbertos, setFornecedoresAbertos] = useState<Set<string>>(new Set());
   const [modalAberto, setModalAberto] = useState(false);
   const [copiado, setCopiado] = useState<string | null>(null);
   const copiadoTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -98,6 +108,18 @@ function MapaContent({ cotacaoId }: { cotacaoId: string }) {
 
   function recarregarMapas() {
     setRefreshKey((k) => k + 1);
+  }
+
+  function toggleFornecedor(fornecedorId: string) {
+    setFornecedoresAbertos((prev) => {
+      const next = new Set(prev);
+      if (next.has(fornecedorId)) {
+        next.delete(fornecedorId);
+      } else {
+        next.add(fornecedorId);
+      }
+      return next;
+    });
   }
 
   async function removerItem(cotacaoProdutoId: string) {
@@ -295,9 +317,24 @@ function MapaContent({ cotacaoId }: { cotacaoId: string }) {
                 )}
 
                 <div className="mt-6 space-y-6">
-                  {mapaAtivo.distribuicoes.map((d) => (
+                  {mapaAtivo.distribuicoes.map((d) => {
+                    const aberto = fornecedoresAbertos.has(d.fornecedorId);
+                    return (
                     <div key={d.fornecedorId} className="rounded-lg border border-bdr p-6">
-                      <div className="flex items-start justify-between gap-3">
+                      <div
+                        role="button"
+                        tabIndex={0}
+                        aria-expanded={aberto}
+                        aria-label={aberto ? "Recolher fornecedor" : "Expandir fornecedor"}
+                        onClick={() => toggleFornecedor(d.fornecedorId)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            toggleFornecedor(d.fornecedorId);
+                          }
+                        }}
+                        className="flex cursor-pointer items-start justify-between gap-3"
+                      >
                         <div>
                           <div className="flex items-center gap-2">
                             <h2 className="font-semibold text-t1">{d.fornecedorNome}</h2>
@@ -327,92 +364,108 @@ function MapaContent({ cotacaoId }: { cotacaoId: string }) {
                         <div className="flex items-center gap-3">
                           <span className="font-semibold text-t1">{formatarMoeda(d.totalFornecedor)}</span>
                           <button
-                            onClick={() => copiarPedido(d.fornecedorId, cenarioEfetivo)}
-                            className="rounded-md border border-bdr px-3 py-1.5 text-xs font-medium hover:bg-hov"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              copiarPedido(d.fornecedorId, cenarioEfetivo);
+                            }}
+                            className="flex items-center gap-1.5 rounded-md border border-bdr px-3 py-1.5 text-xs font-medium hover:bg-hov"
                           >
+                            <WhatsAppIcon />
                             {copiado === d.fornecedorId ? "Copiado!" : "Copiar pedido WhatsApp"}
                           </button>
+                          <span aria-hidden className={`inline-block text-t3 transition-transform ${aberto ? "rotate-90" : ""}`}>
+                            ›
+                          </span>
                         </div>
                       </div>
 
-                      <div className="mt-4 grid grid-cols-[1fr_110px_90px_90px_100px_70px] gap-2 border-b border-bdr pb-2 text-[11px] font-semibold uppercase tracking-wide text-t3">
-                        <span>Produto</span>
-                        <span className="text-center">Variação</span>
-                        <span className="text-center">Qtd</span>
-                        <span className="text-right">Unitário</span>
-                        <span className="text-right">Total</span>
-                        <span className="text-right">Ações</span>
-                      </div>
-                      <ul className="divide-y divide-bdr text-sm">
-                        {d.itens.map((item) => (
-                          <li
-                            key={item.cotacaoProdutoId}
-                            className="grid grid-cols-[1fr_110px_90px_90px_100px_70px] items-center gap-2 py-2"
-                          >
-                            <span className="flex min-w-0 items-center gap-1.5">
-                              {item.ajustadoManualmente && (
-                                <span
-                                  className="shrink-0 rounded bg-wa-d px-1.5 py-0.5 text-[10px] font-bold text-wa"
-                                  title="Ajustado manualmente"
-                                >
-                                  ✎
-                                </span>
-                              )}
-                              <span className="truncate">{item.produtoNome}</span>
-                              {item.menorPreco && (
-                                <span className="shrink-0 rounded bg-ok-d px-1.5 py-0.5 text-[10px] font-bold text-ok">
-                                  ★ Menor
-                                </span>
-                              )}
-                            </span>
-                            <span className="text-center">
-                              <BadgeVariacao />
-                            </span>
-                            <span className="text-center text-t2">
-                              {formatarQuantidade(item.quantidade)} {item.unidade}
-                            </span>
-                            <span className="text-right text-t2">{formatarMoeda(item.precoUnitario)}</span>
-                            <span className="text-right font-medium text-t1">{formatarMoeda(item.subtotal)}</span>
-                            <span className="flex justify-end gap-1">
-                              <button
-                                type="button"
-                                disabled={finalizada}
-                                onClick={() =>
-                                  setMoverModalState({
-                                    item,
-                                    fornecedorAtualId: d.fornecedorId,
-                                    fornecedorAtualNome: d.fornecedorNome,
-                                  })
-                                }
-                                title={tooltipAcaoDesabilitada ?? "Mover para outro fornecedor"}
-                                className="rounded px-1.5 py-0.5 text-xs text-t2 hover:bg-hov hover:text-prx disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-t2"
+                      {aberto && (
+                        <>
+                          <div className="mt-4 grid grid-cols-[1fr_110px_90px_90px_100px_70px] gap-2 border-b border-bdr pb-2 text-[11px] font-semibold uppercase tracking-wide text-t3">
+                            <span>Produto</span>
+                            <span className="text-center">Variação</span>
+                            <span className="text-center">Qtd</span>
+                            <span className="text-right">Unitário</span>
+                            <span className="text-right">Total</span>
+                            <span className="text-right">Ações</span>
+                          </div>
+                          <ul className="divide-y divide-bdr text-sm">
+                            {d.itens.map((item) => (
+                              <li
+                                key={item.cotacaoProdutoId}
+                                className="grid grid-cols-[1fr_110px_90px_90px_100px_70px] items-center gap-2 py-2"
                               >
-                                ⇄
-                              </button>
-                              <button
-                                type="button"
-                                disabled={finalizada || acaoEmAndamento === item.cotacaoProdutoId}
-                                onClick={() => removerItem(item.cotacaoProdutoId)}
-                                title={tooltipAcaoDesabilitada ?? "Remover da ordem"}
-                                className="rounded px-1.5 py-0.5 text-xs text-t2 hover:bg-hov hover:text-er disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-t2"
-                              >
-                                ×
-                              </button>
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
+                                <span className="flex min-w-0 items-center gap-1.5">
+                                  {item.ajustadoManualmente && (
+                                    <span
+                                      className="shrink-0 rounded bg-wa-d px-1.5 py-0.5 text-[10px] font-bold text-wa"
+                                      title="Ajustado manualmente"
+                                    >
+                                      ✎
+                                    </span>
+                                  )}
+                                  <span className="truncate">{item.produtoNome}</span>
+                                  {item.menorPreco && (
+                                    <span className="shrink-0 rounded bg-ok-d px-1.5 py-0.5 text-[10px] font-bold text-ok">
+                                      ★ Menor
+                                    </span>
+                                  )}
+                                </span>
+                                <span className="text-center">
+                                  <BadgeVariacao />
+                                </span>
+                                <span className="text-center text-t2">
+                                  {formatarQuantidade(item.quantidade)} {item.unidade}
+                                </span>
+                                <span className="text-right text-t2">{formatarMoeda(item.precoUnitario)}</span>
+                                <span className="text-right font-medium text-t1">{formatarMoeda(item.subtotal)}</span>
+                                <span className="flex justify-end gap-1">
+                                  <button
+                                    type="button"
+                                    disabled={finalizada}
+                                    onClick={() =>
+                                      setMoverModalState({
+                                        item,
+                                        fornecedorAtualId: d.fornecedorId,
+                                        fornecedorAtualNome: d.fornecedorNome,
+                                      })
+                                    }
+                                    title={tooltipAcaoDesabilitada ?? "Mover para outro fornecedor"}
+                                    className="rounded px-1.5 py-0.5 text-xs text-t2 hover:bg-hov hover:text-prx disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-t2"
+                                  >
+                                    ⇄
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled={finalizada || acaoEmAndamento === item.cotacaoProdutoId}
+                                    onClick={() => removerItem(item.cotacaoProdutoId)}
+                                    title={tooltipAcaoDesabilitada ?? "Remover da ordem"}
+                                    className="rounded px-1.5 py-0.5 text-xs text-t2 hover:bg-hov hover:text-er disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-t2"
+                                  >
+                                    ×
+                                  </button>
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
 
-                      <p className="mt-3 text-xs text-t2">
-                        Entrega: <strong className="text-t1">{d.prazoEntregaPadrao ?? "—"}</strong> · Pagamento:{" "}
-                        <strong className="text-t1">{d.condicaoPagamentoPadrao ?? "—"}</strong> · Mínimo:{" "}
-                        <strong className="text-t1">{d.pedidoMinimo != null ? formatarMoeda(d.pedidoMinimo) : "—"}</strong>
-                        {d.abaixoDoPedidoMinimo && (
-                          <span className="ml-1 font-semibold text-wa">Concentre mais itens ou negocie exceção</span>
-                        )}
-                      </p>
+                          <p className="mt-3 text-xs text-t2">
+                            Entrega: <strong className="text-t1">{d.prazoEntregaPadrao ?? "—"}</strong> · Pagamento:{" "}
+                            <strong className="text-t1">{d.condicaoPagamentoPadrao ?? "—"}</strong> · Mínimo:{" "}
+                            <strong className="text-t1">
+                              {d.pedidoMinimo != null ? formatarMoeda(d.pedidoMinimo) : "—"}
+                            </strong>
+                            {d.abaixoDoPedidoMinimo && (
+                              <span className="ml-1 font-semibold text-wa">
+                                Concentre mais itens ou negocie exceção
+                              </span>
+                            )}
+                          </p>
+                        </>
+                      )}
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
 
                 {mapaAtivo.produtosSemFornecedor.length > 0 && (
