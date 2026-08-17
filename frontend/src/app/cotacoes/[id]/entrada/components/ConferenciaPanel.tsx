@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ConferenciaPatch, CotacaoFornecedorResponse, EstadoResolucao, PreviewRespostaResponse } from "@/lib/types";
 import ConferenciaConfirmadaReadOnly from "./ConferenciaConfirmadaReadOnly";
@@ -70,6 +70,15 @@ export default function ConferenciaPanel({
 
   const atual = cotacaoFornecedores.find((cf) => cf.id === activeId) ?? sequencia[0];
 
+  // Ref (não state) só pra o `finally` abaixo saber, no momento em que a promise
+  // resolve, qual fornecedor está ativo *agora* — usado pra distinguir troca real de
+  // fornecedor (aí sim descarta o resultado) do próprio efeito se re-disparando porque
+  // ele mesmo acabou de gravar `preview` no rascunho (não é cancelamento, é sucesso).
+  const atualIdRef = useRef(atual?.id);
+  useEffect(() => {
+    atualIdRef.current = atual?.id;
+  }, [atual?.id]);
+
   // Mantém fornecedorAtivo/rascunhoAtivo de entrada/page.tsx sincronizado com a
   // seleção deste painel — sem isto, texto/preview/estadoResolucao (donos da página)
   // continuariam escopados pro fornecedor que estava ativo no passo 2.
@@ -98,15 +107,19 @@ export default function ConferenciaPanel({
   // disparando com o painel escondido atrás do passo 2.
   useEffect(() => {
     if (!ativo || !atual || atual.status !== "PROCESSADO" || preview) return;
-    let cancelado = false;
+    const cotacaoFornecedorIdCarregando = atual.id;
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setCarregando(true);
     onConferirResposta(atual).finally(() => {
-      if (!cancelado) setCarregando(false);
+      // Compara com o ref (não um bool fixado no cleanup): o próprio
+      // onConferirResposta grava `preview` no rascunho antes de terminar, o que
+      // re-dispara este efeito (preview está nas deps) e roda o cleanup ANTES desta
+      // promise assentar — um bool "cancelado" capturado no cleanup marcaria esse
+      // sucesso como cancelamento e travaria `carregando` em true pra sempre (bug
+      // relatado pelo usuário 2026-08-17: loading eterno sem erro de rede). Só
+      // ignora o resultado se o fornecedor ativo realmente mudou nesse meio tempo.
+      if (atualIdRef.current === cotacaoFornecedorIdCarregando) setCarregando(false);
     });
-    return () => {
-      cancelado = true;
-    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [atual?.id, atual?.status, preview, ativo]);
 
