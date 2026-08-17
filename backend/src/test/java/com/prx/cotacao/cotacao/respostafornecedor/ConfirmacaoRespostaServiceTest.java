@@ -1344,4 +1344,111 @@ class ConfirmacaoRespostaServiceTest {
         assertEquals(1, persistidas.size());
         assertEquals(itemVivoId, persistidas.get(0).getCotacaoProdutoId());
     }
+
+    // ── 14. conferenciaConfirmada — leitura somente-consulta da conferência já
+    // confirmada (Prompt 26). Nunca reprocessa a resposta do fornecedor, então não pode
+    // ter o efeito colateral de rebaixar CotacaoFornecedor.status de volta pra
+    // PROCESSADO (esse é o motivo de existir: navegar entre conferências já confirmadas
+    // sem reabrir/reprocessar). Ver javadoc do método em ConfirmacaoRespostaService.
+
+    private List<ItemRespostaResponse> conferenciaConfirmada(UUID cotacaoId, UUID fornecedorId) {
+        return comoTenant(() -> confirmacaoRespostaService.conferenciaConfirmada(cotacaoId, fornecedorId));
+    }
+
+    @Test
+    void conferencia_confirmada_retorna_itens_persistidos_de_fornecedor_confirmado() {
+        UUID cotacaoId = criarCotacao();
+        UUID fornecedorId = criarFornecedor("Fornecedor Conferencia Confirmada OK");
+        adicionarItemBase(cotacaoId, "Sazon Legumes 60g", 1);
+        adicionarFornecedorAsCotacao(cotacaoId, fornecedorId);
+
+        List<ItemRespostaResponse> confirmado = confirmar(cotacaoId, fornecedorId, "Sazon Legumes 60g - R$ 2,89", List.of());
+        assertEquals(1, confirmado.size());
+
+        List<ItemRespostaResponse> resultado = conferenciaConfirmada(cotacaoId, fornecedorId);
+
+        assertEquals(1, resultado.size());
+        ItemRespostaResponse item = resultado.get(0);
+        assertEquals("Sazon Legumes 60g", item.nomeProduto(),
+                "nomeProduto deve ser resolvido a partir do item base da cotação, não vir null");
+        assertEquals(new BigDecimal("2.89"), item.precoInformado());
+        assertEquals(new BigDecimal("2.89"), item.precoUnitarioCalculado());
+        assertEquals(StatusItem.OK, item.status());
+        assertEquals("Sazon Legumes 60g - R$ 2,89", item.textoOriginal());
+    }
+
+    @Test
+    void conferencia_confirmada_retorna_vazio_para_fornecedor_processado_mas_nao_confirmado() {
+        UUID cotacaoId = criarCotacao();
+        UUID fornecedorId = criarFornecedor("Fornecedor Conferencia Processado");
+        adicionarItemBase(cotacaoId, "Sazon Legumes 60g", 1);
+        adicionarFornecedorAsCotacao(cotacaoId, fornecedorId);
+
+        comoTenant(() -> fornecedorRespostaService.gerarPreview(cotacaoId, fornecedorId, "Sazon Legumes 60g - R$ 2,89"));
+        assertEquals(CotacaoFornecedorStatus.PROCESSADO, statusFornecedorNaCotacao(cotacaoId, fornecedorId));
+
+        List<ItemRespostaResponse> resultado = conferenciaConfirmada(cotacaoId, fornecedorId);
+
+        assertTrue(resultado.isEmpty(), "Fornecedor PROCESSADO (ainda não confirmado) não tem conferência confirmada a mostrar");
+    }
+
+    @Test
+    void conferencia_confirmada_retorna_vazio_para_fornecedor_pendente() {
+        UUID cotacaoId = criarCotacao();
+        UUID fornecedorId = criarFornecedor("Fornecedor Conferencia Pendente");
+        adicionarItemBase(cotacaoId, "Sazon Legumes 60g", 1);
+        adicionarFornecedorAsCotacao(cotacaoId, fornecedorId);
+        assertEquals(CotacaoFornecedorStatus.PENDENTE, statusFornecedorNaCotacao(cotacaoId, fornecedorId));
+
+        List<ItemRespostaResponse> resultado = conferenciaConfirmada(cotacaoId, fornecedorId);
+
+        assertTrue(resultado.isEmpty(), "Fornecedor que nunca respondeu não tem conferência confirmada a mostrar");
+    }
+
+    @Test
+    void conferencia_confirmada_com_cotacao_inexistente_lanca_resource_not_found() {
+        UUID fornecedorId = criarFornecedor("Fornecedor Conferencia Cotacao Inexistente");
+
+        assertThrows(ResourceNotFoundException.class, () ->
+                conferenciaConfirmada(UUID.randomUUID(), fornecedorId));
+    }
+
+    @Test
+    void conferencia_confirmada_com_fornecedor_inexistente_lanca_resource_not_found() {
+        UUID cotacaoId = criarCotacao();
+
+        assertThrows(ResourceNotFoundException.class, () ->
+                conferenciaConfirmada(cotacaoId, UUID.randomUUID()));
+    }
+
+    @Test
+    void conferencia_confirmada_com_fornecedor_nunca_vinculado_a_cotacao_lanca_resource_not_found() {
+        UUID cotacaoId = criarCotacao();
+        UUID fornecedorId = criarFornecedor("Fornecedor Nunca Vinculado A Cotacao");
+        // Deliberadamente NÃO chama adicionarFornecedorAsCotacao — fornecedor existe no
+        // tenant, mas nunca foi adicionado a esta cotação específica.
+
+        assertThrows(ResourceNotFoundException.class, () ->
+                conferenciaConfirmada(cotacaoId, fornecedorId));
+    }
+
+    @Test
+    void conferencia_confirmada_nao_altera_status_do_fornecedor_na_cotacao() {
+        // A propriedade mais importante do método: é leitura pura, sem reprocessar a
+        // resposta — diferente de gerarPreview, que sempre marca PROCESSADO (ver teste
+        // reconfirmar_sem_nova_embalagem_qtd_preserva_snapshot_da_confirmacao_anterior,
+        // que demonstra esse rebaixamento indesejado no caminho que este método existe
+        // para evitar).
+        UUID cotacaoId = criarCotacao();
+        UUID fornecedorId = criarFornecedor("Fornecedor Conferencia Sem Efeito Colateral");
+        adicionarItemBase(cotacaoId, "Sazon Legumes 60g", 1);
+        adicionarFornecedorAsCotacao(cotacaoId, fornecedorId);
+        confirmar(cotacaoId, fornecedorId, "Sazon Legumes 60g - R$ 2,89", List.of());
+        assertEquals(CotacaoFornecedorStatus.CONFIRMADO, statusFornecedorNaCotacao(cotacaoId, fornecedorId));
+
+        conferenciaConfirmada(cotacaoId, fornecedorId);
+
+        assertEquals(CotacaoFornecedorStatus.CONFIRMADO, statusFornecedorNaCotacao(cotacaoId, fornecedorId),
+                "Leitura somente-consulta não pode rebaixar o status do fornecedor de volta pra PROCESSADO");
+    }
 }

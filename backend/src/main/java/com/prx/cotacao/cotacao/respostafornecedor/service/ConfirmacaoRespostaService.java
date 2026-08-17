@@ -579,6 +579,41 @@ public class ConfirmacaoRespostaService {
         return resultado;
     }
 
+    /**
+     * Leitura somente-consulta da conferência já confirmada de um fornecedor — usada
+     * pela aba de Conferência do frontend (Prompt 26) pra navegar por conferências já
+     * realizadas sem reabrir/reprocessar a resposta (o que rebaixaria
+     * {@code CotacaoFornecedor.status} de volta pra PROCESSADO, ver
+     * {@link com.prx.cotacao.cotacao.respostafornecedor.processor.RespostaFornecedorCoreService#processar}).
+     * Nunca chama o pipeline de parsing/classificação — só lê o que já está persistido
+     * em cotacao_produto_fornecedor. Retorna lista vazia (não 404) quando o fornecedor
+     * ainda não está CONFIRMADO: o chamador só invoca este método pra um fornecedor que
+     * já sabe estar CONFIRMADO (via GET .../fornecedores), então isso é só uma
+     * blindagem defensiva contra corrida, não um caminho esperado.
+     */
+    @Transactional(readOnly = true)
+    public List<ItemRespostaResponse> conferenciaConfirmada(UUID cotacaoId, UUID fornecedorId) {
+        cotacaoRepository.findByIdOrThrow(cotacaoId);
+        fornecedorRepository.findById(fornecedorId)
+                .orElseThrow(() -> new ResourceNotFoundException("Fornecedor não encontrado: " + fornecedorId));
+        CotacaoFornecedor cf = cotacaoFornecedorRepository.findByCotacaoIdAndFornecedorId(cotacaoId, fornecedorId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Fornecedor " + fornecedorId + " não foi adicionado à cotação " + cotacaoId));
+        if (cf.getStatus() != CotacaoFornecedorStatus.CONFIRMADO) {
+            return List.of();
+        }
+
+        List<CotacaoProduto> itensBase = cotacaoProdutoRepository.findByCotacaoIdAndRemovidoEmIsNullOrderByOrdem(cotacaoId);
+        Map<UUID, String> nomesPorItemBase = itemBaseCatalogoResolver.resolver(itensBase).nomesPorItemBase();
+
+        return cpfRepository.findByCotacaoIdAndFornecedorIdOrderByOrdem(cotacaoId, fornecedorId).stream()
+                .map(cpf2 -> new ItemRespostaResponse(
+                        cpf2.getId(), cpf2.getTextoOriginal(), nomesPorItemBase.get(cpf2.getCotacaoProdutoId()),
+                        cpf2.getPrecoInformado(), cpf2.getPrecoUnitarioCalculado(), cpf2.isSemEstoque(),
+                        cpf2.getConfiancaMatch(), cpf2.getStatus()))
+                .toList();
+    }
+
     // ADICIONAR_A_LISTA: item extra do fornecedor vira um CotacaoProduto novo na lista
     // base COMPARTILHADA da cotação. Não precisa de coluna "exclusivo do fornecedor" —
     // isso já é automático no modelo atual: só o fornecedor que confirmou ganha uma

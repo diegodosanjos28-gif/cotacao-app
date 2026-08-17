@@ -142,6 +142,11 @@ public class CotacaoResource {
         return confirmacaoRespostaService.confirmar(id, fornId, request);
     }
 
+    @GetMapping("/{id}/fornecedores/{fornId}/conferencia-confirmada")
+    public List<ItemRespostaResponse> conferenciaConfirmada(@PathVariable UUID id, @PathVariable UUID fornId) {
+        return confirmacaoRespostaService.conferenciaConfirmada(id, fornId);
+    }
+
     @PostMapping("/{id}/avisos/{cpfId}/resolver")
     public CotacaoProdutoFornecedor resolverAviso(@PathVariable UUID id,
                                                    @PathVariable UUID cpfId,
