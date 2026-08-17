@@ -18,6 +18,8 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import com.prx.cotacao.cotacao.core.entity.Cotacao;
+import com.prx.cotacao.cotacao.core.enums.CotacaoStatus;
 import com.prx.cotacao.cotacao.core.repository.CotacaoRepository;
 
 @Service
@@ -52,7 +54,10 @@ public class CotacaoFornecedorService {
 
     @Transactional
     public CotacaoFornecedorResponse adicionar(UUID cotacaoId, AdicionarFornecedorCotacaoRequest request) {
-        cotacaoRepository.findByIdOrThrow(cotacaoId);
+        Cotacao cotacao = cotacaoRepository.findByIdOrThrow(cotacaoId);
+        if (cotacao.getStatus() == CotacaoStatus.FINALIZADA) {
+            throw new ConflictException("Cotação finalizada não aceita novos fornecedores");
+        }
 
         boolean temExistente = request.fornecedorId() != null;
         boolean temNovo = request.novoFornecedor() != null;

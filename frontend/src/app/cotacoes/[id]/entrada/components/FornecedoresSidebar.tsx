@@ -21,6 +21,10 @@ interface Props {
   // Gate existente (confirme a Conferência de um fornecedor pra liberar o próximo) —
   // continua valendo aqui, só que comunicado dentro do painel em vez de embaixo do card.
   podeAdicionar: boolean;
+  // Cotação finalizada (Prompt 27): painel vira consulta — sem seleção nem botão de
+  // adicionar. Editar/Inativar/+ Novo continuam liberados: agem sobre o cadastro do
+  // fornecedor (tenant), ortogonal ao ciclo de vida desta cotação específica.
+  somenteLeitura?: boolean;
 }
 
 // Paleta cíclica só pra dar identidade visual rápida a cada card (barra lateral) —
@@ -35,6 +39,7 @@ export default function FornecedoresSidebar({
   onAdicionarCotacao,
   adicionando,
   podeAdicionar,
+  somenteLeitura = false,
 }: Props) {
   const [modalAberto, setModalAberto] = useState(false);
   const [editando, setEditando] = useState<Fornecedor | null>(null);
@@ -85,15 +90,30 @@ export default function FornecedoresSidebar({
         </button>
       </div>
 
+      {somenteLeitura && (
+        <p className="mt-2 text-xs text-t3">Cotação finalizada — consulta apenas, sem novas adições.</p>
+      )}
+
       {erro && <p className="mt-2 text-xs text-er">{erro}</p>}
 
-      {/* Sem altura/scroll próprios (Prompt 25, feedback 2026-08-16) — a página já tem
-          um único contêiner de scroll (entrada/page.tsx); um overflow-y-auto aqui
-          dentro criava scroll aninhado. */}
-      <div className="mt-3 space-y-2.5">
+      {/* Altura FIXA (não máxima) e scroll contidos só neste miolo de cards (Prompt
+          27) — não no painel inteiro nem na página. O Prompt 25 (feedback
+          2026-08-16) removeu um overflow-y-auto daqui, mas aquele tentava dar altura
+          própria ao painel inteiro dentro de um passo (entrada/page.tsx) que não é
+          h-full-limitado como o passo 1 é — isso reintroduzia scroll duplo (painel
+          E página competindo). Uma altura FIXA + borda só na lista, com o rodapé
+          ("Adicionar cotação") em fluxo normal logo abaixo, evita o duplo scroll: só
+          a lista tem região de rolagem própria; o resto do Card cresce livre e quem
+          absorve overflow do Card inteiro continua sendo o único scroll da página.
+          220px (~2 cards antes de rolar) — deixa o painel inteiro (cabeçalho + busca
+          + lista + botão) caber sem precisar rolar a página, mesmo com o topo da
+          tela (nav + título + timeline) já ocupando espaço acima (achado do usuário,
+          2026-08-17: 380px ainda empurrava o botão "Adicionar cotação" para fora da
+          viewport, exigindo scroll da página). */}
+      <div className="mt-3 h-[220px] space-y-2.5 overflow-y-auto rounded-md border border-bdr p-2">
         {fornecedoresFiltrados.map((f, i) => {
           const jaAdicionado = fornecedoresJaAdicionadosIds.includes(f.id);
-          const selecionavel = !jaAdicionado;
+          const selecionavel = !jaAdicionado && !somenteLeitura;
           const ativo = f.id === selecionadoId;
           return (
             <div
@@ -162,19 +182,21 @@ export default function FornecedoresSidebar({
         )}
       </div>
 
-      <div className="mt-3 border-t border-bdr pt-3">
-        {!podeAdicionar && (
-          <p className="mb-2 text-xs text-t3">Processe a cotação atual para liberar o próximo fornecedor.</p>
-        )}
-        <button
-          type="button"
-          onClick={onAdicionarClick}
-          disabled={!selecionado || adicionando || !podeAdicionar}
-          className="w-full rounded-md bg-prx px-4 py-2 text-sm font-medium text-white hover:bg-prx-l disabled:cursor-not-allowed disabled:bg-bdr disabled:text-t3"
-        >
-          {adicionando ? "Adicionando..." : selecionado ? `Adicionar cotação — ${selecionado.nome}` : "Adicionar cotação"}
-        </button>
-      </div>
+      {!somenteLeitura && (
+        <div className="mt-3 border-t border-bdr pt-3">
+          {!podeAdicionar && (
+            <p className="mb-2 text-xs text-t3">Processe a cotação atual para liberar o próximo fornecedor.</p>
+          )}
+          <button
+            type="button"
+            onClick={onAdicionarClick}
+            disabled={!selecionado || adicionando || !podeAdicionar}
+            className="w-full rounded-md bg-prx px-4 py-2 text-sm font-medium text-white hover:bg-prx-l disabled:cursor-not-allowed disabled:bg-bdr disabled:text-t3"
+          >
+            {adicionando ? "Adicionando..." : selecionado ? `Adicionar cotação — ${selecionado.nome}` : "Adicionar cotação"}
+          </button>
+        </div>
+      )}
 
       <FornecedorFormModal open={modalAberto} onClose={() => setModalAberto(false)} onSalvo={onFornecedorSalvo} />
       <FornecedorFormModal

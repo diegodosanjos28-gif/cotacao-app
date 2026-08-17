@@ -169,6 +169,46 @@ describe("FornecedoresCotacoesSection — navegação sequencial", () => {
 // onAtivoAlterado com o próprio `atual` sem essa guarda, entrando num ping-pong de
 // re-renders (achado do usuário, 2026-08-16: Conferência ficava "Carregando..." pra
 // sempre, com chamadas de rede duplicadas). Só o passo visível pode escrever.
+// Prompt 27: cotação finalizada vira consulta — painel de fornecedores some com a
+// seleção e o botão "Adicionar cotação"; Editar/Inativar/+ Novo continuam liberados
+// (agem sobre o cadastro do fornecedor, não sobre o vínculo com esta cotação).
+describe("FornecedoresCotacoesSection — cotação finalizada (somente leitura)", () => {
+  it("card de fornecedor não é selecionável e o botão 'Adicionar cotação' não aparece", () => {
+    renderSection({
+      cotacao: makeCotacao({ status: "FINALIZADA" }),
+      cotacaoFornecedores: [],
+      todosFornecedores: [
+        { id: "forn-1", nome: "Fornecedor 1", status: "ATIVO" } as Fornecedor,
+      ],
+    });
+
+    fireEvent.click(screen.getByText("Fornecedor 1"));
+    expect(screen.queryByRole("button", { name: "Adicionar cotação" })).toBeNull();
+  });
+
+  it("botão de alternância aparece renomeado ('Ver fornecedores' / 'Voltar')", () => {
+    renderSection({ cotacao: makeCotacao({ status: "FINALIZADA" }), cotacaoFornecedores: [] });
+
+    expect(screen.getByRole("button", { name: "Voltar" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Voltar" }));
+    expect(screen.getByRole("button", { name: "Ver fornecedores" })).toBeTruthy();
+  });
+
+  it("Editar/Inativar/+ Novo continuam disponíveis mesmo em modo leitura", () => {
+    renderSection({
+      cotacao: makeCotacao({ status: "FINALIZADA" }),
+      cotacaoFornecedores: [],
+      todosFornecedores: [
+        { id: "forn-1", nome: "Fornecedor 1", status: "ATIVO" } as Fornecedor,
+      ],
+    });
+
+    expect(screen.getByRole("button", { name: "+ Novo" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Editar" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Inativar" })).toBeTruthy();
+  });
+});
+
 describe("FornecedoresCotacoesSection — guarda `ativo` do efeito onAtivoAlterado", () => {
   it("notifica onAtivoAlterado com o fornecedor ativo quando `ativo=true`", () => {
     const a = makeCotacaoFornecedor({ id: "cf-a", fornecedorId: "forn-a", ordem: 0, nomeFornecedor: "A" });

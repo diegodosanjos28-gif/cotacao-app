@@ -101,10 +101,14 @@ class CotacaoFornecedorServiceTest {
     }
 
     private UUID criarCotacao() {
+        return criarCotacao(CotacaoStatus.EM_ANDAMENTO);
+    }
+
+    private UUID criarCotacao(CotacaoStatus status) {
         return comoTenant(() -> {
             Cotacao c = new Cotacao();
             c.setTitulo("Cotação CotacaoFornecedor Test");
-            c.setStatus(CotacaoStatus.EM_ANDAMENTO);
+            c.setStatus(status);
             c.setCanalOrigem(CanalOrigem.WEB);
             return cotacaoRepository.save(c).getId();
         });
@@ -219,6 +223,17 @@ class CotacaoFornecedorServiceTest {
 
         assertEquals(fornecedorB, resposta.fornecedorId());
         assertEquals(2, resposta.ordem());
+    }
+
+    // ── Status da cotação ────────────────────────────────────────────────────
+
+    @Test
+    void adicionar_em_cotacao_finalizada_lanca_conflict() {
+        UUID cotacaoId = criarCotacao(CotacaoStatus.FINALIZADA);
+        UUID fornecedorId = criarFornecedor("Fornecedor Cotação Finalizada");
+
+        assertThrows(ConflictException.class, () -> comoTenant(() ->
+                cotacaoFornecedorService.adicionar(cotacaoId, requestExistente(fornecedorId))));
     }
 
     // ── Duplicidade ───────────────────────────────────────────────────────────

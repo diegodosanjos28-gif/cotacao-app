@@ -66,6 +66,10 @@ export default function FornecedoresCotacoesSection({
   // motivo do antigo default de modoAdicionar.
   const [painelFornecedoresAberto, setPainelFornecedoresAberto] = useState(cotacaoFornecedores.length === 0);
 
+  // Cotação finalizada (Prompt 27): painel de fornecedores vira consulta — sem
+  // seleção nem botão de adicionar (ver FornecedoresSidebar somenteLeitura).
+  const cotacaoFinalizada = cotacao.status === "FINALIZADA";
+
   const ultimo = cotacaoFornecedores[cotacaoFornecedores.length - 1];
   const podeAdicionarProximo = cotacaoFornecedores.length === 0 || ultimo?.status === "CONFIRMADO";
 
@@ -141,7 +145,13 @@ export default function FornecedoresCotacoesSection({
           onClick={() => setPainelFornecedoresAberto((v) => !v)}
           className="shrink-0 rounded-md border border-prx px-3 py-1.5 text-sm font-medium text-prx hover:bg-prx/10"
         >
-          {painelFornecedoresAberto ? "Voltar para seleção" : "Abrir fornecedores"}
+          {painelFornecedoresAberto
+            ? cotacaoFinalizada
+              ? "Voltar"
+              : "Voltar para seleção"
+            : cotacaoFinalizada
+              ? "Ver fornecedores"
+              : "Abrir fornecedores"}
         </button>
       </div>
 
@@ -261,6 +271,7 @@ export default function FornecedoresCotacoesSection({
             onAdicionarCotacao={onAdicionarCotacaoDoPainel}
             adicionando={adicionando}
             podeAdicionar={podeAdicionarProximo}
+            somenteLeitura={cotacaoFinalizada}
           />
         ) : atual ? (
           <FornecedorRespostaBlock

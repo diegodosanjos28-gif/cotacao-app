@@ -12,7 +12,6 @@ import { normTxt } from "@/lib/normalizacao";
 import { classificarStatusItemGrid } from "@/lib/statusItemGrid";
 import { UNIDADES } from "@/lib/unidades";
 import ColarWhatsappModal from "./ColarWhatsappModal";
-import GuiaFormatacao from "./GuiaFormatacao";
 import NovaLinhaGridProdutos from "./NovaLinhaGridProdutos";
 import ProdutoAutocomplete from "./ProdutoAutocomplete";
 
@@ -449,12 +448,6 @@ export default function GridProdutosSection({
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          {/* Guia de formatação (Prompt 25) — vive dentro deste Card como um ícone de
-              dica ao lado das outras ações, em vez de flutuar acima dele numa linha
-              própria (achado do usuário, 2026-08-16: isso desalinhava a altura deste
-              Card com o de "Fornecedores e cotações" no passo ao lado, que não tinha
-              nenhum elemento equivalente empurrando seu topo). */}
-          <GuiaFormatacao />
           <button
             type="button"
             onClick={() => setModalAberto(true)}
