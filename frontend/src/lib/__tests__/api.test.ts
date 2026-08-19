@@ -3,7 +3,13 @@
 // disparava de verdade em produção. Esses testes cobrem o interceptor isoladamente,
 // assumindo que o backend agora devolve 401 corretamente (RestAuthenticationEntryPointTest
 // no backend cobre esse lado). vi.resetModules() + import dinâmico por teste porque
-// api.ts guarda o lock de refresh (refreshInFlight) em estado de módulo.
+// api.ts guarda o lock de refresh (refreshInFlight) e o access token (lib/auth.ts) em
+// estado de módulo.
+//
+// Desde a migração pra cookie httpOnly (Prompt 27), o refresh token nunca passa por
+// JS/localStorage — só o access token, e só em memória. `fetch` é totalmente mockado
+// aqui, então não há cookie jar de verdade: os testes simulam apenas as respostas que
+// o backend daria (200/401) pro cookie que o navegador anexaria sozinho.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -18,7 +24,6 @@ const FAR_FUTURE = Math.floor(Date.now() / 1000) + 3600;
 describe("api.ts — interceptor de 401", () => {
   beforeEach(() => {
     vi.resetModules();
-    localStorage.clear();
   });
 
   afterEach(() => {
@@ -27,8 +32,8 @@ describe("api.ts — interceptor de 401", () => {
 
   it("401 dispara refresh e repete a chamada original com sucesso", async () => {
     const tokenAntigo = makeJwt(FAR_FUTURE);
-    localStorage.setItem("cotacao.accessToken", tokenAntigo);
-    localStorage.setItem("cotacao.refreshToken", "refresh-original");
+    const { setAccessToken } = await import("@/lib/auth");
+    setAccessToken(tokenAntigo);
 
     let refreshCalls = 0;
     let cotacaoCalls = 0;
@@ -36,10 +41,7 @@ describe("api.ts — interceptor de 401", () => {
       const url = String(input);
       if (url.includes("/auth/refresh")) {
         refreshCalls++;
-        return new Response(
-          JSON.stringify({ accessToken: makeJwt(FAR_FUTURE), refreshToken: "refresh-novo" }),
-          { status: 200 },
-        );
+        return new Response(JSON.stringify({ accessToken: makeJwt(FAR_FUTURE) }), { status: 200 });
       }
       if (url.includes("/cotacoes/abc")) {
         cotacaoCalls++;
@@ -60,8 +62,8 @@ describe("api.ts — interceptor de 401", () => {
 
   it("múltiplas requisições falhando por 401 ao mesmo tempo disparam só um refresh (single-flight)", async () => {
     const tokenAntigo = makeJwt(FAR_FUTURE);
-    localStorage.setItem("cotacao.accessToken", tokenAntigo);
-    localStorage.setItem("cotacao.refreshToken", "refresh-original");
+    const { setAccessToken } = await import("@/lib/auth");
+    setAccessToken(tokenAntigo);
 
     let refreshCalls = 0;
     let liberarRefresh: () => void = () => {};
@@ -76,10 +78,7 @@ describe("api.ts — interceptor de 401", () => {
       if (url.includes("/auth/refresh")) {
         refreshCalls++;
         await gateDoRefresh;
-        return new Response(
-          JSON.stringify({ accessToken: makeJwt(FAR_FUTURE + 1), refreshToken: "refresh-novo" }),
-          { status: 200 },
-        );
+        return new Response(JSON.stringify({ accessToken: makeJwt(FAR_FUTURE + 1) }), { status: 200 });
       }
       if (url.includes("/cotacoes/")) {
         if (authHeader === `Bearer ${tokenAntigo}`) {
@@ -97,7 +96,7 @@ describe("api.ts — interceptor de 401", () => {
     const p1 = buscarCotacao("a");
     const p2 = buscarCotacao("b");
 
-    // Deixa as duas chamadas baterem 401 e entrarem em tryRefresh (a segunda deve
+    // Deixa as duas chamadas baterem 401 e entrarem em refreshSession (a segunda deve
     // encontrar o lock já ocupado) antes de liberar a resposta do refresh.
     await new Promise((resolve) => setTimeout(resolve, 0));
     liberarRefresh();
@@ -110,12 +109,14 @@ describe("api.ts — interceptor de 401", () => {
   });
 
   it("refresh também falhando limpa a sessão e rejeita com ApiError", async () => {
-    localStorage.setItem("cotacao.accessToken", makeJwt(FAR_FUTURE));
-    localStorage.setItem("cotacao.refreshToken", "refresh-invalido");
+    const { setAccessToken, getAccessToken } = await import("@/lib/auth");
+    setAccessToken(makeJwt(FAR_FUTURE));
 
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
       if (url.includes("/auth/refresh")) return new Response(null, { status: 401 });
+      // logout() best-effort chama /auth/logout ao desistir da sessão.
+      if (url.includes("/auth/logout")) return new Response(null, { status: 204 });
       if (url.includes("/cotacoes/")) return new Response(null, { status: 401 });
       throw new Error("URL inesperada: " + url);
     });
@@ -124,24 +125,20 @@ describe("api.ts — interceptor de 401", () => {
     const { buscarCotacao, ApiError } = await import("@/lib/api");
 
     await expect(buscarCotacao("abc")).rejects.toThrow(ApiError);
-    expect(localStorage.getItem("cotacao.accessToken")).toBeNull();
-    expect(localStorage.getItem("cotacao.refreshToken")).toBeNull();
+    expect(getAccessToken()).toBeNull();
   });
 
   it("renova proativamente quando o access token está perto de expirar, sem esperar um 401", async () => {
     const tokenQuaseExpirado = makeJwt(Math.floor(Date.now() / 1000) + 5); // ~5s pra expirar
-    localStorage.setItem("cotacao.accessToken", tokenQuaseExpirado);
-    localStorage.setItem("cotacao.refreshToken", "refresh-original");
+    const { setAccessToken } = await import("@/lib/auth");
+    setAccessToken(tokenQuaseExpirado);
 
     let refreshCalls = 0;
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
       if (url.includes("/auth/refresh")) {
         refreshCalls++;
-        return new Response(
-          JSON.stringify({ accessToken: makeJwt(FAR_FUTURE), refreshToken: "refresh-novo" }),
-          { status: 200 },
-        );
+        return new Response(JSON.stringify({ accessToken: makeJwt(FAR_FUTURE) }), { status: 200 });
       }
       if (url.includes("/cotacoes/abc")) {
         const authHeader = (init?.headers as Headers | undefined)?.get?.("Authorization");

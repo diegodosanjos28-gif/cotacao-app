@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { getPapel, getTenantId, isAuthenticated } from "@/lib/auth";
+import { useAuth } from "@/components/AuthProvider";
 import type { Papel } from "@/lib/types";
 
 export default function AuthGuard({
@@ -13,16 +13,22 @@ export default function AuthGuard({
   papelRequerido?: Papel;
 }) {
   const router = useRouter();
-  const [ready, setReady] = useState(false);
+  const { ready: authReady, authenticated, papel, tenantId } = useAuth();
+  const [decidido, setDecidido] = useState(false);
 
   useEffect(() => {
-    if (!isAuthenticated()) {
+    // Espera o silent refresh do bootstrap (AuthProvider) terminar antes de decidir
+    // qualquer coisa — sem isso, um reload numa tela autenticada piscaria pro login
+    // antes do cookie httpOnly ter chance de restaurar a sessão.
+    if (!authReady) return;
+
+    if (!authenticated) {
       router.replace("/login");
       return;
     }
     // Usuário está autenticado mas não tem o papel exigido pela rota — volta pro
     // dashboard, não pro login (não é um problema de sessão).
-    if (papelRequerido && getPapel() !== papelRequerido) {
+    if (papelRequerido && papel !== papelRequerido) {
       router.replace("/");
       return;
     }
@@ -31,16 +37,14 @@ export default function AuthGuard({
     // devolve 403 (TenantFilter) porque o admin ainda não escolheu "navegar" nenhum
     // tenant. Páginas com papelRequerido="ADMIN_PRX" (o próprio painel admin) não
     // passam por essa regra: tenant ausente é o estado normal delas.
-    if (!papelRequerido && getPapel() === "ADMIN_PRX" && getTenantId() === null) {
+    if (!papelRequerido && papel === "ADMIN_PRX" && tenantId === null) {
       router.replace("/selecionar-tenant");
       return;
     }
-    // Sincroniza com localStorage (fonte externa) — é exatamente o caso de uso
-    // que useEffect existe pra cobrir, apesar do lint genérico contra setState em efeito.
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setReady(true);
-  }, [router, papelRequerido]);
+    setDecidido(true);
+  }, [authReady, authenticated, papel, tenantId, router, papelRequerido]);
 
-  if (!ready) return null;
+  if (!decidido) return null;
   return <>{children}</>;
 }

@@ -3,11 +3,11 @@ package com.prx.cotacao.identidade.auth;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.prx.cotacao.fornecedor.dto.FornecedorRequest;
 import com.prx.cotacao.identidade.auth.dto.LoginRequest;
-import com.prx.cotacao.identidade.auth.dto.RefreshRequest;
 import com.prx.cotacao.identidade.auth.dto.SelecionarTenantRequest;
 import com.prx.cotacao.identidade.auth.dto.TokenResponse;
 import com.prx.cotacao.identidade.auth.service.JwtService;
 import com.prx.cotacao.shared.tenant.TenantContext;
+import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -25,6 +25,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -122,18 +123,30 @@ class SelecionarTenantIntegrationTest {
         return objectMapper.readValue(result.getResponse().getContentAsString(), TokenResponse.class).accessToken();
     }
 
-    private TokenResponse selecionarTenant(String tokenDoAdmin, UUID tenantId) throws Exception {
-        MvcResult result = mockMvc.perform(post("/auth/selecionar-tenant")
+    private MvcResult selecionarTenantResult(String tokenDoAdmin, UUID tenantId) throws Exception {
+        return mockMvc.perform(post("/auth/selecionar-tenant")
                         .header("Authorization", "Bearer " + tokenDoAdmin)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(new SelecionarTenantRequest(tenantId))))
                 .andExpect(status().isOk())
                 .andReturn();
+    }
+
+    private TokenResponse selecionarTenant(String tokenDoAdmin, UUID tenantId) throws Exception {
+        MvcResult result = selecionarTenantResult(tokenDoAdmin, tenantId);
         return objectMapper.readValue(result.getResponse().getContentAsString(), TokenResponse.class);
     }
 
     private String fornecedorRequestJson(String nome) throws Exception {
         return objectMapper.writeValueAsString(new FornecedorRequest(nome, null, null, null, null, null));
+    }
+
+    // refreshToken nunca vem mais no corpo (TokenResponse.refreshToken tem @JsonIgnore)
+    // — só no Set-Cookie httpOnly da resposta.
+    private String refreshCookieValue(MvcResult result) {
+        Cookie refreshCookie = result.getResponse().getCookie("refresh_token");
+        assertNotNull(refreshCookie, "esperava Set-Cookie refresh_token na resposta");
+        return refreshCookie.getValue();
     }
 
     // ── Testes: isolamento de impersonação ──────────────────────────────────
@@ -199,11 +212,12 @@ class SelecionarTenantIntegrationTest {
     @Test
     void refresh_propagaTenantImpersonadoParaONovoAccessToken() throws Exception {
         String adminToken = loginAdmin();
-        TokenResponse tokensTenantA = selecionarTenant(adminToken, tenantAId);
+        MvcResult selecionarResult = selecionarTenantResult(adminToken, tenantAId);
+        String refreshTokenTenantA = refreshCookieValue(selecionarResult);
 
         MvcResult refreshResult = mockMvc.perform(post("/auth/refresh")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(new RefreshRequest(tokensTenantA.refreshToken()))))
+                        .cookie(new Cookie("refresh_token", refreshTokenTenantA))
+                        .header("X-Requested-With", "XMLHttpRequest"))
                 .andExpect(status().isOk())
                 .andReturn();
         TokenResponse novosTokens = objectMapper.readValue(

@@ -28,6 +28,7 @@ public class SecurityConfig {
 
     private final JwtAuthFilter jwtAuthFilter;
     private final TenantFilter tenantFilter;
+    private final CsrfHeaderFilter csrfHeaderFilter;
     private final RestAuthenticationEntryPoint restAuthenticationEntryPoint;
     private final AdminAccessDeniedHandler adminAccessDeniedHandler;
 
@@ -42,10 +43,12 @@ public class SecurityConfig {
     private List<String> allowedOrigins;
 
     public SecurityConfig(JwtAuthFilter jwtAuthFilter, TenantFilter tenantFilter,
+                           CsrfHeaderFilter csrfHeaderFilter,
                            RestAuthenticationEntryPoint restAuthenticationEntryPoint,
                            AdminAccessDeniedHandler adminAccessDeniedHandler) {
         this.jwtAuthFilter = jwtAuthFilter;
         this.tenantFilter = tenantFilter;
+        this.csrfHeaderFilter = csrfHeaderFilter;
         this.restAuthenticationEntryPoint = restAuthenticationEntryPoint;
         this.adminAccessDeniedHandler = adminAccessDeniedHandler;
     }
@@ -83,7 +86,8 @@ public class SecurityConfig {
                         .requestMatchers("/usuarios/me/**").hasRole("OPERADOR_CLIENTE")
                         .anyRequest().authenticated()
                 )
-                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(csrfHeaderFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterAfter(jwtAuthFilter, CsrfHeaderFilter.class)
                 .addFilterAfter(tenantFilter, JwtAuthFilter.class)
                 .build();
     }
@@ -93,7 +97,7 @@ public class SecurityConfig {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowedOrigins(allowedOrigins);
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        config.setAllowedHeaders(List.of("Authorization", "Content-Type"));
+        config.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Requested-With"));
         config.setAllowCredentials(true);
         config.setMaxAge(3600L);
 

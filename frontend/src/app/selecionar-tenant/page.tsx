@@ -8,7 +8,7 @@ import AuthGuard from "@/components/AuthGuard";
 import NavBar from "@/components/NavBar";
 import StatusBadge from "@/components/StatusBadge";
 import { listarTenants, selecionarTenant } from "@/lib/api";
-import { setTokens } from "@/lib/auth";
+import { setAccessToken } from "@/lib/auth";
 import { clearCotacaoAtivaId } from "@/lib/cotacaoAtiva";
 import { getErrorMessage } from "@/lib/errors";
 import { useAsync } from "@/hooks/useAsync";
@@ -54,7 +54,7 @@ function SelecionarTenantContent() {
     setErro(null);
     try {
       const tokens = await selecionarTenant(tenantId);
-      setTokens(tokens.accessToken, tokens.refreshToken);
+      setAccessToken(tokens.accessToken);
       // Trocar de tenant é uma identidade de navegação nova — qualquer cotação
       // "ativa" lembrada da sessão anterior não é válida no novo contexto.
       clearCotacaoAtivaId();

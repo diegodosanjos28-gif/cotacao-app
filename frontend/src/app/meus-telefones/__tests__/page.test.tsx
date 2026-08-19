@@ -18,13 +18,11 @@ vi.mock("next/navigation", () => ({
   usePathname: () => "/meus-telefones",
 }));
 
-vi.mock("@/lib/auth", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/lib/auth")>();
+vi.mock("@/components/AuthProvider", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/components/AuthProvider")>();
   return {
     ...actual,
-    isAuthenticated: () => true,
-    getPapel: () => "OPERADOR_CLIENTE",
-    getTenantId: () => "t-1",
+    useAuth: () => ({ ready: true, authenticated: true, papel: "OPERADOR_CLIENTE", tenantId: "t-1" }),
   };
 });
 

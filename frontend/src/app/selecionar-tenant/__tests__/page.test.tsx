@@ -16,8 +16,8 @@ const { listarTenantsMock, selecionarTenantMock } = vi.hoisted(() => ({
   listarTenantsMock: vi.fn(),
   selecionarTenantMock: vi.fn(),
 }));
-const { setTokensMock, clearCotacaoAtivaIdMock } = vi.hoisted(() => ({
-  setTokensMock: vi.fn(),
+const { setAccessTokenMock, clearCotacaoAtivaIdMock } = vi.hoisted(() => ({
+  setAccessTokenMock: vi.fn(),
   clearCotacaoAtivaIdMock: vi.fn(),
 }));
 
@@ -30,10 +30,15 @@ vi.mock("@/lib/auth", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/auth")>();
   return {
     ...actual,
-    isAuthenticated: () => true,
-    getPapel: () => "ADMIN_PRX",
-    getTenantId: () => null,
-    setTokens: setTokensMock,
+    setAccessToken: setAccessTokenMock,
+  };
+});
+
+vi.mock("@/components/AuthProvider", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/components/AuthProvider")>();
+  return {
+    ...actual,
+    useAuth: () => ({ ready: true, authenticated: true, papel: "ADMIN_PRX", tenantId: null }),
   };
 });
 
@@ -81,7 +86,7 @@ beforeEach(() => {
   pushMock.mockReset();
   listarTenantsMock.mockReset();
   selecionarTenantMock.mockReset();
-  setTokensMock.mockReset();
+  setAccessTokenMock.mockReset();
   clearCotacaoAtivaIdMock.mockReset();
 });
 
@@ -118,9 +123,9 @@ describe("SelecionarTenantPage — listagem", () => {
 });
 
 describe("SelecionarTenantPage — selecionar um tenant (clique de linha)", () => {
-  it("clicar numa linha seleciona o tenant, salva tokens, limpa a cotação ativa e navega para '/'", async () => {
+  it("clicar numa linha seleciona o tenant, salva o access token, limpa a cotação ativa e navega para '/'", async () => {
     listarTenantsMock.mockResolvedValue([makeTenant({ id: "t-42" })]);
-    selecionarTenantMock.mockResolvedValue({ accessToken: "acc", refreshToken: "ref" });
+    selecionarTenantMock.mockResolvedValue({ accessToken: "acc" });
 
     render(<SelecionarTenantPage />);
     await waitFor(() => expect(screen.getByText("Mercado Alfa")).toBeTruthy());
@@ -128,14 +133,14 @@ describe("SelecionarTenantPage — selecionar um tenant (clique de linha)", () =
     fireEvent.click(screen.getByText("Mercado Alfa").closest("tr")!);
 
     await waitFor(() => expect(selecionarTenantMock).toHaveBeenCalledWith("t-42"));
-    expect(setTokensMock).toHaveBeenCalledWith("acc", "ref");
+    expect(setAccessTokenMock).toHaveBeenCalledWith("acc");
     expect(clearCotacaoAtivaIdMock).toHaveBeenCalled();
     expect(pushMock).toHaveBeenCalledWith("/");
   });
 
   it("mostra 'Entrando...' na linha em voo enquanto a seleção não resolveu", async () => {
     listarTenantsMock.mockResolvedValue([makeTenant({ id: "t-42" })]);
-    const { promise } = deferred<{ accessToken: string; refreshToken: string }>();
+    const { promise } = deferred<{ accessToken: string }>();
     selecionarTenantMock.mockReturnValue(promise);
 
     render(<SelecionarTenantPage />);
@@ -148,7 +153,7 @@ describe("SelecionarTenantPage — selecionar um tenant (clique de linha)", () =
 
   it("clicar no botão 'Painel administrativo' seleciona tenantId=null e navega para /admin", async () => {
     listarTenantsMock.mockResolvedValue([]);
-    selecionarTenantMock.mockResolvedValue({ accessToken: "acc", refreshToken: "ref" });
+    selecionarTenantMock.mockResolvedValue({ accessToken: "acc" });
 
     render(<SelecionarTenantPage />);
     await waitFor(() => expect(screen.getByText("Nenhum tenant cadastrado ainda.")).toBeTruthy());
@@ -183,7 +188,7 @@ describe("SelecionarTenantPage — guard contra duplo clique durante seleção e
       makeTenant({ id: "t-1", nomeFantasia: "Mercado Alfa" }),
       makeTenant({ id: "t-2", nomeFantasia: "Padaria Beta" }),
     ]);
-    const { promise, resolve } = deferred<{ accessToken: string; refreshToken: string }>();
+    const { promise, resolve } = deferred<{ accessToken: string }>();
     selecionarTenantMock.mockReturnValue(promise);
 
     render(<SelecionarTenantPage />);
@@ -197,7 +202,7 @@ describe("SelecionarTenantPage — guard contra duplo clique durante seleção e
     expect(selecionarTenantMock).toHaveBeenCalledTimes(1);
     expect(selecionarTenantMock).toHaveBeenCalledWith("t-1");
 
-    resolve({ accessToken: "acc", refreshToken: "ref" });
+    resolve({ accessToken: "acc" });
     await waitFor(() => expect(pushMock).toHaveBeenCalledWith("/"));
     // Ainda só a primeira seleção foi feita.
     expect(selecionarTenantMock).toHaveBeenCalledTimes(1);

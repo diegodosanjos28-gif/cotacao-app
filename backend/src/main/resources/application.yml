@@ -37,6 +37,11 @@ app:
     refresh-token-expiration-ms: 604800000
   cors:
     allowed-origins: ${APP_CORS_ALLOWED_ORIGINS}
+  cookie:
+    # false por padrão (dev/test rodam em HTTP puro em localhost — um cookie Secure
+    # simplesmente não seria enviado pelo navegador). application-prod.yml sobrescreve
+    # para true, já que o droplet serve tudo atrás de HTTPS (Caddy).
+    secure: false
   admin:
     # Sem default de propósito, em nenhum profile: se não setadas, AdminBootstrapRunner
     # pula a criação (WARN, não erro fatal) em vez de criar um admin com credencial

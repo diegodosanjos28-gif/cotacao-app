@@ -38,6 +38,14 @@ vi.mock("@/lib/conferenciaNotaPdf", () => ({
   exportarConferenciaNota: exportarConferenciaNotaMock,
 }));
 
+vi.mock("@/components/AuthProvider", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/components/AuthProvider")>();
+  return {
+    ...actual,
+    useAuth: () => ({ ready: true, authenticated: true, papel: "OPERADOR_CLIENTE", tenantId: "t-1" }),
+  };
+});
+
 function makeCotacao(overrides: Partial<Cotacao> = {}): Cotacao {
   return {
     id: "cot-1",
@@ -104,7 +112,6 @@ beforeEach(() => {
   comparativoMock.mockReset();
   exportarConferenciaNotaMock.mockReset();
   comparativoMock.mockResolvedValue([]);
-  localStorage.setItem("cotacao.accessToken", "fake-token");
 });
 
 describe("Dashboard — tabela 'Todas as cotações', coluna Título", () => {

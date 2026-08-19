@@ -87,15 +87,16 @@ public class AuthService {
     // compartilham a superfície /auth/**, então um ataque contra qualquer um dos dois
     // consome o mesmo orçamento por IP). Brute-forçar a assinatura do JWT em si é
     // inviável computacionalmente; o que este check evita é abuso/flood do endpoint.
+    // refreshToken chega via cookie httpOnly (lido em AuthResource), não mais no corpo.
     @Transactional
-    public TokenResponse refresh(RefreshRequest request, String clientIp) {
+    public TokenResponse refresh(String refreshToken, String clientIp) {
         rateLimiter.checkIp(clientIp);
 
-        if (!jwtService.isValid(request.refreshToken())) {
+        if (refreshToken == null || !jwtService.isValid(refreshToken)) {
             throw new AuthException("Token inválido ou expirado");
         }
 
-        Claims claims = jwtService.parseToken(request.refreshToken());
+        Claims claims = jwtService.parseToken(refreshToken);
         if (!jwtService.isRefreshToken(claims)) {
             throw new AuthException("Token inválido");
         }
@@ -168,6 +169,25 @@ public class AuthService {
             log.info("Admin usuarioId={} voltou ao painel admin (sem tenant selecionado)", usuarioId);
         }
         return issueTokens(usuario, tenantId);
+    }
+
+    // Best-effort e idempotente de propósito: logout precisa "funcionar" mesmo sem
+    // cookie (já deslogado), com cookie expirado, ou com um valor adulterado — nenhum
+    // desses casos deve virar erro pro cliente, só não revoga nada no banco.
+    @Transactional
+    public void logout(String refreshToken) {
+        if (refreshToken == null || !jwtService.isValid(refreshToken)) {
+            return;
+        }
+        Claims claims = jwtService.parseToken(refreshToken);
+        if (!jwtService.isRefreshToken(claims)) {
+            return;
+        }
+        UUID jti = UUID.fromString(jwtService.extractJti(claims));
+        refreshTokenRepository.findById(jti).ifPresent(stored -> {
+            stored.setUsado(true);
+            refreshTokenRepository.save(stored);
+        });
     }
 
     private TokenResponse issueTokens(Usuario usuario, UUID tenantId) {

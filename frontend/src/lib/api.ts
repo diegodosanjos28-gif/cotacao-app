@@ -35,9 +35,15 @@ import {
   UsuarioTelefone,
   UsuarioTelefoneRequest,
 } from "./types";
-import { getAccessToken, getRefreshToken, isAccessTokenExpiringSoon, logout, setTokens } from "./auth";
+import { getAccessToken, isAccessTokenExpiringSoon, setAccessToken } from "./auth";
 
 const API_URL = `${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080"}/api`;
+
+// Exigido pelo CsrfHeaderFilter do backend em /auth/refresh e /auth/logout — os dois
+// endpoints que autenticam via cookie (refresh_token), não via Authorization header.
+// SameSite=Strict já barra a maior parte do CSRF; este header é defesa em
+// profundidade, e só um fetch/XHR do próprio frontend consegue setá-lo.
+const CSRF_HEADER = { "X-Requested-With": "XMLHttpRequest" } as const;
 
 export class ApiError extends Error {
   status: number;
@@ -49,10 +55,10 @@ export class ApiError extends Error {
 
 let refreshInFlight: Promise<boolean> | null = null;
 
-async function tryRefresh(): Promise<boolean> {
-  const refreshToken = getRefreshToken();
-  if (!refreshToken) return false;
-
+// Exportado: é também o que o AuthProvider chama no bootstrap da aplicação pra fazer
+// o silent refresh (o cookie refresh_token, se ainda válido, vai junto sozinho via
+// credentials: 'include' — não há refresh token legível em JS pra checar antes).
+export async function refreshSession(): Promise<boolean> {
   // Evita disparar múltiplos /auth/refresh em paralelo quando várias chamadas
   // batem em 401 ao mesmo tempo — todas esperam a mesma promise.
   if (!refreshInFlight) {
@@ -60,12 +66,12 @@ async function tryRefresh(): Promise<boolean> {
       try {
         const res = await fetch(`${API_URL}/auth/refresh`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ refreshToken }),
+          credentials: "include",
+          headers: { ...CSRF_HEADER },
         });
         if (!res.ok) return false;
         const tokens: TokenResponse = await res.json();
-        setTokens(tokens.accessToken, tokens.refreshToken);
+        setAccessToken(tokens.accessToken);
         return true;
       } catch {
         return false;
@@ -77,13 +83,33 @@ async function tryRefresh(): Promise<boolean> {
   return refreshInFlight;
 }
 
+// Único ponto de saída: avisa o backend (revoga o refresh token e limpa o cookie),
+// limpa o access token em memória e força um reload completo pra /login. Usado tanto
+// pelo botão "Sair" (NavBar) quanto pelo fetch wrapper abaixo quando o refresh falha.
+// window.location.href em vez de router.replace porque garante que nenhum estado de
+// componente sobrevive ao logout.
+export async function logout(): Promise<void> {
+  try {
+    await fetch(`${API_URL}/auth/logout`, {
+      method: "POST",
+      credentials: "include",
+      headers: { ...CSRF_HEADER },
+    });
+  } catch {
+    // Best-effort: se a rede falhar, ainda assim limpa o estado local e manda pro
+    // login — não faz sentido travar o logout do usuário por causa disso.
+  }
+  setAccessToken(null);
+  if (typeof window !== "undefined") window.location.href = "/login";
+}
+
 async function request<T>(path: string, options: RequestInit = {}, retry = true): Promise<T> {
   // Renovação proativa: se o access token está perto de expirar, renova antes de
   // mandar a requisição em vez de esperar bater 401 — reduz a janela em que uma
   // chamada legítima falha por expiração. `retry=false` marca uma chamada que já é
   // o retry pós-refresh (ou o próprio /auth/refresh), então não reavalia de novo.
-  if (retry && getRefreshToken() && isAccessTokenExpiringSoon()) {
-    await tryRefresh();
+  if (retry && isAccessTokenExpiringSoon()) {
+    await refreshSession();
   }
 
   const token = getAccessToken();
@@ -93,12 +119,12 @@ async function request<T>(path: string, options: RequestInit = {}, retry = true)
   }
   if (token) headers.set("Authorization", `Bearer ${token}`);
 
-  const res = await fetch(`${API_URL}${path}`, { ...options, headers });
+  const res = await fetch(`${API_URL}${path}`, { ...options, headers, credentials: "include" });
 
-  if (res.status === 401 && retry && getRefreshToken()) {
-    const refreshed = await tryRefresh();
+  if (res.status === 401 && retry) {
+    const refreshed = await refreshSession();
     if (refreshed) return request<T>(path, options, false);
-    logout();
+    await logout();
     throw new ApiError("Sessão expirada", 401);
   }
 

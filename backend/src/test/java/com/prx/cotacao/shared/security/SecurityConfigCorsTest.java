@@ -16,8 +16,8 @@ import static org.assertj.core.api.Assertions.assertThat;
  * ver comentário em SecurityConfig.java).
  *
  * Contexto mínimo (não é o app inteiro — sem Postgres, sem web server): registra
- * só SecurityConfig + stubs de suas quatro dependências de construtor
- * (JwtAuthFilter, TenantFilter, RestAuthenticationEntryPoint,
+ * só SecurityConfig + stubs de suas cinco dependências de construtor
+ * (JwtAuthFilter, TenantFilter, CsrfHeaderFilter, RestAuthenticationEntryPoint,
  * AdminAccessDeniedHandler) + o PropertySourcesPlaceholderConfigurer que o Spring
  * Boot real registra automaticamente e que é o componente responsável por
  * resolver (ou falhar ao resolver) o placeholder ${app.cors.allowed-origins}.
@@ -27,6 +27,7 @@ class SecurityConfigCorsTest {
     private final ApplicationContextRunner contextRunner = new ApplicationContextRunner()
             .withBean(JwtAuthFilter.class, () -> new JwtAuthFilter(null))
             .withBean(TenantFilter.class, () -> new TenantFilter(new ObjectMapper()))
+            .withBean(CsrfHeaderFilter.class, CsrfHeaderFilter::new)
             .withBean(RestAuthenticationEntryPoint.class, () -> new RestAuthenticationEntryPoint(new ObjectMapper()))
             .withBean(AdminAccessDeniedHandler.class, () -> new AdminAccessDeniedHandler(new ObjectMapper()))
             .withBean(PropertySourcesPlaceholderConfigurer.class, PropertySourcesPlaceholderConfigurer::new)

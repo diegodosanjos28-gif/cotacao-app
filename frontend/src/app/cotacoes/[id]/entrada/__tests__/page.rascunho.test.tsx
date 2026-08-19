@@ -76,6 +76,14 @@ vi.mock("@/lib/api", async (importOriginal) => {
   };
 });
 
+vi.mock("@/components/AuthProvider", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/components/AuthProvider")>();
+  return {
+    ...actual,
+    useAuth: () => ({ ready: true, authenticated: true, papel: "OPERADOR_CLIENTE", tenantId: "t-1" }),
+  };
+});
+
 function makeCotacao(overrides: Partial<Cotacao> = {}): Cotacao {
   return {
     id: "cot-1",
@@ -187,7 +195,6 @@ beforeEach(() => {
   buscarRespostaPersistidaMock.mockReset();
   cancelarRespostaFornecedorMock.mockReset();
   buscarProdutosMock.mockResolvedValue([]);
-  localStorage.setItem("cotacao.accessToken", "fake-token");
 });
 
 describe("EntradaPage — rascunho por fornecedor sobrevive à troca de fornecedor dentro do painel de Conferência", () => {

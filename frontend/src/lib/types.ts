@@ -204,7 +204,6 @@ export interface Page<T> {
 
 export interface TokenResponse {
   accessToken: string;
-  refreshToken: string;
 }
 
 export interface MensagemResponse {

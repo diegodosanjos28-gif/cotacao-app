@@ -4,10 +4,9 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { getPapel, getTenantId, logout } from "@/lib/auth";
-import type { Papel } from "@/lib/types";
+import { useAuth } from "@/components/AuthProvider";
 import { getCotacaoAtivaId, setCotacaoAtivaId } from "@/lib/cotacaoAtiva";
-import { buscarTenant } from "@/lib/api";
+import { buscarTenant, logout } from "@/lib/api";
 import Modal from "@/components/Modal";
 import NovaCotacaoForm from "@/components/NovaCotacaoForm";
 
@@ -117,17 +116,14 @@ export default function NavBar() {
   // cai pra última cotação ativa lembrada nesta sessão (localStorage).
   const [cotacaoAtivaId, setCotacaoAtivaIdState] = useState<string | null>(null);
   const [alvoSegmento, setAlvoSegmento] = useState<string | null>(null);
-  const [papel, setPapel] = useState<Papel | null>(null);
-  const [tenantId, setTenantId] = useState<string | null>(null);
   const [tenantNome, setTenantNome] = useState<string | null>(null);
+  const { papel, tenantId } = useAuth();
 
   useEffect(() => {
     if (cotacaoIdDaUrl) setCotacaoAtivaId(cotacaoIdDaUrl);
     // Sincroniza com localStorage (fonte externa) — mesmo padrão do AuthGuard.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setCotacaoAtivaIdState(cotacaoIdDaUrl ?? getCotacaoAtivaId());
-    setPapel(getPapel());
-    setTenantId(getTenantId());
   }, [cotacaoIdDaUrl]);
 
   // Nome do tenant navegado só existe pra exibição (o JWT só carrega o id) — busca

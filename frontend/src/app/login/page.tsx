@@ -3,7 +3,7 @@
 import { useState, FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { login } from "@/lib/api";
-import { setTokens } from "@/lib/auth";
+import { setAccessToken } from "@/lib/auth";
 import { clearCotacaoAtivaId } from "@/lib/cotacaoAtiva";
 import { getErrorMessage } from "@/lib/errors";
 
@@ -20,7 +20,7 @@ export default function LoginPage() {
     setCarregando(true);
     try {
       const tokens = await login(email, senha);
-      setTokens(tokens.accessToken, tokens.refreshToken);
+      setAccessToken(tokens.accessToken);
       // Cada login é uma identidade nova — qualquer cotação "ativa" lembrada de uma
       // sessão anterior (outro usuário/tenant no mesmo navegador) não é válida aqui.
       clearCotacaoAtivaId();

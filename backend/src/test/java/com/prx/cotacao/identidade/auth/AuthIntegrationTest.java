@@ -2,9 +2,9 @@ package com.prx.cotacao.identidade.auth;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.prx.cotacao.identidade.auth.dto.LoginRequest;
-import com.prx.cotacao.identidade.auth.dto.RefreshRequest;
 import com.prx.cotacao.identidade.auth.dto.TokenResponse;
 import com.prx.cotacao.shared.tenant.TenantContext;
+import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -24,6 +24,7 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.cookie;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -123,15 +124,23 @@ class AuthIntegrationTest {
                 .andReturn();
     }
 
-    private MvcResult refresh(String refreshToken) throws Exception {
+    private MvcResult refresh(String refreshTokenCookieValue) throws Exception {
         return mockMvc.perform(post("/auth/refresh")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(new RefreshRequest(refreshToken))))
+                        .cookie(new Cookie("refresh_token", refreshTokenCookieValue))
+                        .header("X-Requested-With", "XMLHttpRequest"))
                 .andReturn();
     }
 
     private TokenResponse parseTokens(MvcResult result) throws Exception {
         return objectMapper.readValue(result.getResponse().getContentAsString(), TokenResponse.class);
+    }
+
+    // refreshToken nunca vem mais no corpo (TokenResponse.refreshToken tem @JsonIgnore)
+    // — só no Set-Cookie httpOnly da resposta.
+    private String refreshCookieValue(MvcResult result) {
+        Cookie refreshCookie = result.getResponse().getCookie("refresh_token");
+        assertNotNull(refreshCookie, "esperava Set-Cookie refresh_token na resposta");
+        return refreshCookie.getValue();
     }
 
     // ── Testes ──────────────────────────────────────────────────────────────
@@ -146,7 +155,11 @@ class AuthIntegrationTest {
                         .content(objectMapper.writeValueAsString(new LoginRequest(EMAIL_ATIVO, SENHA_PLANA))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.accessToken").isNotEmpty())
-                .andExpect(jsonPath("$.refreshToken").isNotEmpty());
+                .andExpect(jsonPath("$.refreshToken").doesNotExist())
+                .andExpect(cookie().exists("refresh_token"))
+                .andExpect(cookie().httpOnly("refresh_token", true))
+                .andExpect(cookie().path("refresh_token", "/api/auth"))
+                .andExpect(cookie().sameSite("refresh_token", "Strict"));
     }
 
     @Test
@@ -179,19 +192,21 @@ class AuthIntegrationTest {
 
     @Test
     void refresh_comTokenValido_retornaNovosTokensQueFuncionamEmEndpointProtegido() throws Exception {
-        TokenResponse tokensOriginais = parseTokens(login(EMAIL_ATIVO, SENHA_PLANA));
+        MvcResult loginResult = login(EMAIL_ATIVO, SENHA_PLANA);
+        String refreshTokenOriginal = refreshCookieValue(loginResult);
 
-        MvcResult refreshResult = refresh(tokensOriginais.refreshToken());
+        MvcResult refreshResult = refresh(refreshTokenOriginal);
         assertEquals(200, refreshResult.getResponse().getStatus());
 
         TokenResponse novosTokens = parseTokens(refreshResult);
+        String refreshTokenNovo = refreshCookieValue(refreshResult);
         assertNotNull(novosTokens.accessToken());
         assertFalse(novosTokens.accessToken().isBlank());
         // refreshToken sempre difere (carrega um jti aleatório); accessToken pode
         // colidir com o original se login+refresh acontecerem no mesmo segundo (iat
         // idêntico + mesmas claims => mesmo JWT assinado), então não é uma asserção
         // útil aqui — o que importa é que o token funcione de verdade abaixo.
-        assertNotEquals(tokensOriginais.refreshToken(), novosTokens.refreshToken());
+        assertNotEquals(refreshTokenOriginal, refreshTokenNovo);
 
         // Fecha o loop no problema de lookup-por-ID-sem-tenant em refresh(): o novo
         // access token precisa funcionar de verdade num endpoint protegido, não só
@@ -202,18 +217,75 @@ class AuthIntegrationTest {
 
     @Test
     void refresh_reutilizandoTokenJaUsado_retorna401EIndicaRevogacao() throws Exception {
-        TokenResponse tokensOriginais = parseTokens(login(EMAIL_ATIVO, SENHA_PLANA));
-        String refreshTokenOriginal = tokensOriginais.refreshToken();
+        String refreshTokenOriginal = refreshCookieValue(login(EMAIL_ATIVO, SENHA_PLANA));
 
         MvcResult primeiroUso = refresh(refreshTokenOriginal);
         assertEquals(200, primeiroUso.getResponse().getStatus());
 
         // Reuso do MESMO refresh token original (já marcado usado=true na 1ª chamada)
         mockMvc.perform(post("/auth/refresh")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(new RefreshRequest(refreshTokenOriginal))))
+                        .cookie(new Cookie("refresh_token", refreshTokenOriginal))
+                        .header("X-Requested-With", "XMLHttpRequest"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.detail").value("Token já utilizado — todos os tokens foram revogados"));
+    }
+
+    @Test
+    void refresh_semCookie_retorna401() throws Exception {
+        mockMvc.perform(post("/auth/refresh").header("X-Requested-With", "XMLHttpRequest"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void refresh_semHeaderCsrf_retorna403() throws Exception {
+        String refreshToken = refreshCookieValue(login(EMAIL_ATIVO, SENHA_PLANA));
+
+        mockMvc.perform(post("/auth/refresh").cookie(new Cookie("refresh_token", refreshToken)))
+                .andExpect(status().isForbidden());
+    }
+
+    // Achado do security-reviewer: comparar path via request.getRequestURI() bruto
+    // (não decodificado) contra um Set<String> literal deixava passar
+    // "/auth/%72efresh" — o Dispatcher decodifica e roteia pra refresh() normalmente,
+    // mas a string bruta não batia no Set, então o filtro CSRF nem via a rota como
+    // protegida. CsrfHeaderFilter passou a usar AntPathRequestMatcher (mesma
+    // normalização usada pelo Dispatcher) especificamente para fechar isso.
+    @Test
+    void refresh_comPathPercentEncoded_aindaExigeHeaderCsrf() throws Exception {
+        String refreshToken = refreshCookieValue(login(EMAIL_ATIVO, SENHA_PLANA));
+
+        // post(String) do MockMvc trata "%72" como texto literal e re-escapa o "%"
+        // (viraria "%2572", double-encoding — outro caso que o firewall já barra
+        // sozinho, não o que este teste quer exercitar). post(URI) com um URI já
+        // pronto evita esse re-encode e manda o "/auth/%72efresh" de verdade.
+        mockMvc.perform(post(new java.net.URI("http://localhost/auth/%72efresh"))
+                        .cookie(new Cookie("refresh_token", refreshToken)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void logout_limpaCookieELogoutRefreshFalhaDepois() throws Exception {
+        String refreshToken = refreshCookieValue(login(EMAIL_ATIVO, SENHA_PLANA));
+
+        mockMvc.perform(post("/auth/logout")
+                        .cookie(new Cookie("refresh_token", refreshToken))
+                        .header("X-Requested-With", "XMLHttpRequest"))
+                .andExpect(status().isNoContent())
+                .andExpect(cookie().maxAge("refresh_token", 0));
+
+        // O cookie de logout limpa o token do cliente, mas o token original em si já
+        // foi revogado no banco por essa mesma chamada — reutilizá-lo direto (como um
+        // atacante que capturou o valor antes do logout faria) tem que falhar.
+        mockMvc.perform(post("/auth/refresh")
+                        .cookie(new Cookie("refresh_token", refreshToken))
+                        .header("X-Requested-With", "XMLHttpRequest"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void logout_semCookie_retorna204() throws Exception {
+        mockMvc.perform(post("/auth/logout").header("X-Requested-With", "XMLHttpRequest"))
+                .andExpect(status().isNoContent());
     }
 
     @Test

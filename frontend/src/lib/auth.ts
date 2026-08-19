@@ -1,34 +1,33 @@
-// Armazenamento de tokens no cliente (localStorage) — a API é stateless (JWT via
-// Authorization header), sem sessão de servidor. Ver seção 2.1/4 da doc técnica:
-// Next.js é um SPA puro consumindo a API via HTTPS/JSON.
+// Estado de sessão no cliente: o access token vive só em memória (nunca em
+// localStorage/sessionStorage) — não sobrevive a um reload de página por design; quem
+// restaura a sessão no boot é o silent refresh feito pelo AuthProvider (cookie
+// httpOnly refresh_token, invisível a JS, é o que sobrevive ao reload). Ver
+// components/AuthProvider.tsx.
 
 import type { Papel } from "@/lib/types";
 
-const ACCESS_KEY = "cotacao.accessToken";
-const REFRESH_KEY = "cotacao.refreshToken";
+let accessToken: string | null = null;
+const listeners = new Set<() => void>();
 
 export function getAccessToken(): string | null {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem(ACCESS_KEY);
+  return accessToken;
 }
 
-export function getRefreshToken(): string | null {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem(REFRESH_KEY);
+export function setAccessToken(token: string | null): void {
+  accessToken = token;
+  listeners.forEach((listener) => listener());
 }
 
-export function setTokens(accessToken: string, refreshToken: string): void {
-  localStorage.setItem(ACCESS_KEY, accessToken);
-  localStorage.setItem(REFRESH_KEY, refreshToken);
-}
-
-export function clearTokens(): void {
-  localStorage.removeItem(ACCESS_KEY);
-  localStorage.removeItem(REFRESH_KEY);
+// Usado pelo AuthProvider pra re-renderizar (papel/tenantId derivados do token) toda
+// vez que login/refresh/logout muda o token em memória — accessToken não é estado
+// React, então não há re-render automático sem isso.
+export function subscribeAccessToken(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
 }
 
 export function isAuthenticated(): boolean {
-  return getAccessToken() !== null;
+  return accessToken !== null;
 }
 
 const REFRESH_MARGIN_MS = 30_000;
@@ -50,9 +49,8 @@ function accessTokenExpiraEm(token: string): number | null {
 }
 
 export function isAccessTokenExpiringSoon(): boolean {
-  const token = getAccessToken();
-  if (!token) return false;
-  const expiraEm = accessTokenExpiraEm(token);
+  if (!accessToken) return false;
+  const expiraEm = accessTokenExpiraEm(accessToken);
   if (expiraEm === null) return false;
   return expiraEm - Date.now() < REFRESH_MARGIN_MS;
 }
@@ -62,9 +60,8 @@ export function isAccessTokenExpiringSoon(): boolean {
 // quem de fato garante a autorização (SecurityConfig `/admin/**`); esta checagem é só
 // de UX, não de segurança.
 export function getPapel(): Papel | null {
-  const token = getAccessToken();
-  if (!token) return null;
-  const json = decodeJwtPayload(token);
+  if (!accessToken) return null;
+  const json = decodeJwtPayload(accessToken);
   const papel = json?.papel;
   return papel === "ADMIN_PRX" || papel === "OPERADOR_CLIENTE" ? papel : null;
 }
@@ -75,19 +72,8 @@ export function getPapel(): Papel | null {
 // usado pelo AuthGuard/NavBar pra saber se um admin já escolheu um tenant. Assim como
 // getPapel(), é só UX: a garantia de verdade é o backend (TenantFilter + RLS).
 export function getTenantId(): string | null {
-  const token = getAccessToken();
-  if (!token) return null;
-  const json = decodeJwtPayload(token);
+  if (!accessToken) return null;
+  const json = decodeJwtPayload(accessToken);
   const tenantId = json?.tenant_id;
   return typeof tenantId === "string" ? tenantId : null;
-}
-
-// Único ponto de saída: limpa os tokens e força um reload completo pra /login.
-// Usado tanto pelo botão "Sair" (NavBar) quanto pelo fetch wrapper (api.ts) quando
-// o refresh falha — window.location.href em vez de router.replace porque este
-// módulo não é um componente React (sem acesso a useRouter) e o hard redirect
-// garante que nenhum estado de componente sobrevive ao logout.
-export function logout(): void {
-  clearTokens();
-  if (typeof window !== "undefined") window.location.href = "/login";
 }

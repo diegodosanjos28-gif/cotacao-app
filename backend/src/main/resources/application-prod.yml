@@ -27,6 +27,8 @@ app:
     # Sem default (SecurityConfig) — boot falha se não setar. Comma-separated,
     # ex: "https://app.prx.com.br".
     allowed-origins: ${APP_CORS_ALLOWED_ORIGINS}
+  cookie:
+    secure: true
   whatsapp:
     # Sem defaults de propósito — boot falha explicitamente se a Meta não estiver
     # configurada, em vez de subir com webhook mal-configurado silenciosamente

@@ -42,6 +42,14 @@ vi.mock("@/lib/api", async (importOriginal) => {
   };
 });
 
+vi.mock("@/components/AuthProvider", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/components/AuthProvider")>();
+  return {
+    ...actual,
+    useAuth: () => ({ ready: true, authenticated: true, papel: "OPERADOR_CLIENTE", tenantId: "t-1" }),
+  };
+});
+
 function makeCotacao(overrides: Partial<Cotacao> = {}): Cotacao {
   return {
     id: "cot-1",
@@ -78,7 +86,6 @@ beforeEach(() => {
   listarFornecedoresMock.mockReset();
   listarFornecedoresDaCotacaoMock.mockReset();
   buscarProdutosMock.mockResolvedValue([]);
-  localStorage.setItem("cotacao.accessToken", "fake-token");
 });
 
 describe("EntradaPage — modo de ajuste dobrado (Prompt 12)", () => {
