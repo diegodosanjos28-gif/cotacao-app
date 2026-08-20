@@ -11,6 +11,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -42,6 +43,12 @@ public interface CotacaoRepository extends JpaRepository<Cotacao, UUID> {
     // ultimaAtividadeDesde (now.minusHours(48)), aplicado aqui, não no índice.
     Optional<Cotacao> findFirstByCriadoPorAndCanalOrigemAndStatusAndUltimaAtividadeEmGreaterThanOrderByUltimaAtividadeEmDesc(
             UUID criadoPor, CanalOrigem canalOrigem, CotacaoStatus status, OffsetDateTime ultimaAtividadeDesde);
+
+    // Landing "Cotação atual" (refactor Entrada de Dados): a cotação em andamento mais
+    // recente do TENANT INTEIRO, não filtrada por criadoPor — ao contrário do
+    // roteamento de WhatsApp acima, qualquer usuário da loja revisa a mesma cotação.
+    // Coberta por idx_cotacao_atual_tenant (V33).
+    Optional<Cotacao> findFirstByStatusInOrderByUltimaAtividadeEmDesc(List<CotacaoStatus> status);
 
     default Cotacao findByIdOrThrow(UUID id) {
         return findById(id)

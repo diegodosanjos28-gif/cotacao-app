@@ -4,6 +4,7 @@ import com.prx.cotacao.cotacao.comparativo.dto.ConcentracaoFornecedorProjecao;
 import com.prx.cotacao.cotacao.comparativo.dto.CotacaoFinalizadaCursorProjecao;
 import com.prx.cotacao.cotacao.comparativo.dto.EconomiaResumoProjecao;
 import com.prx.cotacao.cotacao.comparativo.dto.VariacaoPrecoProjecao;
+import com.prx.cotacao.cotacao.core.dto.CotacaoAnteriorCursorProjecao;
 import com.prx.cotacao.cotacao.core.enums.CotacaoStatus;
 import com.prx.cotacao.cotacao.respostafornecedor.entity.CotacaoProdutoFornecedor;
 import com.prx.cotacao.cotacao.respostafornecedor.enums.StatusItem;
@@ -427,4 +428,60 @@ public interface CotacaoProdutoFornecedorRepository extends JpaRepository<Cotaca
             """, nativeQuery = true)
     List<ConcentracaoFornecedorProjecao> buscarTopConcentracao(
             @Param("inicio") OffsetDateTime inicio, @Param("fim") OffsetDateTime fim, @Param("topN") int topN);
+
+    // Carrossel "Cotações anteriores" (landing da Entrada de Dados, refactor) — mesmo
+    // padrão de keyset em (finalizada_em DESC, id DESC) de buscarPaginaCarrossel
+    // (Dashboard), sustentada pelo mesmo índice idx_cotacao_finalizada (V19). DTO
+    // próprio (sem dado de economia, com itens da lista base) — ver
+    // CotacaoAnteriorCursorResponse. Sem filtro de período: o carrossel da Entrada não
+    // tem esse filtro no mockup, ao contrário do carrossel do Dashboard.
+    @Query(value = """
+            WITH pagina AS (
+                SELECT c.id AS id, c.finalizada_em AS finalizada_em
+                FROM cotacao c
+                WHERE c.status = 'FINALIZADA'
+                  AND (CAST(:cursorFinalizadaEm AS timestamptz) IS NULL
+                       OR (c.finalizada_em, c.id) < (CAST(:cursorFinalizadaEm AS timestamptz), CAST(:cursorId AS uuid)))
+                ORDER BY c.finalizada_em DESC, c.id DESC
+                LIMIT :limite
+            ),
+            itens_base AS (
+                SELECT cp.cotacao_id AS cotacao_id, COUNT(*) AS itens
+                FROM cotacao_produto cp
+                WHERE cp.cotacao_id IN (SELECT id FROM pagina) AND cp.removido_em IS NULL
+                GROUP BY cp.cotacao_id
+            ),
+            itens_cotados AS (
+                SELECT
+                    cp.cotacao_id AS cotacao_id,
+                    COUNT(DISTINCT cp.id) AS itens,
+                    COUNT(DISTINCT cpf.fornecedor_id) AS fornecedores
+                FROM cotacao_produto cp
+                JOIN cotacao_produto_fornecedor cpf ON cpf.cotacao_produto_id = cp.id
+                WHERE cp.cotacao_id IN (SELECT id FROM pagina)
+                  AND cp.removido_em IS NULL
+                  AND cpf.status = 'OK'
+                GROUP BY cp.cotacao_id
+            )
+            SELECT
+                p.id AS id,
+                p.finalizada_em AS finalizadaEm,
+                COALESCE(b.itens, 0) AS itensListaBase,
+                COALESCE(k.itens, 0) AS itensCotados,
+                COALESCE(k.fornecedores, 0) AS fornecedoresCount
+            FROM pagina p
+            LEFT JOIN itens_base b ON b.cotacao_id = p.id
+            LEFT JOIN itens_cotados k ON k.cotacao_id = p.id
+            ORDER BY p.finalizada_em DESC, p.id DESC
+            """, nativeQuery = true)
+    List<CotacaoAnteriorCursorProjecao> buscarPaginaAnteriores(
+            @Param("cursorFinalizadaEm") OffsetDateTime cursorFinalizadaEm,
+            @Param("cursorId") UUID cursorId,
+            @Param("limite") int limite);
+
+    // Total de cotações FINALIZADA do tenant — independente do que já foi carregado
+    // no cliente, mesmo raciocínio de contarFinalizadas (Dashboard). Sem filtro de
+    // período (ver buscarPaginaAnteriores).
+    @Query(value = "SELECT COUNT(*) FROM cotacao WHERE status = 'FINALIZADA'", nativeQuery = true)
+    long contarAnteriores();
 }

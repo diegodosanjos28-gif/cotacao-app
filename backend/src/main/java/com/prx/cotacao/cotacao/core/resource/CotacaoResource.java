@@ -4,6 +4,8 @@ import com.prx.cotacao.cotacao.respostafornecedor.dto.AdicionarFornecedorCotacao
 import com.prx.cotacao.cotacao.core.dto.AdicionarItemCotacaoRequest;
 import com.prx.cotacao.cotacao.respostafornecedor.dto.ConfirmarRespostaRequest;
 import com.prx.cotacao.cotacao.respostafornecedor.dto.CotacaoFornecedorResponse;
+import com.prx.cotacao.cotacao.core.dto.CotacaoAnteriorCursorPage;
+import com.prx.cotacao.cotacao.core.dto.CotacaoAtualResponse;
 import com.prx.cotacao.cotacao.core.dto.CotacaoResponse;
 import com.prx.cotacao.cotacao.core.dto.CriarCotacaoRequest;
 import com.prx.cotacao.cotacao.core.dto.EditarItemCotacaoRequest;
@@ -28,6 +30,8 @@ import java.util.UUID;
 import com.prx.cotacao.cotacao.respostafornecedor.service.AvisoService;
 import com.prx.cotacao.cotacao.respostafornecedor.service.ConfirmacaoRespostaService;
 import com.prx.cotacao.cotacao.respostafornecedor.service.CotacaoFornecedorService;
+import com.prx.cotacao.cotacao.core.service.CotacaoAnterioresService;
+import com.prx.cotacao.cotacao.core.service.CotacaoAtualService;
 import com.prx.cotacao.cotacao.core.service.CotacaoListaService;
 import com.prx.cotacao.cotacao.core.service.CotacaoProdutoItemService;
 import com.prx.cotacao.cotacao.core.service.CotacaoService;
@@ -50,6 +54,8 @@ public class CotacaoResource {
     private final CotacaoFornecedorService cotacaoFornecedorService;
     private final ConfirmacaoRespostaService confirmacaoRespostaService;
     private final CotacaoProdutoItemService cotacaoProdutoItemService;
+    private final CotacaoAtualService cotacaoAtualService;
+    private final CotacaoAnterioresService cotacaoAnterioresService;
 
     public CotacaoResource(CotacaoService cotacaoService,
                            CotacaoListaService listaService,
@@ -58,7 +64,9 @@ public class CotacaoResource {
                            MensagemService mensagemService,
                            CotacaoFornecedorService cotacaoFornecedorService,
                            ConfirmacaoRespostaService confirmacaoRespostaService,
-                           CotacaoProdutoItemService cotacaoProdutoItemService) {
+                           CotacaoProdutoItemService cotacaoProdutoItemService,
+                           CotacaoAtualService cotacaoAtualService,
+                           CotacaoAnterioresService cotacaoAnterioresService) {
         this.cotacaoService = cotacaoService;
         this.listaService = listaService;
         this.respostaService = respostaService;
@@ -67,6 +75,28 @@ public class CotacaoResource {
         this.cotacaoFornecedorService = cotacaoFornecedorService;
         this.confirmacaoRespostaService = confirmacaoRespostaService;
         this.cotacaoProdutoItemService = cotacaoProdutoItemService;
+        this.cotacaoAtualService = cotacaoAtualService;
+        this.cotacaoAnterioresService = cotacaoAnterioresService;
+    }
+
+    // Landing "Cotação atual" (Entrada de Dados, tenant-wide) — 204 quando não há
+    // cotação RASCUNHO/EM_ANDAMENTO no tenant (frontend trata como estado vazio).
+    // Spring resolve "/atual" como segmento literal antes de tentar casar com
+    // "/{id}", então não colide com GET /cotacoes/{id}.
+    @GetMapping("/atual")
+    public ResponseEntity<CotacaoAtualResponse> atual() {
+        return cotacaoAtualService.buscar()
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.noContent().build());
+    }
+
+    // Carrossel "Cotações anteriores" (Entrada de Dados) — paginação por cursor/keyset,
+    // só cotações FINALIZADA (ver CotacaoAnterioresService).
+    @GetMapping("/anteriores")
+    public CotacaoAnteriorCursorPage anteriores(
+            @RequestParam(required = false) String cursor,
+            @RequestParam(defaultValue = "10") int size) {
+        return cotacaoAnterioresService.paginar(cursor, size);
     }
 
     @PostMapping

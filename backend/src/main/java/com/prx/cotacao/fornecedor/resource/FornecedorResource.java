@@ -1,5 +1,7 @@
 package com.prx.cotacao.fornecedor.resource;
 
+import com.prx.cotacao.cotacao.hall.dto.FornecedorHistoricoResponse;
+import com.prx.cotacao.cotacao.hall.service.HallFornecedoresService;
 import com.prx.cotacao.fornecedor.service.FornecedorService;
 import com.prx.cotacao.fornecedor.dto.FornecedorRequest;
 import com.prx.cotacao.fornecedor.dto.FornecedorResponse;
@@ -17,14 +19,22 @@ import java.util.UUID;
 public class FornecedorResource {
 
     private final FornecedorService fornecedorService;
+    private final HallFornecedoresService hallFornecedoresService;
 
-    public FornecedorResource(FornecedorService fornecedorService) {
+    public FornecedorResource(FornecedorService fornecedorService, HallFornecedoresService hallFornecedoresService) {
         this.fornecedorService = fornecedorService;
+        this.hallFornecedoresService = hallFornecedoresService;
     }
 
     @GetMapping
     public List<FornecedorResponse> listar() {
         return fornecedorService.listar().stream().map(FornecedorResponse::from).toList();
+    }
+
+    // Hall dos Fornecedores, modo histórico (landing da Entrada de Dados, refactor).
+    @GetMapping("/historico")
+    public List<FornecedorHistoricoResponse> historico() {
+        return hallFornecedoresService.historico();
     }
 
     @PostMapping
