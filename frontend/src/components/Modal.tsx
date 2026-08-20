@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
 
 export default function Modal({
   open,
@@ -8,13 +9,22 @@ export default function Modal({
   title,
   children,
   footer,
+  className,
 }: {
   open: boolean;
   onClose: () => void;
   title?: string;
   children: React.ReactNode;
   footer?: React.ReactNode;
+  // Sobrescreve a largura/raio/padding padrão (w-full max-w-lg rounded-lg border
+  // border-bdr bg-card p-6 shadow-xl) — usado por modais com layout próprio (ex.:
+  // Conferência de Nota do Dashboard, min(760px,100%)/max-height:88vh), que também
+  // assumem controle total do próprio cabeçalho/corpo rolável via `children`.
+  className?: string;
 }) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(dialogRef, open);
+
   useEffect(() => {
     if (!open) return;
     function onKeyDown(e: KeyboardEvent) {
@@ -32,14 +42,15 @@ export default function Modal({
       onClick={onClose}
     >
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-label={title}
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-lg rounded-lg border border-bdr bg-card p-6 shadow-xl"
+        className={className ?? "w-full max-w-lg rounded-lg border border-bdr bg-card p-6 shadow-xl"}
       >
         {title && <h2 className="text-lg font-semibold text-t1">{title}</h2>}
-        <div className="mt-4">{children}</div>
+        <div className={title ? "mt-4" : undefined}>{children}</div>
         {footer && <div className="mt-6 flex justify-end gap-2">{footer}</div>}
       </div>
     </div>

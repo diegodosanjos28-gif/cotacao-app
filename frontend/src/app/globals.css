@@ -26,9 +26,12 @@
   --color-bdr-m: #c4bdb2;
   --color-bdr-s: #a49d93;
 
-  /* marca */
-  --color-prx: #ff8000;
-  --color-prx-l: #e67300;
+  /* marca — coral #FE7641, adotado no refactor do Dashboard (handoff 2026-08-20)
+     em substituição ao laranja #FF8000 original, em todo o sistema (~38 arquivos
+     usam text-prx/bg-prx/border-prx/... — ver QA visual completo pós-troca, não
+     só a tela do Dashboard). */
+  --color-prx: #fe7641;
+  --color-prx-l: #e85b28;
 
   /* cenários do Mapa de Compra */
   --color-cen1: #fc6e20; /* Menor Preço */
@@ -40,6 +43,14 @@
   --color-t1: #252220;
   --color-t2: #6b655c;
   --color-t3: #a49d93;
+
+  /* Dashboard — painéis de insight (handoff 2026-08-20): marrom escuro de detalhe do
+     coral (badges/marcadores de limite no painel de Concentração) e o verde forte de
+     "Economizado" nos cards do carrossel — mais escuro que --color-ok, propositalmente
+     um tom à parte (ok é status genérico; eco é destaque monetário específico). */
+  --color-brown: #3f1100;
+  --color-eco: #047857;
+  --color-eco-strong: #065f46;
 
   /* status */
   --color-ok: #10b981;

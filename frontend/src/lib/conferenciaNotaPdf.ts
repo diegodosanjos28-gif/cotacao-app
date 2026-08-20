@@ -21,8 +21,11 @@ function dataParaArquivo(iso: string | null): string {
   return `${dia}-${mes}-${ano}`;
 }
 
+// Só finalizadaEm é usado abaixo (data do documento/nome do arquivo) — Pick em vez de
+// Cotacao inteira pra aceitar chamadores que não têm o objeto Cotacao completo (ex.:
+// ConferenciaNotaModal do Dashboard, que só tem o card agregado do carrossel).
 export function montarHtmlConferenciaNota(
-  cotacao: Cotacao,
+  cotacao: Pick<Cotacao, "finalizadaEm">,
   detalhes: DetalheFornecedor[],
 ): { html: string; tituloArquivo: string } {
   const totalItens = detalhes.reduce((soma, d) => soma + d.itens.length, 0);
@@ -98,7 +101,7 @@ export function montarHtmlConferenciaNota(
   return { html, tituloArquivo };
 }
 
-export function exportarConferenciaNota(cotacao: Cotacao, itens: ComparativoItemResponse[]): void {
+export function exportarConferenciaNota(cotacao: Pick<Cotacao, "finalizadaEm">, itens: ComparativoItemResponse[]): void {
   const detalhes = detalhamentoPorFornecedor(itens);
   const { html } = montarHtmlConferenciaNota(cotacao, detalhes);
   const janela = window.open("", "_blank", "width=900,height=700");

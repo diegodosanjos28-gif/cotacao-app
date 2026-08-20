@@ -12,21 +12,22 @@ import StatCard from "@/components/StatCard";
 import StatusBadge from "@/components/StatusBadge";
 import { CanalIcon } from "@/components/icons/CanalIcons";
 import { comparativoLote, economiaResumo, listarCotacoes } from "@/lib/api";
-import { itensSemCotacao, todosFornecedores, totalEconomia, totalRecomendado } from "@/lib/comparativo";
+import { itensSemCotacao, totalEconomia } from "@/lib/comparativo";
 import { formatarData, formatarMoeda, formatarPercentual } from "@/lib/format";
 import { useAsync } from "@/hooks/useAsync";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { ComparativoItemResponse, Cotacao } from "@/lib/types";
 import CotacaoResumoExpandido from "./components/CotacaoResumoExpandido";
-import EconomiaCotacaoDetalhe from "./components/EconomiaCotacaoDetalhe";
+import CompetenciaSelector from "./components/dashboard/CompetenciaSelector";
+import { mesAtual } from "./components/dashboard/competencia";
+import ConcentracaoFornecedoresPanel from "./components/dashboard/ConcentracaoFornecedoresPanel";
+import EconomiaCarrossel from "./components/dashboard/EconomiaCarrossel";
+import FornecedoresPainel from "./components/dashboard/FornecedoresPainel";
+import VariacaoPrecoPanel from "./components/dashboard/VariacaoPrecoPanel";
 
-const TH_ECONOMIA_ESQUERDA = "px-4 py-3 font-semibold";
-const TH_ECONOMIA_CENTRO = "px-4 py-3 text-center font-semibold";
-const TH_ECONOMIA_DIREITA = "px-4 py-3 text-right font-semibold";
 const TH_COTACOES = "px-4 py-3 font-medium";
 
 const TAMANHO_PAGINA_COTACOES = 20;
-const TAMANHO_PAGINA_ECONOMIA = 20;
 
 // Fallback estável pra `data` do tableCotacoes enquanto `cotacoes` ainda é null (mesmo
 // motivo do EXCLUIDOS_VAZIO em ConferenciaModal) — um array literal novo a cada render
@@ -41,33 +42,12 @@ function DashboardContent() {
   // cotações FINALIZADA do tenant (GET /cotacoes/economia-resumo) — achado do
   // usuário 08-20: antes eram calculados no frontend sobre, no máximo, as 20
   // cotações mais recentes de QUALQUER status, não "todas as finalizadas".
-  const { data: resumo, erro: erroResumo } = useAsync(() => economiaResumo(), [], "Não foi possível carregar os KPIs de economia.");
+  const { data: resumo, erro } = useAsync(() => economiaResumo(), [], "Não foi possível carregar os KPIs de economia.");
 
-  // Grid "Economia de Cotações": fetch próprio, paginado server-side, independente
-  // dos KPIs acima — filtra por status=FINALIZADA no servidor (mesmo padrão da
-  // tabela "Todas as cotações" mais abaixo).
-  const [pageIndexEconomia, setPageIndexEconomia] = useState(0);
-  const { data: paginaFinalizadas, erro: erroGrid } = useAsync(
-    () => listarCotacoes({ status: "FINALIZADA", page: pageIndexEconomia, size: TAMANHO_PAGINA_ECONOMIA, sort: "finalizadaEm,desc" }),
-    [pageIndexEconomia],
-    "Não foi possível carregar as cotações finalizadas.",
-  );
-  const cotacoesFinalizadasPagina = paginaFinalizadas?.content ?? null;
-  const erro = erroResumo || erroGrid;
-
-  // Resumo/comparativo de todas as cotações VISÍVEIS na página atual, numa chamada só
-  // (comparativoLote) — alimenta o detalhe expansível de cada linha (mesmo padrão de
-  // itensPorCotacaoTabela abaixo, bounded pelo tamanho da página, não pelo histórico
-  // inteiro). Antes disparava 1 request por linha em paralelo (Promise.allSettled),
-  // que somado à mesma coisa acontecendo em "Todas as cotações" ao mesmo tempo
-  // estourava o rate limit por IP do backend (achado do usuário 08-20).
-  const { data: itensPorCotacao } = useAsync(async () => {
-    if (!cotacoesFinalizadasPagina || cotacoesFinalizadasPagina.length === 0) return new Map<string, ComparativoItemResponse[]>();
-    const porId = await comparativoLote(cotacoesFinalizadasPagina.map((c) => c.id));
-    return new Map(cotacoesFinalizadasPagina.map((c) => [c.id, porId[c.id] ?? []]));
-  }, [cotacoesFinalizadasPagina], "");
-
-  const carregando = cotacoesFinalizadasPagina === null || itensPorCotacao === null;
+  // Competência (mês) dos dois painéis de insight (Variação de Preço, Concentração
+  // de Fornecedores) — estado único aqui, repassado como prop pros dois pra nunca
+  // dessincronizar qual mês cada um mostra.
+  const [mes, setMes] = useState(mesAtual());
 
   // "Todas as cotações" (Prompt 24): fetch próprio, sensível à busca — filtra por
   // título/canal no servidor (CotacaoRepository.buscar), independente do fetch de
@@ -113,19 +93,8 @@ function DashboardContent() {
   const emAndamentoLista = emAndamentoPagina?.content ?? [];
   const emAndamentoTotal = emAndamentoPagina?.totalElements ?? 0;
 
-  // Memoizado: `data` do tableEconomia — um array/objetos novos a cada render (mesmo
-  // problema descrito em COTACOES_VAZIO acima) trava a aba num loop de render infinito
-  // assim que getExpandedRowModel entra em cena (achado ao testar manualmente no
-  // browser — não pego pelos testes automatizados, que não rodam render() repetido o
-  // suficiente pra expor o feedback loop). Já vem filtrada/ordenada do servidor
-  // (status=FINALIZADA, sort=finalizadaEm,desc) — só combina com itensPorCotacao.
-  const finalizadas = useMemo(
-    () => (cotacoesFinalizadasPagina ?? []).map((c) => ({ cotacao: c, itens: itensPorCotacao?.get(c.id) ?? [] })),
-    [cotacoesFinalizadasPagina, itensPorCotacao],
-  );
-
   // KPIs vêm prontos do backend (economiaResumo) — agregados sobre TODAS as
-  // finalizadas do tenant, não só a página atual da grid.
+  // finalizadas do tenant, não só uma janela paginada.
   const cotacoesProcessadas = resumo?.cotacoesProcessadas ?? 0;
   const totalEconomiaAcumulada = resumo?.economiaAcumulada ?? 0;
   const mediaEconomiaPct = resumo?.mediaEconomiaPct ?? 0;
@@ -133,89 +102,6 @@ function DashboardContent() {
     resumo?.fornecedorMaisCompetitivoNome != null
       ? { nome: resumo.fornecedorMaisCompetitivoNome, contagem: resumo.fornecedorMaisCompetitivoContagem ?? 0 }
       : null;
-
-  const colunasEconomia = useMemo<ColumnDef<{ cotacao: Cotacao; itens: ComparativoItemResponse[] }>[]>(
-    () => [
-      {
-        id: "data",
-        header: "Data",
-        cell: ({ row }) => {
-          const { cotacao: c } = row.original;
-          const dt = c.finalizadaEm ? new Date(c.finalizadaEm) : null;
-          return (
-            <>
-              <Link href={`/cotacoes/${c.id}/mapa`} className="font-medium text-t1 hover:underline">
-                {dt ? dt.toLocaleDateString("pt-BR") : "—"}
-              </Link>
-              {dt && (
-                <div className="mt-0.5 text-[10.5px] text-t3">
-                  {dt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
-                </div>
-              )}
-            </>
-          );
-        },
-        meta: { headerClassName: TH_ECONOMIA_ESQUERDA, cellClassName: "px-4 py-3" },
-      },
-      {
-        id: "itens",
-        header: "Itens",
-        cell: ({ row }) => {
-          const { itens } = row.original;
-          const semCotacao = itensSemCotacao(itens);
-          return (
-            <span className="rounded-full border border-bdr bg-surf px-2 py-0.5 text-xs text-t2">
-              {itens.length - semCotacao.length} / {itens.length}
-            </span>
-          );
-        },
-        meta: { headerClassName: TH_ECONOMIA_CENTRO, cellClassName: "px-4 py-3 text-center" },
-      },
-      {
-        id: "fornecedores",
-        header: "Fornecedores",
-        cell: ({ row }) => todosFornecedores(row.original.itens).size,
-        meta: { headerClassName: TH_ECONOMIA_CENTRO, cellClassName: "px-4 py-3 text-center text-t2" },
-      },
-      {
-        id: "totalRecomendado",
-        header: "Total Recomendado",
-        cell: ({ row }) => formatarMoeda(totalRecomendado(row.original.itens)),
-        meta: { headerClassName: TH_ECONOMIA_DIREITA, cellClassName: "px-4 py-3 text-right font-medium text-t1" },
-      },
-      {
-        id: "economia",
-        header: "Economia Potencial",
-        cell: ({ row }) => (
-          <span className="font-semibold text-ok">{formatarMoeda(totalEconomia(row.original.itens))}</span>
-        ),
-        meta: { headerClassName: TH_ECONOMIA_DIREITA, cellClassName: "px-4 py-3 text-right" },
-      },
-      {
-        id: "acao",
-        header: "Ação",
-        cell: ({ row }) => (
-          <button
-            onClick={() => row.toggleExpanded()}
-            aria-expanded={row.getIsExpanded()}
-            className="whitespace-nowrap rounded-full border border-prx/30 bg-prx/10 px-2.5 py-1 text-[11px] font-semibold text-prx hover:bg-prx hover:text-white"
-          >
-            Conferência de Nota
-          </button>
-        ),
-        meta: { headerClassName: TH_ECONOMIA_CENTRO, cellClassName: "px-4 py-3 text-center" },
-      },
-    ],
-    [],
-  );
-
-  const tableEconomia = useReactTable({
-    data: finalizadas,
-    columns: colunasEconomia,
-    getRowId: (f) => f.cotacao.id,
-    getCoreRowModel: getCoreRowModel(),
-    getExpandedRowModel: getExpandedRowModel(),
-  });
 
   const colunasCotacoes = useMemo<ColumnDef<Cotacao>[]>(
     () => [
@@ -332,7 +218,12 @@ function DashboardContent() {
   return (
     <>
       <NavBar />
-      <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-8">
+      {/* Sem max-width (full-bleed) — o mockup do Dashboard usa max-width:1400px, mas
+          o usuário pediu pra preencher a largura inteira do navegador mesmo em
+          monitores muito largos (feedback visual 2026-08-20, depois de já ter testado
+          1400px). Só um nível de padding horizontal (px-6), sem duplicar com o de
+          nenhum componente filho. */}
+      <main className="w-full flex-1 px-6 py-8">
         {/* Hero */}
         <div className="relative overflow-hidden rounded-[20px] shadow-[0_20px_50px_rgba(13,11,10,.30),0_5px_16px_rgba(13,11,10,.18)]">
           <Image src="/dash-banner.jpg" alt="" fill priority sizes="100vw" className="object-cover object-[center_50%]" />
@@ -406,56 +297,20 @@ function DashboardContent() {
 
         {erro && <p className="mt-6 text-sm text-er">{erro}</p>}
 
-        {/* Economia de Cotações */}
-        <section className="mt-8 overflow-hidden rounded-xl border border-bdr bg-card">
-          <div className="flex items-center justify-between border-b border-bdr px-5 py-4">
-            <h2 className="text-[11.5px] font-semibold uppercase tracking-wide text-t2">
-              Economia de Cotações
-            </h2>
-            <span className="rounded-full border border-bdr bg-surf px-2.5 py-1 text-[10.5px] font-semibold text-t2">
-              {cotacoesProcessadas} cotaç{cotacoesProcessadas === 1 ? "ão" : "ões"}
-            </span>
-          </div>
-          <div className="max-h-[420px] overflow-y-auto">
-            <DataGrid
-              table={tableEconomia}
-              tableClassName="w-full text-sm"
-              theadClassName="sticky top-0 z-10 bg-surf text-left text-[10.5px] uppercase tracking-wide text-t2"
-              tbodyClassName="divide-y divide-bdr"
-              rowClassName="hover:bg-hov"
-              renderRowDetail={(row) => (
-                <EconomiaCotacaoDetalhe cotacao={row.original.cotacao} itens={row.original.itens} />
-              )}
-              rowDetailClassName="bg-surf"
-              rowDetailCellClassName="px-4 py-4"
-              loading={carregando}
-              loadingContent={
-                <tr>
-                  <td colSpan={5} className="px-4 py-6 text-center text-t2">
-                    Carregando...
-                  </td>
-                </tr>
-              }
-              emptyContent={
-                <tr>
-                  <td colSpan={5} className="px-4 py-10 text-center text-t2">
-                    Nenhuma cotação finalizada ainda. Finalize uma ordem de compra no Mapa de Compra para começar a
-                    acompanhar sua economia.
-                  </td>
-                </tr>
-              }
-            />
-          </div>
-          {paginaFinalizadas && (
-            <Pagination
-              className="border-t border-bdr px-5 py-3"
-              pageIndex={paginaFinalizadas.number}
-              pageSize={paginaFinalizadas.size}
-              total={paginaFinalizadas.totalElements}
-              onPageChange={setPageIndexEconomia}
-            />
-          )}
-        </section>
+        {/* Linha 1 — Cotações Registradas (75%) + Fornecedores (25%). Breakpoint único
+            900px (handoff §10.1) — min-[900px] em vez de lg: (1024px por padrão no
+            Tailwind) pra bater exatamente com o valor especificado. */}
+        <div className="mt-8 grid grid-cols-1 gap-[18px] min-[900px]:grid-cols-[75%_1fr]">
+          <EconomiaCarrossel />
+          <FornecedoresPainel />
+        </div>
+
+        {/* Linha 2 — Variação de Preço (50%) + Concentração de Fornecedores (50%) */}
+        <CompetenciaSelector mes={mes} onChange={setMes} />
+        <div className="mt-3 grid grid-cols-1 gap-[18px] min-[900px]:grid-cols-2">
+          <VariacaoPrecoPanel mes={mes} />
+          <ConcentracaoFornecedoresPanel mes={mes} />
+        </div>
 
         {/* Todas as cotações */}
         <section className="mt-10">

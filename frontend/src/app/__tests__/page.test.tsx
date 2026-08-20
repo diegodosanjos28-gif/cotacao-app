@@ -11,21 +11,35 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import DashboardPage from "@/app/page";
-import { Cotacao, ComparativoItemResponse, PrecoFornecedor } from "@/lib/types";
+import { Cotacao } from "@/lib/types";
 
 const { pushMock, replaceMock } = vi.hoisted(() => ({ pushMock: vi.fn(), replaceMock: vi.fn() }));
-const { listarCotacoesMock, comparativoLoteMock, economiaResumoMock } = vi.hoisted(() => ({
+const {
+  listarCotacoesMock,
+  comparativoLoteMock,
+  economiaResumoMock,
+  economiaCarrosselMock,
+  listarFornecedoresMock,
+  variacaoPrecoMock,
+  concentracaoFornecedoresMock,
+} = vi.hoisted(() => ({
   listarCotacoesMock: vi.fn(),
   comparativoLoteMock: vi.fn(),
   economiaResumoMock: vi.fn(),
+  economiaCarrosselMock: vi.fn(),
+  listarFornecedoresMock: vi.fn(),
+  variacaoPrecoMock: vi.fn(),
+  concentracaoFornecedoresMock: vi.fn(),
 }));
-const { exportarConferenciaNotaMock } = vi.hoisted(() => ({ exportarConferenciaNotaMock: vi.fn() }));
-
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: pushMock, replace: replaceMock }),
   usePathname: () => "/",
 }));
 
+// economiaCarrossel/listarFornecedores/variacaoPreco/concentracaoFornecedores
+// alimentam os componentes que substituíram a antiga grid "Economia de Cotações"
+// (carrossel, painel de fornecedores, painéis de insight) — sem mock aqui essas
+// chamadas cairiam na implementação real de fetch() dentro do jsdom.
 vi.mock("@/lib/api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/api")>();
   return {
@@ -33,12 +47,12 @@ vi.mock("@/lib/api", async (importOriginal) => {
     listarCotacoes: listarCotacoesMock,
     comparativoLote: comparativoLoteMock,
     economiaResumo: economiaResumoMock,
+    economiaCarrossel: economiaCarrosselMock,
+    listarFornecedores: listarFornecedoresMock,
+    variacaoPreco: variacaoPrecoMock,
+    concentracaoFornecedores: concentracaoFornecedoresMock,
   };
 });
-
-vi.mock("@/lib/conferenciaNotaPdf", () => ({
-  exportarConferenciaNota: exportarConferenciaNotaMock,
-}));
 
 vi.mock("@/components/AuthProvider", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/components/AuthProvider")>();
@@ -65,42 +79,17 @@ function makeCotacao(overrides: Partial<Cotacao> = {}): Cotacao {
   };
 }
 
-function makeOferta(overrides: Partial<PrecoFornecedor> = {}): PrecoFornecedor {
-  return {
-    fornecedorId: "forn-1",
-    nomeFornecedor: "Distribuidora Alfa",
-    precoInformado: 10,
-    precoUnitarioCalculado: 10,
-    semEstoque: false,
-    status: "OK",
-    divergenciaComparativa: false,
-    ...overrides,
-  };
-}
-
-function makeItem(overrides: Partial<ComparativoItemResponse> = {}): ComparativoItemResponse {
-  return {
-    cotacaoProdutoId: "item-1",
-    produtoId: "prod-1",
-    nomeProduto: "Arroz 5kg",
-    quantidade: 2,
-    unidade: "un",
-    precosPorFornecedor: [makeOferta()],
-    ...overrides,
-  };
-}
-
 function paginaDe(cotacoes: Cotacao[]) {
   return { content: cotacoes, totalElements: cotacoes.length, totalPages: 1, number: 0, size: 20 };
 }
 
-// listarCotacoes é chamado por 3 fetches independentes nesta página: o catálogo
-// completo (sem args, alimenta KPIs/"Economia de Cotações"), o lembrete de
+// listarCotacoes é chamado por 2 fetches independentes nesta página: o lembrete de
 // "aguardando conferência" ({status: "EM_ANDAMENTO", ...}) e a tabela "Todas as
-// cotações" propriamente ({q, page, size}). Um mockResolvedValue único (sem checar
-// args) faz esses 3 fetches devolverem o MESMO conteúdo — se a fixture tiver alguma
-// cotação com status EM_ANDAMENTO, ela aparece duplicada (banner + tabela), quebrando
-// asserts de texto único. Este helper isola a tabela: o lembrete sempre volta vazio.
+// cotações" propriamente ({q, page, size}) — os KPIs do topo vêm de economiaResumo(),
+// não mais de listarCotacoes. Um mockResolvedValue único (sem checar args) faz os 2
+// fetches devolverem o MESMO conteúdo — se a fixture tiver alguma cotação com status
+// EM_ANDAMENTO, ela aparece duplicada (banner + tabela), quebrando asserts de texto
+// único. Este helper isola a tabela: o lembrete sempre volta vazio.
 function mockListaDaTabela(cotacoes: Cotacao[]) {
   listarCotacoesMock.mockImplementation((opcoes?: { status?: string }) =>
     Promise.resolve(opcoes?.status === "EM_ANDAMENTO" ? paginaDe([]) : paginaDe(cotacoes)),
@@ -118,10 +107,6 @@ function secaoTodasCotacoes() {
   return screen.getByText("Todas as cotações").closest("section")!;
 }
 
-function secaoEconomiaCotacoes() {
-  return screen.getByText("Economia de Cotações").closest("section")!;
-}
-
 // A tabela "Todas as cotações" recalcula `colunasCotacoes` (e portanto o estado de
 // expansão de linha do react-table, que vive dentro da própria tabela) toda vez que
 // `itensPorCotacao` muda de identidade — interagir antes desse segundo fetch assentar
@@ -137,7 +122,10 @@ beforeEach(() => {
   listarCotacoesMock.mockReset();
   comparativoLoteMock.mockReset();
   economiaResumoMock.mockReset();
-  exportarConferenciaNotaMock.mockReset();
+  economiaCarrosselMock.mockReset();
+  listarFornecedoresMock.mockReset();
+  variacaoPrecoMock.mockReset();
+  concentracaoFornecedoresMock.mockReset();
   comparativoLoteMock.mockResolvedValue({});
   economiaResumoMock.mockResolvedValue({
     cotacoesProcessadas: 0,
@@ -146,6 +134,13 @@ beforeEach(() => {
     fornecedorMaisCompetitivoNome: null,
     fornecedorMaisCompetitivoContagem: null,
   });
+  // Componentes do carrossel/painéis de insight/Fornecedores (substituíram a antiga
+  // grid "Economia de Cotações") — defaults vazios, sem interesse nos testes deste
+  // arquivo (têm suíte própria em components/dashboard/__tests__).
+  economiaCarrosselMock.mockResolvedValue({ items: [], nextCursor: null, hasMore: false });
+  listarFornecedoresMock.mockResolvedValue([]);
+  variacaoPrecoMock.mockResolvedValue({ produtos: [], totalProdutosComparados: 0 });
+  concentracaoFornecedoresMock.mockResolvedValue({ fornecedores: [], limiteDependenciaPct: 40, algumEmRisco: false });
 });
 
 describe("Dashboard — tabela 'Todas as cotações', coluna Título", () => {
@@ -209,66 +204,9 @@ describe("Dashboard — tabela 'Todas as cotações', link do título", () => {
   });
 });
 
-describe("Dashboard — tabela 'Economia de Cotações', botão 'Conferência de Nota'", () => {
-  function cenarioFinalizada() {
-    const cotacao = makeCotacao({
-      id: "cot-fin",
-      titulo: "Cotação Finalizada",
-      status: "FINALIZADA",
-      finalizadaEm: "2026-08-01T10:00:00Z",
-    });
-    const itens = [
-      makeItem({
-        cotacaoProdutoId: "item-1",
-        precosPorFornecedor: [
-          makeOferta({ fornecedorId: "forn-1", nomeFornecedor: "Distribuidora Alfa", precoUnitarioCalculado: 10 }),
-          makeOferta({ fornecedorId: "forn-2", nomeFornecedor: "Beta", precoUnitarioCalculado: 15 }),
-        ],
-      }),
-    ];
-    mockListaDaTabela([cotacao]);
-    comparativoLoteMock.mockResolvedValue({ [cotacao.id]: itens });
-    return { cotacao, itens };
-  }
-
-  it("não é um link — é um botão que alterna aria-expanded ao clicar", async () => {
-    cenarioFinalizada();
-
-    await renderPage();
-    const badge = await screen.findByRole("button", { name: "Conferência de Nota" });
-    await aguardarEconomiaPotencialCarregada();
-    expect(badge.tagName).toBe("BUTTON");
-    expect(badge.getAttribute("href")).toBeNull();
-    expect(badge.getAttribute("aria-expanded")).toBe("false");
-
-    fireEvent.click(badge);
-    await waitFor(() => expect(badge.getAttribute("aria-expanded")).toBe("true"));
-    expect(screen.getByRole("button", { name: "Exportar PDF" })).toBeTruthy();
-
-    fireEvent.click(badge);
-    await waitFor(() => expect(badge.getAttribute("aria-expanded")).toBe("false"));
-    expect(screen.queryByRole("button", { name: "Exportar PDF" })).toBeNull();
-  });
-
-  it("chama exportarConferenciaNota com a cotação e os itens ao clicar em Exportar PDF", async () => {
-    const { cotacao, itens } = cenarioFinalizada();
-
-    await renderPage();
-    const badge = await screen.findByRole("button", { name: "Conferência de Nota" });
-    await aguardarEconomiaPotencialCarregada();
-    fireEvent.click(badge);
-
-    const exportar = await screen.findByRole("button", { name: "Exportar PDF" });
-    fireEvent.click(exportar);
-
-    expect(exportarConferenciaNotaMock).toHaveBeenCalledWith(cotacao, itens);
-  });
-});
-
 describe("Dashboard — paginação server-side de 'Todas as cotações'", () => {
-  // listarCotacoes é chamado 3 vezes com formas diferentes de argumento nesta página:
-  // sem argumento nenhum (KPIs/Economia, 1ª página do catálogo inteiro), com
-  // {status: "EM_ANDAMENTO", ...} (lembrete de conferência pendente) e com
+  // listarCotacoes é chamado 2 vezes com formas diferentes de argumento nesta
+  // página: {status: "EM_ANDAMENTO", ...} (lembrete de conferência pendente) e
   // {q, page, size} (a própria tabela "Todas as cotações", paginada de verdade).
   function paginaCom(cotacoesDaPagina: Cotacao[], opts: { number: number; totalElements: number }) {
     return { content: cotacoesDaPagina, totalElements: opts.totalElements, totalPages: Math.ceil(opts.totalElements / 20), number: opts.number, size: 20 };
@@ -283,11 +221,11 @@ describe("Dashboard — paginação server-side de 'Todas as cotações'", () =>
       number: 1,
       totalElements: 25,
     });
-    // FINALIZADA (grid "Economia de Cotações") volta vazio — este teste é só sobre a
-    // paginação de "Todas as cotações", que não filtra por status. Sem isso, os dois
-    // grids renderizariam "Próxima"/"Anterior" ao mesmo tempo (ambíguo pro getByRole).
+    // EM_ANDAMENTO (banner de lembrete) volta vazio — este teste é só sobre a
+    // paginação de "Todas as cotações". Sem isso, o banner poderia disputar texto
+    // com a tabela.
     listarCotacoesMock.mockImplementation((opcoes?: { status?: string; page?: number }) => {
-      if (opcoes?.status === "EM_ANDAMENTO" || opcoes?.status === "FINALIZADA") return Promise.resolve(paginaDe([]));
+      if (opcoes?.status === "EM_ANDAMENTO") return Promise.resolve(paginaDe([]));
       return Promise.resolve(opcoes?.page === 1 ? pagina1 : pagina0);
     });
 
@@ -311,10 +249,7 @@ describe("Dashboard — paginação server-side de 'Todas as cotações'", () =>
   });
 
   it("com o total cabendo numa página só, os botões Anterior/Próxima aparecem desabilitados (Pagination só se esconde de vez com total 0)", async () => {
-    // mockListaDaTabela também popula a grid "Economia de Cotações" (mesma cotação
-    // tem status FINALIZADA) — os dois grids mostram "Página 1 de 1" ao mesmo tempo,
-    // então as consultas precisam ficar escopadas à seção "Todas as cotações".
-    mockListaDaTabela([makeCotacao({ id: "cot-1", titulo: "Cotação Única", status: "FINALIZADA", finalizadaEm: "2026-08-01T10:00:00Z" })]);
+    mockListaDaTabela([makeCotacao({ id: "cot-1", titulo: "Cotação Única" })]);
 
     await renderPage();
     await waitFor(() => expect(screen.getByText("Cotação Única")).toBeTruthy());
@@ -347,7 +282,7 @@ describe("Dashboard — paginação server-side de 'Todas as cotações'", () =>
     });
     const buscaFiltrada = paginaDe([makeCotacao({ id: "cot-busca", titulo: "Achou Por Busca" })]);
     listarCotacoesMock.mockImplementation((opcoes?: { status?: string; page?: number; q?: string }) => {
-      if (opcoes?.status === "EM_ANDAMENTO" || opcoes?.status === "FINALIZADA") return Promise.resolve(paginaDe([]));
+      if (opcoes?.status === "EM_ANDAMENTO") return Promise.resolve(paginaDe([]));
       if (opcoes?.q) return Promise.resolve(buscaFiltrada);
       return Promise.resolve(opcoes?.page === 1 ? pagina1 : pagina0);
     });
@@ -401,45 +336,5 @@ describe("Dashboard — KPIs de 'Economia de Cotações' (GET /cotacoes/economia
 
     expect(screen.getByText("—")).toBeTruthy();
     expect(screen.getByText("sem dados suficientes")).toBeTruthy();
-  });
-});
-
-describe("Dashboard — paginação server-side de 'Economia de Cotações'", () => {
-  function paginaEconomiaCom(cotacoesDaPagina: Cotacao[], opts: { number: number; totalElements: number }) {
-    return { content: cotacoesDaPagina, totalElements: opts.totalElements, totalPages: Math.ceil(opts.totalElements / 20), number: opts.number, size: 20 };
-  }
-
-  it("pagina de forma independente de 'Todas as cotações' — clicar em 'Próxima' na grid de economia não afeta a outra tabela", async () => {
-    // A grid "Economia de Cotações" não exibe o título da cotação (só data, itens,
-    // fornecedores, total e economia) — usa a data formatada (coluna "Data") como
-    // marcador único de cada página, já que finalizadaEm difere entre elas.
-    const pagina0Economia = paginaEconomiaCom(
-      [makeCotacao({ id: "eco-pg0", titulo: "Economia Página 0", status: "FINALIZADA", finalizadaEm: "2026-08-01T10:00:00Z" })],
-      { number: 0, totalElements: 25 },
-    );
-    const pagina1Economia = paginaEconomiaCom(
-      [makeCotacao({ id: "eco-pg1", titulo: "Economia Página 1", status: "FINALIZADA", finalizadaEm: "2026-08-15T10:00:00Z" })],
-      { number: 1, totalElements: 25 },
-    );
-    const todasCotacoes = paginaDe([makeCotacao({ id: "todas-1", titulo: "Cotação Qualquer" })]);
-
-    listarCotacoesMock.mockImplementation((opcoes?: { status?: string; page?: number }) => {
-      if (opcoes?.status === "EM_ANDAMENTO") return Promise.resolve(paginaDe([]));
-      if (opcoes?.status === "FINALIZADA") return Promise.resolve(opcoes.page === 1 ? pagina1Economia : pagina0Economia);
-      return Promise.resolve(todasCotacoes);
-    });
-
-    await renderPage();
-    await waitFor(() => expect(within(secaoEconomiaCotacoes()).getByText("01/08/2026")).toBeTruthy());
-    await aguardarEconomiaPotencialCarregada();
-
-    const economia = within(secaoEconomiaCotacoes());
-    fireEvent.click(economia.getByRole("button", { name: "Próxima" }));
-
-    await waitFor(() => expect(within(secaoEconomiaCotacoes()).getByText("15/08/2026")).toBeTruthy());
-    expect(within(secaoEconomiaCotacoes()).queryByText("01/08/2026")).toBeNull();
-    // "Todas as cotações" não deve ter sido afetada pela paginação da outra grid.
-    expect(within(secaoTodasCotacoes()).getByText("Cotação Qualquer")).toBeTruthy();
-    expect(listarCotacoesMock).toHaveBeenCalledWith({ status: "FINALIZADA", page: 1, size: 20, sort: "finalizadaEm,desc" });
   });
 });

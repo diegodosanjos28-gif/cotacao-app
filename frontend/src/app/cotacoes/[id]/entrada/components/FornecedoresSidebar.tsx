@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { inativarFornecedor } from "@/lib/api";
+import { corFornecedor } from "@/lib/coresFornecedor";
 import { getErrorMessage } from "@/lib/errors";
 import { formatarMoeda } from "@/lib/format";
 import { Fornecedor } from "@/lib/types";
@@ -26,10 +27,6 @@ interface Props {
   // fornecedor (tenant), ortogonal ao ciclo de vida desta cotação específica.
   somenteLeitura?: boolean;
 }
-
-// Paleta cíclica só pra dar identidade visual rápida a cada card (barra lateral) —
-// mesmo espírito do SR_COLORS do protótipo, sem persistir cor por fornecedor.
-const CORES_BARRA = ["#FF8000", "#47C7FC", "#8B5CF6", "#F59E0B", "#EF4444", "#10B981"];
 
 export default function FornecedoresSidebar({
   fornecedores,
@@ -123,7 +120,7 @@ export default function FornecedoresSidebar({
                 ativo ? "border-prx bg-prx/5" : "border-bdr bg-surf"
               }`}
             >
-              <span className="w-1 shrink-0 rounded-full" style={{ background: CORES_BARRA[i % CORES_BARRA.length] }} />
+              <span className="w-1 shrink-0 rounded-full" style={{ background: corFornecedor(i) }} />
               <div className="min-w-0 flex-1">
                 <p className="flex items-center gap-1.5 text-sm font-semibold text-t1">
                   {f.nome}

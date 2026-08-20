@@ -135,6 +135,58 @@ export interface EconomiaResumoResponse {
   fornecedorMaisCompetitivoContagem: number | null;
 }
 
+// Carrossel "Cotações Registradas" (Dashboard) — GET /cotacoes/economia-carrossel,
+// paginado por cursor/keyset (nextCursor é opaco, só repassar de volta).
+export interface CotacaoFinalizadaCursorResponse {
+  id: string;
+  finalizadaEm: string;
+  itensCotados: number;
+  valorTotalComprado: number;
+  economizado: number;
+  economizadoPct: number;
+  fornecedoresCount: number;
+}
+
+export interface CotacaoFinalizadaCursorPage {
+  items: CotacaoFinalizadaCursorResponse[];
+  nextCursor: string | null;
+  hasMore: boolean;
+  // Total de cotações que batem com o filtro atual (inicio/fim) — não o total já
+  // carregado no cliente.
+  totalElements: number;
+}
+
+// Painel "Variação de Preço por Produto" (Dashboard) — GET /cotacoes/variacao-preco.
+export interface ItemVariacaoPreco {
+  produtoId: string;
+  nomeProduto: string;
+  menorPreco: number;
+  maiorPreco: number;
+  spreadPct: number;
+  fornecedorMenorNome: string;
+  fornecedorMaiorNome: string;
+}
+
+export interface VariacaoPrecoResponse {
+  produtos: ItemVariacaoPreco[];
+  totalProdutosComparados: number;
+}
+
+// Painel "Concentração de Fornecedores" (Dashboard) — GET /cotacoes/concentracao-fornecedores.
+export interface ItemConcentracaoFornecedor {
+  fornecedorId: string;
+  nomeFornecedor: string;
+  valorComprado: number;
+  sharePct: number;
+  acimaDoLimite: boolean;
+}
+
+export interface ConcentracaoFornecedoresResponse {
+  fornecedores: ItemConcentracaoFornecedor[];
+  limiteDependenciaPct: number;
+  algumEmRisco: boolean;
+}
+
 export interface EditarItemCotacaoRequest {
   quantidade: number;
   unidade: string;

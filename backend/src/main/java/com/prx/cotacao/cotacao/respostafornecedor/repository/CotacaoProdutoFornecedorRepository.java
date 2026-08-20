@@ -1,6 +1,9 @@
 package com.prx.cotacao.cotacao.respostafornecedor.repository;
 
+import com.prx.cotacao.cotacao.comparativo.dto.ConcentracaoFornecedorProjecao;
+import com.prx.cotacao.cotacao.comparativo.dto.CotacaoFinalizadaCursorProjecao;
 import com.prx.cotacao.cotacao.comparativo.dto.EconomiaResumoProjecao;
+import com.prx.cotacao.cotacao.comparativo.dto.VariacaoPrecoProjecao;
 import com.prx.cotacao.cotacao.core.enums.CotacaoStatus;
 import com.prx.cotacao.cotacao.respostafornecedor.entity.CotacaoProdutoFornecedor;
 import com.prx.cotacao.cotacao.respostafornecedor.enums.StatusItem;
@@ -9,6 +12,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.OffsetDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -223,4 +227,204 @@ public interface CotacaoProdutoFornecedorRepository extends JpaRepository<Cotaca
                 (SELECT vitorias FROM vitorias_por_fornecedor) AS fornecedorVencedorContagem
             """, nativeQuery = true)
     EconomiaResumoProjecao resumoEconomiaFinalizadas();
+
+    // Carrossel "Cotações Registradas" (Dashboard) — página por cursor/keyset em
+    // (finalizada_em DESC, id DESC), sustentada por idx_cotacao_finalizada (V19).
+    // :cursorFinalizadaEm/:cursorId nulos = primeira página (a comparação de tupla
+    // some via curto-circuito do "IS NULL OR", mas os CASTs continuam explícitos —
+    // mesmo motivo do CAST em CotacaoRepository.buscar(): Postgres tipa a query
+    // inteira antes de avaliar o curto-circuito). Busca :limite (size+1) linhas —
+    // o service usa a linha extra só pra derivar hasMore, sem um COUNT separado.
+    // :inicio/:fim (nulos = sem filtro) restringem por finalizada_em — filtro de
+    // período opcional do carrossel, mesmo padrão nullable-OR dos demais parâmetros.
+    // Agregados por cotação reaproveitam a mesma base "vencedor por item" (menor
+    // preço, tie-break por fornecedor_id) de resumoEconomiaFinalizadas, só que
+    // agrupada por cotação em vez de somada sobre o tenant inteiro.
+    @Query(value = """
+            WITH pagina AS (
+                SELECT c.id AS id, c.finalizada_em AS finalizada_em
+                FROM cotacao c
+                WHERE c.status = 'FINALIZADA'
+                  AND (CAST(:inicio AS timestamptz) IS NULL OR c.finalizada_em >= CAST(:inicio AS timestamptz))
+                  AND (CAST(:fim AS timestamptz) IS NULL OR c.finalizada_em < CAST(:fim AS timestamptz))
+                  AND (CAST(:cursorFinalizadaEm AS timestamptz) IS NULL
+                       OR (c.finalizada_em, c.id) < (CAST(:cursorFinalizadaEm AS timestamptz), CAST(:cursorId AS uuid)))
+                ORDER BY c.finalizada_em DESC, c.id DESC
+                LIMIT :limite
+            ),
+            ofertas_validas AS (
+                SELECT
+                    cp.cotacao_id AS cotacao_id,
+                    cp.quantidade AS quantidade,
+                    cpf.fornecedor_id AS fornecedor_id,
+                    cpf.preco_unitario_calculado AS preco,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY cpf.cotacao_produto_id
+                        ORDER BY cpf.preco_unitario_calculado ASC, cpf.fornecedor_id ASC
+                    ) AS rn,
+                    MIN(cpf.preco_unitario_calculado) OVER (PARTITION BY cpf.cotacao_produto_id) AS menor,
+                    MAX(cpf.preco_unitario_calculado) OVER (PARTITION BY cpf.cotacao_produto_id) AS maior
+                FROM cotacao_produto_fornecedor cpf
+                JOIN cotacao_produto cp ON cp.id = cpf.cotacao_produto_id
+                WHERE cp.cotacao_id IN (SELECT id FROM pagina)
+                  AND cp.removido_em IS NULL
+                  AND cpf.status = 'OK'
+                  AND cpf.sem_estoque = false
+            ),
+            vencedor_por_item AS (
+                SELECT cotacao_id, fornecedor_id, (maior - menor) * quantidade AS economia, menor * quantidade AS recomendado
+                FROM ofertas_validas
+                WHERE rn = 1
+            ),
+            itens_por_cotacao AS (
+                SELECT cp.cotacao_id AS cotacao_id, COUNT(*) AS itens
+                FROM cotacao_produto cp
+                WHERE cp.cotacao_id IN (SELECT id FROM pagina) AND cp.removido_em IS NULL
+                GROUP BY cp.cotacao_id
+            )
+            SELECT
+                p.id AS id,
+                p.finalizada_em AS finalizadaEm,
+                COALESCE(i.itens, 0) AS itensCotados,
+                COALESCE(SUM(v.recomendado), 0) AS valorTotalComprado,
+                COALESCE(SUM(v.economia), 0) AS economizado,
+                CASE WHEN (COALESCE(SUM(v.recomendado), 0) + COALESCE(SUM(v.economia), 0)) > 0
+                     THEN (COALESCE(SUM(v.economia), 0) / (COALESCE(SUM(v.recomendado), 0) + COALESCE(SUM(v.economia), 0))) * 100
+                     ELSE 0 END AS economizadoPct,
+                COUNT(DISTINCT v.fornecedor_id) AS fornecedoresCount
+            FROM pagina p
+            LEFT JOIN vencedor_por_item v ON v.cotacao_id = p.id
+            LEFT JOIN itens_por_cotacao i ON i.cotacao_id = p.id
+            GROUP BY p.id, p.finalizada_em, i.itens
+            ORDER BY p.finalizada_em DESC, p.id DESC
+            """, nativeQuery = true)
+    List<CotacaoFinalizadaCursorProjecao> buscarPaginaCarrossel(
+            @Param("cursorFinalizadaEm") OffsetDateTime cursorFinalizadaEm,
+            @Param("cursorId") UUID cursorId,
+            @Param("limite") int limite,
+            @Param("inicio") OffsetDateTime inicio,
+            @Param("fim") OffsetDateTime fim);
+
+    // Total de cotações FINALIZADA que batem com o filtro do carrossel (mesmo
+    // :inicio/:fim de buscarPaginaCarrossel, nulos = sem filtro) — contagem
+    // independente do que já foi carregado no cliente, não incrementada a cada
+    // página (achado do usuário: o badge "N cotações" não pode refletir só o que
+    // chegou na primeira leva). idx_cotacao_finalizada (V19) cobre esse COUNT.
+    @Query(value = """
+            SELECT COUNT(*) FROM cotacao c
+            WHERE c.status = 'FINALIZADA'
+              AND (CAST(:inicio AS timestamptz) IS NULL OR c.finalizada_em >= CAST(:inicio AS timestamptz))
+              AND (CAST(:fim AS timestamptz) IS NULL OR c.finalizada_em < CAST(:fim AS timestamptz))
+            """, nativeQuery = true)
+    long contarFinalizadas(@Param("inicio") OffsetDateTime inicio, @Param("fim") OffsetDateTime fim);
+
+    // Painel "Variação de Preço por Produto" (Dashboard) — Top N produtos por spread
+    // (maior-menor)/menor dentro da competência [:inicio, :fim). Mesma base de
+    // ofertas válidas dos demais painéis; HAVING >= 2 fornecedores é a "regra de
+    // ouro" do handoff (produto cotado por 1 só fornecedor não tem spread). Tie-break
+    // de qual fornecedor é "o do menor/maior preço" por fornecedor_id ASC, mesmo
+    // critério do resto do sistema.
+    @Query(value = """
+            WITH ofertas_validas AS (
+                SELECT
+                    cp.produto_id AS produto_id,
+                    cpf.fornecedor_id AS fornecedor_id,
+                    cpf.preco_unitario_calculado AS preco
+                FROM cotacao_produto_fornecedor cpf
+                JOIN cotacao_produto cp ON cp.id = cpf.cotacao_produto_id
+                JOIN cotacao c ON c.id = cp.cotacao_id
+                WHERE c.status = 'FINALIZADA'
+                  AND cp.removido_em IS NULL
+                  AND cpf.status = 'OK'
+                  AND cpf.sem_estoque = false
+                  AND cp.produto_id IS NOT NULL
+                  AND c.finalizada_em >= :inicio AND c.finalizada_em < :fim
+            ),
+            por_produto AS (
+                SELECT produto_id,
+                       COUNT(DISTINCT fornecedor_id) AS qtd_fornecedores,
+                       MIN(preco) AS menor_preco,
+                       MAX(preco) AS maior_preco
+                FROM ofertas_validas
+                GROUP BY produto_id
+                HAVING COUNT(DISTINCT fornecedor_id) >= 2
+            ),
+            fornecedor_menor AS (
+                SELECT DISTINCT ON (ov.produto_id) ov.produto_id AS produto_id, ov.fornecedor_id AS fornecedor_id
+                FROM ofertas_validas ov
+                JOIN por_produto pp ON pp.produto_id = ov.produto_id AND ov.preco = pp.menor_preco
+                ORDER BY ov.produto_id, ov.fornecedor_id ASC
+            ),
+            fornecedor_maior AS (
+                SELECT DISTINCT ON (ov.produto_id) ov.produto_id AS produto_id, ov.fornecedor_id AS fornecedor_id
+                FROM ofertas_validas ov
+                JOIN por_produto pp ON pp.produto_id = ov.produto_id AND ov.preco = pp.maior_preco
+                ORDER BY ov.produto_id, ov.fornecedor_id ASC
+            )
+            SELECT
+                pp.produto_id AS produtoId,
+                pp.menor_preco AS menorPreco,
+                pp.maior_preco AS maiorPreco,
+                ((pp.maior_preco - pp.menor_preco) / pp.menor_preco * 100) AS spreadPct,
+                fmin.fornecedor_id AS fornecedorMenorId,
+                fmax.fornecedor_id AS fornecedorMaiorId,
+                -- Contagem sobre TODOS os produtos elegíveis (>= 2 fornecedores), não só
+                -- os Top N devolvidos abaixo — janela avaliada antes do LIMIT (ordem
+                -- lógica do SQL: WHERE/GROUP BY -> janela -> ORDER BY -> LIMIT), então
+                -- todas as linhas do Top N carregam o mesmo total.
+                COUNT(*) OVER () AS totalElegiveis
+            FROM por_produto pp
+            JOIN fornecedor_menor fmin ON fmin.produto_id = pp.produto_id
+            JOIN fornecedor_maior fmax ON fmax.produto_id = pp.produto_id
+            ORDER BY spreadPct DESC
+            LIMIT :topN
+            """, nativeQuery = true)
+    List<VariacaoPrecoProjecao> buscarTopSpread(
+            @Param("inicio") OffsetDateTime inicio, @Param("fim") OffsetDateTime fim, @Param("topN") int topN);
+
+    // Painel "Concentração de Fornecedores" (Dashboard) — Top N fornecedores por
+    // participação no valor "vencido" (mesma base recomendado = menor*quantidade de
+    // EconomiaResumoService) dentro da competência [:inicio, :fim).
+    @Query(value = """
+            WITH ofertas_validas AS (
+                SELECT
+                    cp.quantidade AS quantidade,
+                    cpf.fornecedor_id AS fornecedor_id,
+                    cpf.preco_unitario_calculado AS preco,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY cpf.cotacao_produto_id
+                        ORDER BY cpf.preco_unitario_calculado ASC, cpf.fornecedor_id ASC
+                    ) AS rn
+                FROM cotacao_produto_fornecedor cpf
+                JOIN cotacao_produto cp ON cp.id = cpf.cotacao_produto_id
+                JOIN cotacao c ON c.id = cp.cotacao_id
+                WHERE c.status = 'FINALIZADA'
+                  AND cp.removido_em IS NULL
+                  AND cpf.status = 'OK'
+                  AND cpf.sem_estoque = false
+                  AND c.finalizada_em >= :inicio AND c.finalizada_em < :fim
+            ),
+            vencedor_por_item AS (
+                SELECT fornecedor_id, preco * quantidade AS valor
+                FROM ofertas_validas
+                WHERE rn = 1
+            ),
+            por_fornecedor AS (
+                SELECT fornecedor_id, SUM(valor) AS valor_comprado
+                FROM vencedor_por_item
+                GROUP BY fornecedor_id
+            ),
+            total AS (
+                SELECT SUM(valor_comprado) AS total_geral FROM por_fornecedor
+            )
+            SELECT
+                pf.fornecedor_id AS fornecedorId,
+                pf.valor_comprado AS valorComprado,
+                CASE WHEN t.total_geral > 0 THEN (pf.valor_comprado / t.total_geral * 100) ELSE 0 END AS sharePct
+            FROM por_fornecedor pf, total t
+            ORDER BY sharePct DESC
+            LIMIT :topN
+            """, nativeQuery = true)
+    List<ConcentracaoFornecedorProjecao> buscarTopConcentracao(
+            @Param("inicio") OffsetDateTime inicio, @Param("fim") OffsetDateTime fim, @Param("topN") int topN);
 }

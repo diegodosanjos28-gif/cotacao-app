@@ -2,8 +2,10 @@ import {
   AdicionarFornecedorCotacaoRequest,
   AdicionarItemCotacaoRequest,
   ComparativoItemResponse,
+  ConcentracaoFornecedoresResponse,
   ConfirmarRespostaRequest,
   Cotacao,
+  CotacaoFinalizadaCursorPage,
   CotacaoFornecedorResponse,
   CotacaoStatus,
   EconomiaResumoResponse,
@@ -35,6 +37,7 @@ import {
   UsuarioAdminRequest,
   UsuarioTelefone,
   UsuarioTelefoneRequest,
+  VariacaoPrecoResponse,
 } from "./types";
 import { getAccessToken, isAccessTokenExpiringSoon, setAccessToken } from "./auth";
 
@@ -307,6 +310,33 @@ export function comparativoLote(cotacaoIds: string[]): Promise<Record<string, Co
 // cotações FINALIZADA do tenant — não depende de paginar/buscar cotações no frontend.
 export function economiaResumo(): Promise<EconomiaResumoResponse> {
   return request<EconomiaResumoResponse>("/cotacoes/economia-resumo");
+}
+
+// Carrossel "Cotações Registradas" (Dashboard) — paginação por cursor/keyset, nunca o
+// histórico inteiro. cursor omitido = primeira página; passe de volta o nextCursor
+// recebido sem interpretá-lo. inicio/fim (formato "AAAA-MM-DD", opcionais) filtram
+// por período — trocar o período deve reiniciar a paginação (cursor null de novo).
+export function economiaCarrossel(
+  cursor: string | null,
+  size = 10,
+  inicio?: string | null,
+  fim?: string | null,
+): Promise<CotacaoFinalizadaCursorPage> {
+  const params = new URLSearchParams({ size: String(size) });
+  if (cursor) params.set("cursor", cursor);
+  if (inicio) params.set("inicio", inicio);
+  if (fim) params.set("fim", fim);
+  return request<CotacaoFinalizadaCursorPage>(`/cotacoes/economia-carrossel?${params.toString()}`);
+}
+
+// Painel "Variação de Preço por Produto" (Dashboard) — mes no formato "AAAA-MM".
+export function variacaoPreco(mes: string): Promise<VariacaoPrecoResponse> {
+  return request<VariacaoPrecoResponse>(`/cotacoes/variacao-preco?mes=${mes}`);
+}
+
+// Painel "Concentração de Fornecedores" (Dashboard) — mes no formato "AAAA-MM".
+export function concentracaoFornecedores(mes: string): Promise<ConcentracaoFornecedoresResponse> {
+  return request<ConcentracaoFornecedoresResponse>(`/cotacoes/concentracao-fornecedores?mes=${mes}`);
 }
 
 export function editarItemCotacao(
