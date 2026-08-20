@@ -1,19 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import AuthGuard from "@/components/AuthGuard";
 import NavBar from "@/components/NavBar";
+import Pagination from "@/components/Pagination";
 import { historicoPrecos } from "@/lib/api";
-import {
-  precoMaisRecente,
-  produtosAcimaDaUltimaReferencia,
-  produtosComHistorico,
-  produtosComOportunidade,
-} from "@/lib/historicoPrecos";
+import { precoMaisRecente } from "@/lib/historicoPrecos";
 import { formatarMoeda } from "@/lib/format";
 import { useAsync } from "@/hooks/useAsync";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { HistoricoPrecoProduto } from "@/lib/types";
 import HistoricoPrecoDetalhe from "../components/HistoricoPrecoDetalhe";
+
+const TAMANHO_PAGINA = 20;
 
 function IconClock({ className }: { className?: string }) {
   return (
@@ -34,22 +33,35 @@ function IconSearch() {
 }
 
 function HistoricoPrecosContent() {
-  const { data: produtos, erro } = useAsync(
-    () => historicoPrecos(),
-    [],
-    "Não foi possível carregar o histórico de preços.",
-  );
   const [busca, setBusca] = useState("");
   const [selecionado, setSelecionado] = useState<HistoricoPrecoProduto | null>(null);
+  const [pageIndex, setPageIndex] = useState(0);
 
-  const todos = produtos ?? [];
-  const comHistorico = produtosComHistorico(todos).length;
-  const acima = produtosAcimaDaUltimaReferencia(todos).length;
-  const oportunidades = produtosComOportunidade(todos).length;
+  const buscaDebounced = useDebouncedValue(busca.trim(), 300);
 
-  // Lista sempre visível — busca filtra em vez de ser pré-condição pra mostrar algo.
-  const buscaNorm = busca.trim().toLowerCase();
-  const listaExibida = buscaNorm ? todos.filter((p) => p.nomeProduto.toLowerCase().includes(buscaNorm)) : todos;
+  // Termo mudou: volta pra primeira página (senão a busca nova podia ficar "presa"
+  // numa página vazia do resultado anterior).
+  const buscaAnteriorRef = useRef(buscaDebounced);
+  if (buscaAnteriorRef.current !== buscaDebounced) {
+    buscaAnteriorRef.current = buscaDebounced;
+    if (pageIndex !== 0) setPageIndex(0);
+  }
+
+  const { data: resposta, erro } = useAsync(
+    () => historicoPrecos({ q: buscaDebounced || undefined, page: pageIndex, size: TAMANHO_PAGINA }),
+    [buscaDebounced, pageIndex],
+    "Não foi possível carregar o histórico de preços.",
+  );
+
+  // Os 3 contadores dos cards são agregados de todo o catálogo do tenant — vêm prontos
+  // do backend (HistoricoPrecoPageResponse), independentes da página/busca atual.
+  const comHistorico = resposta?.produtosComHistorico ?? 0;
+  const acima = resposta?.acimaDaUltimaReferencia ?? 0;
+  const oportunidades = resposta?.oportunidades ?? 0;
+
+  const listaExibida = resposta?.pagina.content ?? [];
+  const catalogoVazio = resposta != null && resposta.pagina.totalElements === 0 && !buscaDebounced;
+  const buscaSemResultado = resposta != null && resposta.pagina.totalElements === 0 && !!buscaDebounced;
 
   function selecionar(produto: HistoricoPrecoProduto) {
     setBusca(produto.nomeProduto);
@@ -121,7 +133,7 @@ function HistoricoPrecosContent() {
           />
         </div>
 
-        {!selecionado && todos.length === 0 && (
+        {!selecionado && catalogoVazio && (
           <div className="mt-4 flex flex-col items-center gap-3.5 rounded-xl border border-bdr bg-card px-5 py-12 text-center">
             <IconClock className="text-bdr-m/60" />
             <p className="max-w-sm text-sm text-t2">
@@ -130,7 +142,7 @@ function HistoricoPrecosContent() {
           </div>
         )}
 
-        {!selecionado && todos.length > 0 && listaExibida.length === 0 && (
+        {!selecionado && buscaSemResultado && (
           <div className="mt-4 rounded-xl border border-bdr bg-card px-5 py-12 text-center">
             <p className="text-sm text-t2">Nenhum produto encontrado para esta busca.</p>
           </div>
@@ -149,6 +161,15 @@ function HistoricoPrecosContent() {
                 <span className="whitespace-nowrap text-sm font-bold text-prx">{formatarMoeda(precoMaisRecente(p))}</span>
               </button>
             ))}
+            {resposta && (
+              <Pagination
+                className="mt-2"
+                pageIndex={resposta.pagina.number}
+                pageSize={resposta.pagina.size}
+                total={resposta.pagina.totalElements}
+                onPageChange={setPageIndex}
+              />
+            )}
           </div>
         )}
 

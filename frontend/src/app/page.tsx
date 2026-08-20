@@ -1,24 +1,18 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { ColumnDef, getCoreRowModel, getExpandedRowModel, useReactTable } from "@tanstack/react-table";
 import DataGrid from "@/components/grid/DataGrid";
+import Pagination from "@/components/Pagination";
 import AuthGuard from "@/components/AuthGuard";
 import NavBar from "@/components/NavBar";
 import StatCard from "@/components/StatCard";
 import StatusBadge from "@/components/StatusBadge";
 import { CanalIcon } from "@/components/icons/CanalIcons";
-import { comparativo, listarCotacoes } from "@/lib/api";
-import {
-  fornecedorMaisCompetitivo,
-  itensSemCotacao,
-  percentualEconomia,
-  todosFornecedores,
-  totalEconomia,
-  totalRecomendado,
-} from "@/lib/comparativo";
+import { comparativoLote, economiaResumo, listarCotacoes } from "@/lib/api";
+import { itensSemCotacao, todosFornecedores, totalEconomia, totalRecomendado } from "@/lib/comparativo";
 import { formatarData, formatarMoeda, formatarPercentual } from "@/lib/format";
 import { useAsync } from "@/hooks/useAsync";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
@@ -31,6 +25,9 @@ const TH_ECONOMIA_CENTRO = "px-4 py-3 text-center font-semibold";
 const TH_ECONOMIA_DIREITA = "px-4 py-3 text-right font-semibold";
 const TH_COTACOES = "px-4 py-3 font-medium";
 
+const TAMANHO_PAGINA_COTACOES = 20;
+const TAMANHO_PAGINA_ECONOMIA = 20;
+
 // Fallback estável pra `data` do tableCotacoes enquanto `cotacoes` ainda é null (mesmo
 // motivo do EXCLUIDOS_VAZIO em ConferenciaModal) — um array literal novo a cada render
 // vira uma referência de `data` diferente a cada render aos olhos do TanStack Table,
@@ -40,51 +37,69 @@ const TH_COTACOES = "px-4 py-3 font-medium";
 const COTACOES_VAZIO: Cotacao[] = [];
 
 function DashboardContent() {
-  const { data: cotacoes, erro } = useAsync(
-    () => listarCotacoes().then((pagina) => pagina.content),
-    [],
-    "Não foi possível carregar as cotações.",
+  // KPIs do topo ("Economia de Cotações") agregados no backend sobre TODAS as
+  // cotações FINALIZADA do tenant (GET /cotacoes/economia-resumo) — achado do
+  // usuário 08-20: antes eram calculados no frontend sobre, no máximo, as 20
+  // cotações mais recentes de QUALQUER status, não "todas as finalizadas".
+  const { data: resumo, erro: erroResumo } = useAsync(() => economiaResumo(), [], "Não foi possível carregar os KPIs de economia.");
+
+  // Grid "Economia de Cotações": fetch próprio, paginado server-side, independente
+  // dos KPIs acima — filtra por status=FINALIZADA no servidor (mesmo padrão da
+  // tabela "Todas as cotações" mais abaixo).
+  const [pageIndexEconomia, setPageIndexEconomia] = useState(0);
+  const { data: paginaFinalizadas, erro: erroGrid } = useAsync(
+    () => listarCotacoes({ status: "FINALIZADA", page: pageIndexEconomia, size: TAMANHO_PAGINA_ECONOMIA, sort: "finalizadaEm,desc" }),
+    [pageIndexEconomia],
+    "Não foi possível carregar as cotações finalizadas.",
   );
+  const cotacoesFinalizadasPagina = paginaFinalizadas?.content ?? null;
+  const erro = erroResumo || erroGrid;
 
-  // Resumo/comparativo de cada cotação da lista, buscado uma vez em paralelo — alimenta
-  // tanto o resumo agregado no topo quanto o detalhe expansível de cada linha, sem
-  // exigir um fetch adicional ao expandir (lista de pequeno varejo, poucas cotações
-  // por página — Promise.allSettled em paralelo é aceitável aqui).
+  // Resumo/comparativo de todas as cotações VISÍVEIS na página atual, numa chamada só
+  // (comparativoLote) — alimenta o detalhe expansível de cada linha (mesmo padrão de
+  // itensPorCotacaoTabela abaixo, bounded pelo tamanho da página, não pelo histórico
+  // inteiro). Antes disparava 1 request por linha em paralelo (Promise.allSettled),
+  // que somado à mesma coisa acontecendo em "Todas as cotações" ao mesmo tempo
+  // estourava o rate limit por IP do backend (achado do usuário 08-20).
   const { data: itensPorCotacao } = useAsync(async () => {
-    if (!cotacoes || cotacoes.length === 0) return new Map<string, ComparativoItemResponse[]>();
-    const resultados = await Promise.allSettled(cotacoes.map((c) => comparativo(c.id)));
-    const mapa = new Map<string, ComparativoItemResponse[]>();
-    cotacoes.forEach((c, i) => {
-      const r = resultados[i];
-      mapa.set(c.id, r.status === "fulfilled" ? r.value : []);
-    });
-    return mapa;
-  }, [cotacoes], "");
+    if (!cotacoesFinalizadasPagina || cotacoesFinalizadasPagina.length === 0) return new Map<string, ComparativoItemResponse[]>();
+    const porId = await comparativoLote(cotacoesFinalizadasPagina.map((c) => c.id));
+    return new Map(cotacoesFinalizadasPagina.map((c) => [c.id, porId[c.id] ?? []]));
+  }, [cotacoesFinalizadasPagina], "");
 
-  const carregando = cotacoes === null || itensPorCotacao === null;
+  const carregando = cotacoesFinalizadasPagina === null || itensPorCotacao === null;
 
   // "Todas as cotações" (Prompt 24): fetch próprio, sensível à busca — filtra por
   // título/canal no servidor (CotacaoRepository.buscar), independente do fetch de
-  // `cotacoes`/`itensPorCotacao` acima, que segue alimentando só KPIs e "Economia de
-  // Cotações" sem filtro (fora de escopo deste prompt).
+  // `resumo`/`cotacoesFinalizadasPagina` acima, que alimenta só os KPIs e a grid
+  // "Economia de Cotações" (sempre FINALIZADA, sem busca por texto).
   const [termoBusca, setTermoBusca] = useState("");
   const termoBuscaDebounced = useDebouncedValue(termoBusca.trim(), 300);
 
-  const { data: cotacoesTabela } = useAsync(
-    () => listarCotacoes({ q: termoBuscaDebounced || undefined, size: 50 }).then((pagina) => pagina.content),
-    [termoBuscaDebounced],
+  // Paginação server-side real (o backend já pagina desde sempre — só o frontend
+  // ignorava totalPages/number e pedia uma página maior de uma vez).
+  const [pageIndexCotacoes, setPageIndexCotacoes] = useState(0);
+
+  // Buscar de novo com o termo mudando deixaria a tabela "presa" numa página vazia se o
+  // total de páginas do novo filtro for menor que a página atual (mesmo motivo do
+  // reset em GridProdutosSection).
+  const termoBuscaAnterior = useRef(termoBuscaDebounced);
+  if (termoBuscaAnterior.current !== termoBuscaDebounced) {
+    termoBuscaAnterior.current = termoBuscaDebounced;
+    if (pageIndexCotacoes !== 0) setPageIndexCotacoes(0);
+  }
+
+  const { data: paginaCotacoesTabela } = useAsync(
+    () => listarCotacoes({ q: termoBuscaDebounced || undefined, page: pageIndexCotacoes, size: TAMANHO_PAGINA_COTACOES }),
+    [termoBuscaDebounced, pageIndexCotacoes],
     "Não foi possível carregar as cotações.",
   );
+  const cotacoesTabela = paginaCotacoesTabela?.content ?? null;
 
   const { data: itensPorCotacaoTabela } = useAsync(async () => {
     if (!cotacoesTabela || cotacoesTabela.length === 0) return new Map<string, ComparativoItemResponse[]>();
-    const resultados = await Promise.allSettled(cotacoesTabela.map((c) => comparativo(c.id)));
-    const mapa = new Map<string, ComparativoItemResponse[]>();
-    cotacoesTabela.forEach((c, i) => {
-      const r = resultados[i];
-      mapa.set(c.id, r.status === "fulfilled" ? r.value : []);
-    });
-    return mapa;
+    const porId = await comparativoLote(cotacoesTabela.map((c) => c.id));
+    return new Map(cotacoesTabela.map((c) => [c.id, porId[c.id] ?? []]));
   }, [cotacoesTabela], "");
 
   // Lembrete de cotações aguardando conferência: contagem e lista vêm de um fetch
@@ -102,23 +117,22 @@ function DashboardContent() {
   // problema descrito em COTACOES_VAZIO acima) trava a aba num loop de render infinito
   // assim que getExpandedRowModel entra em cena (achado ao testar manualmente no
   // browser — não pego pelos testes automatizados, que não rodam render() repetido o
-  // suficiente pra expor o feedback loop).
+  // suficiente pra expor o feedback loop). Já vem filtrada/ordenada do servidor
+  // (status=FINALIZADA, sort=finalizadaEm,desc) — só combina com itensPorCotacao.
   const finalizadas = useMemo(
-    () =>
-      (cotacoes ?? [])
-        .filter((c) => c.status === "FINALIZADA")
-        .map((c) => ({ cotacao: c, itens: itensPorCotacao?.get(c.id) ?? [] }))
-        .sort((a, b) => (b.cotacao.finalizadaEm ?? "").localeCompare(a.cotacao.finalizadaEm ?? "")),
-    [cotacoes, itensPorCotacao],
+    () => (cotacoesFinalizadasPagina ?? []).map((c) => ({ cotacao: c, itens: itensPorCotacao?.get(c.id) ?? [] })),
+    [cotacoesFinalizadasPagina, itensPorCotacao],
   );
 
-  const cotacoesProcessadas = finalizadas.length;
-  const totalEconomiaAcumulada = finalizadas.reduce((soma, f) => soma + totalEconomia(f.itens), 0);
-  const mediaEconomiaPct =
-    cotacoesProcessadas > 0
-      ? finalizadas.reduce((soma, f) => soma + percentualEconomia(f.itens), 0) / cotacoesProcessadas
-      : 0;
-  const melhorFornecedorGeral = fornecedorMaisCompetitivo(finalizadas.flatMap((f) => f.itens));
+  // KPIs vêm prontos do backend (economiaResumo) — agregados sobre TODAS as
+  // finalizadas do tenant, não só a página atual da grid.
+  const cotacoesProcessadas = resumo?.cotacoesProcessadas ?? 0;
+  const totalEconomiaAcumulada = resumo?.economiaAcumulada ?? 0;
+  const mediaEconomiaPct = resumo?.mediaEconomiaPct ?? 0;
+  const melhorFornecedorGeral =
+    resumo?.fornecedorMaisCompetitivoNome != null
+      ? { nome: resumo.fornecedorMaisCompetitivoNome, contagem: resumo.fornecedorMaisCompetitivoContagem ?? 0 }
+      : null;
 
   const colunasEconomia = useMemo<ColumnDef<{ cotacao: Cotacao; itens: ComparativoItemResponse[] }>[]>(
     () => [
@@ -432,6 +446,15 @@ function DashboardContent() {
               }
             />
           </div>
+          {paginaFinalizadas && (
+            <Pagination
+              className="border-t border-bdr px-5 py-3"
+              pageIndex={paginaFinalizadas.number}
+              pageSize={paginaFinalizadas.size}
+              total={paginaFinalizadas.totalElements}
+              onPageChange={setPageIndexEconomia}
+            />
+          )}
         </section>
 
         {/* Todas as cotações */}
@@ -511,6 +534,16 @@ function DashboardContent() {
               </tr>
             }
           />
+
+          {paginaCotacoesTabela && (
+            <Pagination
+              className="mt-3"
+              pageIndex={paginaCotacoesTabela.number}
+              pageSize={paginaCotacoesTabela.size}
+              total={paginaCotacoesTabela.totalElements}
+              onPageChange={setPageIndexCotacoes}
+            />
+          )}
         </section>
       </main>
     </>

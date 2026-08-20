@@ -48,17 +48,3 @@ export function tendencia(p: HistoricoPrecoProduto): Tendencia | null {
   return variacao > 0 ? "ALTA" : "QUEDA";
 }
 
-export function produtosComHistorico(produtos: HistoricoPrecoProduto[]): HistoricoPrecoProduto[] {
-  return produtos.filter(temHistorico);
-}
-
-// Partição exata de produtosComHistorico junto com produtosComOportunidade: empate
-// (variação == 0) conta como "acima" — "preço atual igual ou acima da referência
-// anterior" no texto do requisito.
-export function produtosAcimaDaUltimaReferencia(produtos: HistoricoPrecoProduto[]): HistoricoPrecoProduto[] {
-  return produtosComHistorico(produtos).filter((p) => (variacaoRecente(p) ?? 0) >= 0);
-}
-
-export function produtosComOportunidade(produtos: HistoricoPrecoProduto[]): HistoricoPrecoProduto[] {
-  return produtosComHistorico(produtos).filter((p) => (variacaoRecente(p) ?? 0) < 0);
-}

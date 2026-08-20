@@ -123,6 +123,18 @@ export interface ComparativoItemResponse {
   precosPorFornecedor: PrecoFornecedor[];
 }
 
+// KPIs de "Economia de Cotações" (Dashboard) — GET /cotacoes/economia-resumo,
+// agregados no backend sobre TODAS as cotações FINALIZADA do tenant (não uma janela
+// paginada). fornecedorMaisCompetitivoNome/Contagem vêm null quando nenhuma cotação
+// finalizada tem sequer um item com oferta válida.
+export interface EconomiaResumoResponse {
+  cotacoesProcessadas: number;
+  economiaAcumulada: number;
+  mediaEconomiaPct: number;
+  fornecedorMaisCompetitivoNome: string | null;
+  fornecedorMaisCompetitivoContagem: number | null;
+}
+
 export interface EditarItemCotacaoRequest {
   quantidade: number;
   unidade: string;
@@ -366,6 +378,15 @@ export interface HistoricoPrecoProduto {
   quantidadeReferencia: number | null;
   unidadeReferencia: string | null;
   pontos: PontoReferenciaPreco[];
+}
+
+// Única exceção ao padrão Page<T> cru (ver HistoricoPrecoPageResponse no backend) — os
+// 3 contadores são agregados de todo o catálogo do tenant, não da página exibida.
+export interface HistoricoPrecoPageResponse {
+  pagina: Page<HistoricoPrecoProduto>;
+  produtosComHistorico: number;
+  acimaDaUltimaReferencia: number;
+  oportunidades: number;
 }
 
 // ── Admin PRX — /admin/tenants, /admin/tenants/{id}/usuarios ────────────────

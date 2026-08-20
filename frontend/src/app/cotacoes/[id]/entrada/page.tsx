@@ -7,7 +7,7 @@ import StatusBadge from "@/components/StatusBadge";
 import {
   buscarCotacao,
   buscarLista,
-  buscarProdutos,
+  buscarProdutosPorIds,
   buscarRespostaPersistida,
   cancelarRespostaFornecedor,
   concluirAjusteLista,
@@ -15,6 +15,7 @@ import {
   listarFornecedores,
   listarFornecedoresDaCotacao,
 } from "@/lib/api";
+import { idsProdutosDosItens } from "@/lib/itensLista";
 import { getErrorMessage } from "@/lib/errors";
 import {
   Cotacao,
@@ -99,12 +100,15 @@ function EntradaContent({ cotacaoId }: { cotacaoId: string }) {
       // pra uma rota separada (/ajuste-lista, removida); agora o mesmo grid unificado
       // atende os dois casos nesta página — só o restante da tela (fornecedores/
       // conferência) fica escondido até "Concluir ajuste" (ver precisaAjuste abaixo).
-      const [f, cf, itens, catalogo] = await Promise.all([
+      const [f, cf, itens] = await Promise.all([
         listarFornecedores(),
         listarFornecedoresDaCotacao(cotacaoId),
         buscarLista(cotacaoId),
-        buscarProdutos(),
       ]);
+      // Só os produtos já referenciados pelos itens desta cotação — bounded pelo
+      // tamanho da lista, não o catálogo inteiro do tenant (ver ProdutoAutocomplete,
+      // que busca sugestões novas sob demanda, paginado, no servidor).
+      const catalogo = await buscarProdutosPorIds(idsProdutosDosItens(itens));
       setCotacao(c);
       setFornecedores(f);
       setCotacaoFornecedores(cf);

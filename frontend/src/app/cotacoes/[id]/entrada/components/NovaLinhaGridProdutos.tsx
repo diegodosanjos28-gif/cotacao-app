@@ -3,13 +3,11 @@
 import { useState } from "react";
 import { adicionarItemCotacao } from "@/lib/api";
 import { getErrorMessage } from "@/lib/errors";
-import { Produto } from "@/lib/types";
 import { UNIDADES } from "@/lib/unidades";
 import ProdutoAutocomplete from "./ProdutoAutocomplete";
 
 interface Props {
   cotacaoId: string;
-  produtos: Produto[];
   onAdicionado: () => void;
   onCancelar: () => void;
 }
@@ -18,7 +16,7 @@ interface Props {
 // (Prompt 12) — ao contrário de LinhaGridProdutos (edita um item já persistido via
 // PATCH), esta ainda não existe no backend: um único POST /produtos cria a linha já
 // com produto resolvido (existente ou nome novo).
-export default function NovaLinhaGridProdutos({ cotacaoId, produtos, onAdicionado, onCancelar }: Props) {
+export default function NovaLinhaGridProdutos({ cotacaoId, onAdicionado, onCancelar }: Props) {
   const [produtoId, setProdutoId] = useState<string | null>(null);
   const [nomeProdutoLivre, setNomeProdutoLivre] = useState<string | null>(null);
   const [nomeExibido, setNomeExibido] = useState<string | null>(null);
@@ -26,8 +24,6 @@ export default function NovaLinhaGridProdutos({ cotacaoId, produtos, onAdicionad
   const [unidade, setUnidade] = useState<string>(UNIDADES[0]);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
-
-  const produtoNomePorId = new Map(produtos.map((p) => [p.id, p.nome]));
 
   async function salvar() {
     const qtdNum = Number(quantidade.replace(",", "."));
@@ -96,8 +92,7 @@ export default function NovaLinhaGridProdutos({ cotacaoId, produtos, onAdicionad
       </td>
       <td className="px-4 py-3">
         <ProdutoAutocomplete
-          produtos={produtos}
-          valorAtualNome={nomeExibido ?? (produtoId ? (produtoNomePorId.get(produtoId) ?? null) : null)}
+          valorAtualNome={nomeExibido}
           disabled={salvando}
           onSelecionar={(p) => {
             setProdutoId(p.id);

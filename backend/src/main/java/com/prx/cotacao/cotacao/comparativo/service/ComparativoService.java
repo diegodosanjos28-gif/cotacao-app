@@ -17,7 +17,10 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import com.prx.cotacao.cotacao.core.entity.CotacaoProduto;
 import com.prx.cotacao.cotacao.respostafornecedor.entity.CotacaoProdutoFornecedor;
 import com.prx.cotacao.cotacao.respostafornecedor.repository.CotacaoProdutoFornecedorRepository;
@@ -95,6 +98,73 @@ public class ComparativoService {
                     .toList();
 
             resultado.add(new ComparativoItemResponse(
+                    cp.getId(), cp.getProdutoId(), nomeProduto, cp.getQuantidade(), cp.getUnidade(), precos));
+        }
+
+        return resultado;
+    }
+
+    // Versão em lote de comparativo() — achado do usuário 08-20: o Dashboard (grids
+    // "Economia de Cotações" e "Todas as cotações", cada linha visível disparando seu
+    // próprio comparativo(id) em paralelo via Promise.allSettled) gerava dezenas de
+    // requisições simultâneas e estourava o rate limit por IP (429 Too Many Requests).
+    // Uma chamada só, N cotações: cotacao_produto/cotacao_produto_fornecedor buscados
+    // com IN (:cotacaoIds) em vez de 1 query por cotação, e o catálogo de produtos
+    // resolvido só pelos IDs realmente referenciados nesse lote (findAllById), não
+    // findAll() do catálogo inteiro do tenant como o método single-cotação acima ainda
+    // faz. cotacaoId que não existir/não pertencer ao tenant (RLS já filtra) some do
+    // resultado — sem lançar 404 como a versão single, já que aqui é sempre uma lista
+    // de IDs já legitimamente visíveis na tela que fez a chamada, não uma navegação
+    // direta por um ID digitado.
+    @Transactional(readOnly = true)
+    public Map<UUID, List<ComparativoItemResponse>> comparativoLote(List<UUID> cotacaoIds) {
+        if (cotacaoIds.isEmpty()) return Map.of();
+
+        List<CotacaoProduto> itens = cotacaoProdutoRepository.findByCotacaoIdInAndRemovidoEmIsNullOrderByOrdem(cotacaoIds);
+        List<CotacaoProdutoFornecedor> todasRespostas = cpfRepository.findByCotacaoIdIn(cotacaoIds);
+
+        Map<UUID, Fornecedor> fornecedores = new HashMap<>();
+        fornecedorRepository.findByStatusNot(FornecedorStatus.INATIVO)
+                .forEach(f -> fornecedores.put(f.getId(), f));
+
+        Set<UUID> produtoIds = itens.stream()
+                .map(CotacaoProduto::getProdutoId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        Map<UUID, Produto> produtos = new HashMap<>();
+        if (!produtoIds.isEmpty()) {
+            produtoRepository.findAllById(produtoIds).forEach(p -> produtos.put(p.getId(), p));
+        }
+
+        Map<UUID, List<CotacaoProdutoFornecedor>> respostasPorItem = new HashMap<>();
+        for (CotacaoProdutoFornecedor cpf : todasRespostas) {
+            respostasPorItem.computeIfAbsent(cpf.getCotacaoProdutoId(), k -> new ArrayList<>()).add(cpf);
+        }
+
+        Map<UUID, List<ComparativoItemResponse>> resultado = new HashMap<>();
+        cotacaoIds.forEach(id -> resultado.put(id, new ArrayList<>()));
+
+        for (CotacaoProduto cp : itens) {
+            String nomeProduto = cp.getProdutoId() != null && produtos.containsKey(cp.getProdutoId())
+                    ? produtos.get(cp.getProdutoId()).getNome()
+                    : nomeSemQuantidadeEUnidade(cp.getTextoOriginal());
+
+            List<CotacaoProdutoFornecedor> respostas = respostasPorItem.getOrDefault(cp.getId(), List.of());
+            List<ComparativoItemResponse.PrecoFornecedor> precos = respostas.stream()
+                    .map(cpf -> {
+                        Fornecedor f = fornecedores.get(cpf.getFornecedorId());
+                        String nomeForn = f != null ? f.getNome() : cpf.getFornecedorId().toString();
+                        return new ComparativoItemResponse.PrecoFornecedor(
+                                cpf.getFornecedorId(), nomeForn,
+                                cpf.getPrecoInformado(), cpf.getPrecoUnitarioCalculado(),
+                                cpf.isSemEstoque(),
+                                cpf.getStatus(),
+                                temDivergenciaComparativa(cpf, respostas)
+                        );
+                    })
+                    .toList();
+
+            resultado.get(cp.getCotacaoId()).add(new ComparativoItemResponse(
                     cp.getId(), cp.getProdutoId(), nomeProduto, cp.getQuantidade(), cp.getUnidade(), precos));
         }
 

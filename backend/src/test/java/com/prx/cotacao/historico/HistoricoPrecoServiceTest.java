@@ -13,6 +13,7 @@ import com.prx.cotacao.cotacao.core.enums.CotacaoStatus;
 import com.prx.cotacao.cotacao.respostafornecedor.enums.StatusItem;
 import com.prx.cotacao.fornecedor.entity.Fornecedor;
 import com.prx.cotacao.fornecedor.repository.FornecedorRepository;
+import com.prx.cotacao.historico.dto.HistoricoPrecoPageResponse;
 import com.prx.cotacao.historico.dto.HistoricoPrecoProdutoResponse;
 import com.prx.cotacao.historico.service.HistoricoPrecoService;
 import com.prx.cotacao.identidade.entity.Tenant;
@@ -24,6 +25,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -182,8 +184,13 @@ class HistoricoPrecoServiceTest {
         });
     }
 
+    // Página grande o suficiente pra caber todo o catálogo de teste de uma vez — os
+    // testes deste arquivo não exercitam paginação em si (ver HistoricoPrecoPageTest
+    // pra isso), só o comportamento de agregação por produto.
     private List<HistoricoPrecoProdutoResponse> historico(UUID tenantId) {
-        return comoTenant(tenantId, () -> historicoPrecoService.historico());
+        HistoricoPrecoPageResponse resposta =
+                comoTenant(tenantId, () -> historicoPrecoService.historico(PageRequest.of(0, 100), null));
+        return resposta.pagina().getContent();
     }
 
     private HistoricoPrecoProdutoResponse entradaDoProduto(List<HistoricoPrecoProdutoResponse> resultado, UUID produtoId) {

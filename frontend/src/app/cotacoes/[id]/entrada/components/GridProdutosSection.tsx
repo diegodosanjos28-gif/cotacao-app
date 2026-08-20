@@ -5,9 +5,11 @@ import { ColumnDef, getCoreRowModel, getPaginationRowModel, useReactTable } from
 import DataGrid from "@/components/grid/DataGrid";
 import Card from "@/components/Card";
 import Modal from "@/components/Modal";
-import { buscarLista, buscarProdutos, editarItemCotacao, removerItemCotacao } from "@/lib/api";
+import Pagination from "@/components/Pagination";
+import { buscarLista, buscarProdutosPorIds, editarItemCotacao, removerItemCotacao } from "@/lib/api";
 import { getErrorMessage } from "@/lib/errors";
 import { ItemListaResponse, Produto } from "@/lib/types";
+import { idsProdutosDosItens } from "@/lib/itensLista";
 import { normTxt } from "@/lib/normalizacao";
 import { classificarStatusItemGrid } from "@/lib/statusItemGrid";
 import { UNIDADES } from "@/lib/unidades";
@@ -94,10 +96,8 @@ export default function GridProdutosSection({
   // até a página inteira ser recarregada (achado do smoke test manual).
   async function recarregar() {
     try {
-      const [itensAtualizados, catalogoAtualizado] = await Promise.all([
-        buscarLista(cotacaoId),
-        buscarProdutos(),
-      ]);
+      const itensAtualizados = await buscarLista(cotacaoId);
+      const catalogoAtualizado = await buscarProdutosPorIds(idsProdutosDosItens(itensAtualizados));
       onListaAtualizada(itensAtualizados);
       onProdutosAtualizados(catalogoAtualizado);
     } catch (err) {
@@ -289,7 +289,6 @@ export default function GridProdutosSection({
           const nomeExibidoAtual = draftNomeExibido(item);
           return (
             <ProdutoAutocomplete
-              produtos={produtos}
               valorAtualNome={nomeExibidoAtual ?? (produtoIdAtual ? (produtoNomePorId.get(produtoIdAtual) ?? null) : null)}
               disabled={!!salvando[item.id] || itemBloqueado(item)}
               onSelecionar={(p) => {
@@ -527,7 +526,6 @@ export default function GridProdutosSection({
                 adicionando && (
                   <NovaLinhaGridProdutos
                     cotacaoId={cotacaoId}
-                    produtos={produtos}
                     onAdicionado={() => {
                       setAdicionando(false);
                       recarregar();
@@ -549,37 +547,13 @@ export default function GridProdutosSection({
           </div>
 
           {itensOrdenados.length > 0 && (
-            <div className="mt-3 flex shrink-0 items-center justify-between gap-3 text-sm text-t2">
-              <span>
-                {table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1}–
-                {Math.min(
-                  (table.getState().pagination.pageIndex + 1) * table.getState().pagination.pageSize,
-                  itensOrdenados.length,
-                )}{" "}
-                de {itensOrdenados.length}
-              </span>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => table.previousPage()}
-                  disabled={!table.getCanPreviousPage()}
-                  className="rounded-md border border-bdr px-2.5 py-1 text-xs font-medium hover:bg-hov disabled:opacity-40"
-                >
-                  Anterior
-                </button>
-                <span className="text-xs text-t3">
-                  Página {table.getState().pagination.pageIndex + 1} de {Math.max(table.getPageCount(), 1)}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => table.nextPage()}
-                  disabled={!table.getCanNextPage()}
-                  className="rounded-md border border-bdr px-2.5 py-1 text-xs font-medium hover:bg-hov disabled:opacity-40"
-                >
-                  Próxima
-                </button>
-              </div>
-            </div>
+            <Pagination
+              className="mt-3"
+              pageIndex={table.getState().pagination.pageIndex}
+              pageSize={table.getState().pagination.pageSize}
+              total={itensOrdenados.length}
+              onPageChange={(pageIndex) => setPaginacao((p) => ({ ...p, pageIndex }))}
+            />
           )}
         </>
       )}

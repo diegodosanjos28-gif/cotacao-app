@@ -9,6 +9,12 @@ import java.math.BigDecimal;
 @Table(name = "produto")
 public class Produto extends TenantAuditEntity {
 
+    // Busca por substring (ProdutoRepository.buscarPorNome) é servida por
+    // idx_produto_nome_trgm (GIN, pg_trgm — V32), não pelo btree padrão de `nome`
+    // (idx_produto_nome, V4, cobre só a listagem ordenada/prefixo). Ver comentário do
+    // método no repository pra detalhe de por que precisa de ILIKE puro, sem LOWER().
+    // Schema é 100% Flyway (sem ddl-auto) — não há @Table(indexes=...) aqui de
+    // propósito, ficaria inerte e divergiria da fonte de verdade real.
     @Column(nullable = false)
     private String nome;
 

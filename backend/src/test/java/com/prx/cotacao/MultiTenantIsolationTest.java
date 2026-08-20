@@ -23,6 +23,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -272,11 +274,11 @@ class MultiTenantIsolationTest {
             return produtoRepository.save(p);
         });
 
-        List<Produto> resultadoA = comoTenantA(() -> produtoRepository.buscarPorNome("sazon"));
+        Page<Produto> resultadoA = comoTenantA(() -> produtoRepository.buscarPorNome("sazon", PageRequest.of(0, 20)));
 
-        assertEquals(1, resultadoA.size(),
+        assertEquals(1, resultadoA.getContent().size(),
                 "buscarPorNome deve retornar apenas produtos do tenant A");
-        assertEquals("Sazon Legumes 60g", resultadoA.get(0).getNome());
+        assertEquals("Sazon Legumes 60g", resultadoA.getContent().get(0).getNome());
     }
 
     // ── Teste de escrita cross-tenant ────────────────────────────────────────

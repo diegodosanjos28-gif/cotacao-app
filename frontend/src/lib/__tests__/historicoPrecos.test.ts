@@ -2,9 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   LIMIAR_ESTAVEL_PCT,
   precoMaisRecente,
-  produtosAcimaDaUltimaReferencia,
-  produtosComHistorico,
-  produtosComOportunidade,
   temHistorico,
   tendencia,
   variacaoEntrePontos,
@@ -147,72 +144,8 @@ describe("tendencia", () => {
   });
 });
 
-describe("produtosComHistorico", () => {
-  it("filtra fora produtos com menos de 2 pontos", () => {
-    const semHistorico = makeProduto({ produtoId: "p1", pontos: [] });
-    const umPonto = makeProduto({ produtoId: "p2", pontos: [makePonto()] });
-    const comHistorico = makeProduto({ produtoId: "p3", pontos: [makePonto(), makePonto()] });
-
-    const resultado = produtosComHistorico([semHistorico, umPonto, comHistorico]);
-
-    expect(resultado.map((p) => p.produtoId)).toEqual(["p3"]);
-  });
-});
-
-describe("produtosAcimaDaUltimaReferencia / produtosComOportunidade — partição exata", () => {
-  it("empate exato (variação == 0) conta como ACIMA, não como oportunidade", () => {
-    const empate = makeProduto({
-      produtoId: "p-empate",
-      pontos: [makePonto({ preco: 10 }), makePonto({ preco: 10 })],
-    });
-
-    expect(produtosAcimaDaUltimaReferencia([empate]).map((p) => p.produtoId)).toEqual(["p-empate"]);
-    expect(produtosComOportunidade([empate])).toEqual([]);
-  });
-
-  it("variação positiva vai para 'acima da referência'", () => {
-    const subiu = makeProduto({
-      produtoId: "p-subiu",
-      pontos: [makePonto({ preco: 15 }), makePonto({ preco: 10 })],
-    });
-
-    expect(produtosAcimaDaUltimaReferencia([subiu]).map((p) => p.produtoId)).toEqual(["p-subiu"]);
-    expect(produtosComOportunidade([subiu])).toEqual([]);
-  });
-
-  it("variação negativa vai para 'oportunidade'", () => {
-    const caiu = makeProduto({
-      produtoId: "p-caiu",
-      pontos: [makePonto({ preco: 8 }), makePonto({ preco: 10 })],
-    });
-
-    expect(produtosComOportunidade([caiu]).map((p) => p.produtoId)).toEqual(["p-caiu"]);
-    expect(produtosAcimaDaUltimaReferencia([caiu])).toEqual([]);
-  });
-
-  it("propriedade de partição: acima + oportunidade cobrem exatamente produtosComHistorico, sem sobreposição, num fixture misto", () => {
-    const semHistorico1 = makeProduto({ produtoId: "sem-1", pontos: [] });
-    const semHistorico2 = makeProduto({ produtoId: "sem-2", pontos: [makePonto()] });
-    const subiu = makeProduto({ produtoId: "subiu", pontos: [makePonto({ preco: 20 }), makePonto({ preco: 10 })] });
-    const empatou = makeProduto({ produtoId: "empatou", pontos: [makePonto({ preco: 10 }), makePonto({ preco: 10 })] });
-    const caiu = makeProduto({ produtoId: "caiu", pontos: [makePonto({ preco: 5 }), makePonto({ preco: 10 })] });
-
-    const produtos = [semHistorico1, semHistorico2, subiu, empatou, caiu];
-
-    const comHistorico = produtosComHistorico(produtos);
-    const acima = produtosAcimaDaUltimaReferencia(produtos);
-    const oportunidade = produtosComOportunidade(produtos);
-
-    expect(comHistorico.length).toBe(acima.length + oportunidade.length);
-    expect(comHistorico.map((p) => p.produtoId).sort()).toEqual(["caiu", "empatou", "subiu"].sort());
-    expect(acima.map((p) => p.produtoId).sort()).toEqual(["empatou", "subiu"].sort());
-    expect(oportunidade.map((p) => p.produtoId)).toEqual(["caiu"]);
-
-    // Sem sobreposição entre as duas partições.
-    const idsAcima = new Set(acima.map((p) => p.produtoId));
-    const idsOportunidade = new Set(oportunidade.map((p) => p.produtoId));
-    for (const id of idsAcima) {
-      expect(idsOportunidade.has(id)).toBe(false);
-    }
-  });
-});
+// produtosComHistorico/produtosAcimaDaUltimaReferencia/produtosComOportunidade foram
+// removidas de lib/historicoPrecos.ts — a classificação agora vem pronta do backend
+// (HistoricoPrecoPageResponse.produtosComHistorico/acimaDaUltimaReferencia/
+// oportunidades), calculada pela query nativa contarKpisHistorico. Ver
+// backend HistoricoPrecoContadoresTest para a cobertura equivalente.

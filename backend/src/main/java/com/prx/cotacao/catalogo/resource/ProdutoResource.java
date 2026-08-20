@@ -4,6 +4,8 @@ import com.prx.cotacao.catalogo.dto.ProdutoRequest;
 import com.prx.cotacao.catalogo.dto.ProdutoResponse;
 import com.prx.cotacao.catalogo.service.ProdutoService;
 import jakarta.validation.Valid;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -19,9 +21,17 @@ public class ProdutoResource {
         this.produtoService = produtoService;
     }
 
+    // Resolução de nome por IDs conhecidos (ex: itens já salvos numa cotação) — ignora
+    // paginação, devolve a lista completa desses IDs. Usado só para resolução de nome,
+    // nunca como listagem/autocomplete (esse usa page/size no outro método abaixo).
+    @GetMapping(params = "ids")
+    public List<ProdutoResponse> buscarPorIds(@RequestParam List<UUID> ids) {
+        return produtoService.buscarPorIds(ids).stream().map(ProdutoResponse::from).toList();
+    }
+
     @GetMapping
-    public List<ProdutoResponse> buscar(@RequestParam(required = false) String q) {
-        return produtoService.buscar(q).stream().map(ProdutoResponse::from).toList();
+    public Page<ProdutoResponse> buscar(@RequestParam(required = false) String q, Pageable pageable) {
+        return produtoService.buscar(q, pageable).map(ProdutoResponse::from);
     }
 
     @PutMapping("/{id}")

@@ -11,7 +11,6 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.OffsetDateTime;
-import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -36,10 +35,6 @@ public interface CotacaoRepository extends JpaRepository<Cotacao, UUID> {
                    OR LOWER(CAST(c.canalOrigem AS string)) LIKE LOWER(CONCAT('%', CAST(:termo AS string), '%')))
             """)
     Page<Cotacao> buscar(@Param("status") CotacaoStatus status, @Param("termo") String termo, Pageable pageable);
-
-    // Histórico de Preços: todas as finalizadas do tenant, mais recente primeiro
-    // (ver idx_cotacao_finalizada, V19).
-    List<Cotacao> findByStatusOrderByFinalizadaEmDesc(CotacaoStatus status);
 
     // Roteamento de WhatsApp (Fase 3, seção 10.4 da doc técnica): "cotação em
     // andamento" é por usuário (criadoPor), não só por tenant — coberta por

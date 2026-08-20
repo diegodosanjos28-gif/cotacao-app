@@ -6,10 +6,11 @@ import {
   Cotacao,
   CotacaoFornecedorResponse,
   CotacaoStatus,
+  EconomiaResumoResponse,
   EditarItemCotacaoRequest,
   Fornecedor,
   FornecedorRequest,
-  HistoricoPrecoProduto,
+  HistoricoPrecoPageResponse,
   ImportarTextoItemResponse,
   ItemListaResponse,
   ItemRespostaResponse,
@@ -292,6 +293,22 @@ export function comparativo(cotacaoId: string): Promise<ComparativoItemResponse[
   return request<ComparativoItemResponse[]>(`/cotacoes/${cotacaoId}/comparativo`);
 }
 
+// Comparativo de várias cotações numa chamada só — usado por telas que renderizam uma
+// grid inteira (uma linha por cotação), em vez de disparar 1 request por linha
+// visível (achado do usuário 08-20: o Dashboard estourava o rate limit por IP fazendo
+// isso em paralelo pra duas grids ao mesmo tempo). Chave do retorno é o cotacaoId.
+export function comparativoLote(cotacaoIds: string[]): Promise<Record<string, ComparativoItemResponse[]>> {
+  if (cotacaoIds.length === 0) return Promise.resolve({});
+  const params = new URLSearchParams({ ids: cotacaoIds.join(",") });
+  return request<Record<string, ComparativoItemResponse[]>>(`/cotacoes/comparativo-lote?${params.toString()}`);
+}
+
+// KPIs de "Economia de Cotações" (Dashboard) agregados no backend sobre TODAS as
+// cotações FINALIZADA do tenant — não depende de paginar/buscar cotações no frontend.
+export function economiaResumo(): Promise<EconomiaResumoResponse> {
+  return request<EconomiaResumoResponse>("/cotacoes/economia-resumo");
+}
+
 export function editarItemCotacao(
   cotacaoId: string,
   cotacaoProdutoId: string,
@@ -387,15 +404,43 @@ export function inativarFornecedor(id: string): Promise<void> {
 
 // ── Produtos ──────────────────────────────────────────────────────────────
 
-export function buscarProdutos(q?: string): Promise<Produto[]> {
-  const query = q ? `?q=${encodeURIComponent(q)}` : "";
-  return request<Produto[]>(`/produtos${query}`);
+interface BuscarProdutosOpcoes {
+  q?: string;
+  page?: number;
+  size?: number;
+}
+
+// Listagem/autocomplete paginado — usado pra buscar sugestões, nunca pra resolver nome
+// de um produtoId já conhecido (ver buscarProdutosPorIds abaixo, bounded pelo tamanho
+// da cotação, não pelo catálogo inteiro do tenant).
+export function buscarProdutos(opcoes: BuscarProdutosOpcoes = {}): Promise<Page<Produto>> {
+  const { q, page = 0, size = 8 } = opcoes;
+  const params = new URLSearchParams({ page: String(page), size: String(size) });
+  if (q) params.set("q", q);
+  return request<Page<Produto>>(`/produtos?${params.toString()}`);
+}
+
+// Resolução de nome por IDs conhecidos (ex: produtoIdEncontrado de itens já salvos numa
+// cotação) — devolve a lista completa desses IDs, sem paginação.
+export function buscarProdutosPorIds(ids: string[]): Promise<Produto[]> {
+  if (ids.length === 0) return Promise.resolve([]);
+  const params = new URLSearchParams({ ids: ids.join(",") });
+  return request<Produto[]>(`/produtos?${params.toString()}`);
 }
 
 // ── Histórico de Preços ──────────────────────────────────────────────────
 
-export function historicoPrecos(): Promise<HistoricoPrecoProduto[]> {
-  return request<HistoricoPrecoProduto[]>("/historico-precos");
+interface HistoricoPrecosOpcoes {
+  q?: string;
+  page?: number;
+  size?: number;
+}
+
+export function historicoPrecos(opcoes: HistoricoPrecosOpcoes = {}): Promise<HistoricoPrecoPageResponse> {
+  const { q, page = 0, size = 20 } = opcoes;
+  const params = new URLSearchParams({ page: String(page), size: String(size) });
+  if (q) params.set("q", q);
+  return request<HistoricoPrecoPageResponse>(`/historico-precos?${params.toString()}`);
 }
 
 // ── Admin: Tenants ────────────────────────────────────────────────────────

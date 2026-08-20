@@ -4,6 +4,8 @@ import com.prx.cotacao.catalogo.entity.Produto;
 import com.prx.cotacao.catalogo.dto.ProdutoRequest;
 import com.prx.cotacao.catalogo.repository.ProdutoRepository;
 import com.prx.cotacao.shared.error.ResourceNotFoundException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,12 +21,19 @@ public class ProdutoService {
         this.produtoRepository = produtoRepository;
     }
 
-    public List<Produto> buscar(String q) {
+    public Page<Produto> buscar(String q, Pageable pageable) {
         // Hibernate filter aplica tenant automaticamente
         if (q != null && !q.isBlank()) {
-            return produtoRepository.buscarPorNome(q.trim());
+            return produtoRepository.buscarPorNome(q.trim(), pageable);
         }
-        return produtoRepository.findAll();
+        return produtoRepository.findAll(pageable);
+    }
+
+    // Resolução de nome por IDs conhecidos (ex: produtoIdEncontrado de itens já salvos
+    // numa cotação) — bounded pelo conjunto de IDs pedido, não pelo catálogo do tenant.
+    // Hibernate filter aplica tenant automaticamente.
+    public List<Produto> buscarPorIds(List<UUID> ids) {
+        return produtoRepository.findAllById(ids);
     }
 
     @Transactional

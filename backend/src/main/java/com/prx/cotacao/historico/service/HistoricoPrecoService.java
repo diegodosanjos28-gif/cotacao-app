@@ -12,8 +12,15 @@ import com.prx.cotacao.cotacao.core.enums.CotacaoStatus;
 import com.prx.cotacao.cotacao.respostafornecedor.enums.StatusItem;
 import com.prx.cotacao.fornecedor.entity.Fornecedor;
 import com.prx.cotacao.fornecedor.repository.FornecedorRepository;
+import com.prx.cotacao.historico.dto.HistoricoPrecoContadores;
+import com.prx.cotacao.historico.dto.HistoricoPrecoPageResponse;
 import com.prx.cotacao.historico.dto.HistoricoPrecoProdutoResponse;
 import com.prx.cotacao.historico.dto.PontoReferenciaPrecoResponse;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,7 +30,9 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 public class HistoricoPrecoService {
@@ -50,29 +59,47 @@ public class HistoricoPrecoService {
     private record Chave(UUID produtoId, UUID cotacaoId) {
     }
 
+    // Paginado por produto (sempre por nome, igual ao sort fixo de antes — ignora
+    // qualquer sort vindo do cliente) em vez de pelas cotações finalizadas: elimina o
+    // full scan de todo o histórico do tenant a cada carregamento da tela. Os
+    // candidatos de preço (cpfRepository.findCandidatosHistoricoPorProdutos) já vêm
+    // filtrados no banco (finalizada, OK, com estoque, com preço) e escopados só aos
+    // produtoIds desta página — a lógica de "melhor oferta por (produto, cotação)"
+    // continua em Java, idêntica à anterior, só que sobre um conjunto bem menor.
     @Transactional(readOnly = true)
-    public List<HistoricoPrecoProdutoResponse> historico() {
-        List<Cotacao> finalizadas = cotacaoRepository.findByStatusOrderByFinalizadaEmDesc(CotacaoStatus.FINALIZADA);
-        List<UUID> cotacaoIds = finalizadas.stream().map(Cotacao::getId).toList();
-        Map<UUID, Cotacao> cotacaoPorId = new HashMap<>();
-        finalizadas.forEach(c -> cotacaoPorId.put(c.getId(), c));
+    public HistoricoPrecoPageResponse historico(Pageable pageable, String q) {
+        Pageable paginavel = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), Sort.by("nome").ascending());
+        Page<Produto> paginaProdutos = (q != null && !q.isBlank())
+                ? produtoRepository.buscarPorNome(q.trim(), paginavel)
+                : produtoRepository.findAll(paginavel);
+        List<UUID> produtoIds = paginaProdutos.getContent().stream().map(Produto::getId).toList();
 
-        List<CotacaoProduto> itens = cotacaoIds.isEmpty()
-                ? List.of() : cotacaoProdutoRepository.findByCotacaoIdInAndRemovidoEmIsNull(cotacaoIds);
+        List<CotacaoProdutoFornecedor> respostas = produtoIds.isEmpty()
+                ? List.of()
+                : cpfRepository.findCandidatosHistoricoPorProdutos(produtoIds, CotacaoStatus.FINALIZADA, StatusItem.OK);
+
+        Set<UUID> cotacaoProdutoIds = respostas.stream().map(CotacaoProdutoFornecedor::getCotacaoProdutoId)
+                .collect(Collectors.toSet());
         Map<UUID, CotacaoProduto> cpPorId = new HashMap<>();
-        itens.forEach(cp -> cpPorId.put(cp.getId(), cp));
+        if (!cotacaoProdutoIds.isEmpty()) {
+            cotacaoProdutoRepository.findAllById(cotacaoProdutoIds).forEach(cp -> cpPorId.put(cp.getId(), cp));
+        }
 
-        List<CotacaoProdutoFornecedor> respostas = cotacaoIds.isEmpty()
-                ? List.of() : cpfRepository.findByCotacaoIdIn(cotacaoIds);
+        Set<UUID> cotacaoIds = cpPorId.values().stream().map(CotacaoProduto::getCotacaoId).collect(Collectors.toSet());
+        Map<UUID, Cotacao> cotacaoPorId = new HashMap<>();
+        if (!cotacaoIds.isEmpty()) {
+            cotacaoRepository.findAllById(cotacaoIds).forEach(c -> cotacaoPorId.put(c.getId(), c));
+        }
 
-        Map<UUID, Produto> produtos = new HashMap<>();
-        produtoRepository.findAll().forEach(p -> produtos.put(p.getId(), p));
-
-        // findAll(), não findByStatusNot(INATIVO) como no ComparativoService: histórico
+        // findAllById, não findByStatusNot(INATIVO) como no ComparativoService: histórico
         // deve continuar mostrando o nome de um fornecedor mesmo que tenha sido
         // inativado depois da cotação em que ofertou.
+        Set<UUID> fornecedorIds = respostas.stream().map(CotacaoProdutoFornecedor::getFornecedorId)
+                .collect(Collectors.toSet());
         Map<UUID, Fornecedor> fornecedores = new HashMap<>();
-        fornecedorRepository.findAll().forEach(f -> fornecedores.put(f.getId(), f));
+        if (!fornecedorIds.isEmpty()) {
+            fornecedorRepository.findAllById(fornecedorIds).forEach(f -> fornecedores.put(f.getId(), f));
+        }
 
         // Ponto de referência de (produto, cotação) = menor oferta válida da cotação
         // para aquele produto — mesmo critério de MapaCompraService.ofertaValida()/
@@ -83,11 +110,8 @@ public class HistoricoPrecoService {
         // Mapa (docs técnica §11, nota de implementação).
         Map<Chave, CotacaoProdutoFornecedor> melhorPorProdutoCotacao = new HashMap<>();
         for (CotacaoProdutoFornecedor cpf : respostas) {
-            if (cpf.getStatus() != StatusItem.OK || cpf.isSemEstoque() || cpf.getPrecoUnitarioCalculado() == null) {
-                continue;
-            }
             CotacaoProduto cp = cpPorId.get(cpf.getCotacaoProdutoId());
-            if (cp == null || cp.getProdutoId() == null || !produtos.containsKey(cp.getProdutoId())) {
+            if (cp == null || cp.getProdutoId() == null) {
                 continue;
             }
             Chave chave = new Chave(cp.getProdutoId(), cp.getCotacaoId());
@@ -118,7 +142,7 @@ public class HistoricoPrecoService {
                 lista.sort(Comparator.comparing(PontoReferenciaPrecoResponse::finalizadaEm).reversed()));
 
         List<HistoricoPrecoProdutoResponse> resultado = new ArrayList<>();
-        for (Produto p : produtos.values()) {
+        for (Produto p : paginaProdutos.getContent()) {
             List<PontoReferenciaPrecoResponse> pontos = pontosPorProduto.getOrDefault(p.getId(), List.of());
             BigDecimal quantidadeRef = null;
             String unidadeRef = null;
@@ -130,7 +154,12 @@ public class HistoricoPrecoService {
             }
             resultado.add(new HistoricoPrecoProdutoResponse(p.getId(), p.getNome(), quantidadeRef, unidadeRef, pontos));
         }
-        resultado.sort(Comparator.comparing(HistoricoPrecoProdutoResponse::nomeProduto));
-        return resultado;
+
+        Page<HistoricoPrecoProdutoResponse> pagina =
+                new PageImpl<>(resultado, paginavel, paginaProdutos.getTotalElements());
+
+        HistoricoPrecoContadores contadores = cpfRepository.contarKpisHistorico();
+        return new HistoricoPrecoPageResponse(
+                pagina, contadores.getComHistorico(), contadores.getAcima(), contadores.getOportunidade());
     }
 }

@@ -19,11 +19,18 @@ import GridProdutosSection from "@/app/cotacoes/[id]/entrada/components/GridProd
 import { ApiError } from "@/lib/api";
 import { ItemListaResponse, Produto } from "@/lib/types";
 
-const { editarItemCotacaoMock, removerItemCotacaoMock, buscarListaMock, buscarProdutosMock } = vi.hoisted(() => ({
+const {
+  editarItemCotacaoMock,
+  removerItemCotacaoMock,
+  buscarListaMock,
+  buscarProdutosMock,
+  buscarProdutosPorIdsMock,
+} = vi.hoisted(() => ({
   editarItemCotacaoMock: vi.fn(),
   removerItemCotacaoMock: vi.fn(),
   buscarListaMock: vi.fn(),
   buscarProdutosMock: vi.fn(),
+  buscarProdutosPorIdsMock: vi.fn(),
 }));
 
 vi.mock("@/lib/api", async (importOriginal) => {
@@ -33,7 +40,11 @@ vi.mock("@/lib/api", async (importOriginal) => {
     editarItemCotacao: editarItemCotacaoMock,
     removerItemCotacao: removerItemCotacaoMock,
     buscarLista: buscarListaMock,
+    // buscarProdutos: usado pelo ProdutoAutocomplete (busca no servidor, dentro do
+    // dropdown). buscarProdutosPorIds: usado só por GridProdutosSection.recarregar()
+    // pra atualizar o catálogo local (produtoNomePorId) após adicionar/editar um item.
     buscarProdutos: buscarProdutosMock,
+    buscarProdutosPorIds: buscarProdutosPorIdsMock,
   };
 });
 
@@ -69,6 +80,10 @@ const PRODUTOS = [
   makeProduto({ id: "prod-1", nome: "Sazon Legumes 60g" }),
   makeProduto({ id: "prod-2", nome: "Feijão Carioca 1kg" }),
 ];
+
+// Formato que buscarProdutos (usado pelo ProdutoAutocomplete internamente) devolve —
+// Page<Produto>, não o array cru que buscarProdutosPorIds devolve.
+const PRODUTOS_PAGE = { content: PRODUTOS, totalElements: PRODUTOS.length, totalPages: 1, number: 0, size: 8 };
 
 function renderGrid(
   itens: ItemListaResponse[],
@@ -136,7 +151,8 @@ beforeEach(() => {
   editarItemCotacaoMock.mockResolvedValue(undefined);
   removerItemCotacaoMock.mockResolvedValue(undefined);
   buscarListaMock.mockResolvedValue([]);
-  buscarProdutosMock.mockResolvedValue(PRODUTOS);
+  buscarProdutosMock.mockResolvedValue(PRODUTOS_PAGE);
+  buscarProdutosPorIdsMock.mockResolvedValue(PRODUTOS);
   vi.spyOn(window, "confirm").mockReturnValue(true);
 });
 
@@ -242,7 +258,9 @@ describe("GridProdutosSection — edição de produto (draftProdutoId/draftNomeE
   it("selecionar um produto no autocomplete salva com o novo produtoId", async () => {
     renderGrid([makeItem()]);
     fireEvent.focus(produtoInput());
-    fireEvent.click(screen.getByText("Feijão Carioca 1kg"));
+    // ProdutoAutocomplete busca no servidor (buscarProdutos) — a sugestão só aparece
+    // depois que a promise mockada resolve.
+    fireEvent.click(await within(tabela()).findByText("Feijão Carioca 1kg"));
 
     await waitFor(() => expect(editarItemCotacaoMock).toHaveBeenCalledTimes(1));
     expect(editarItemCotacaoMock).toHaveBeenCalledWith("cot-1", "item-1", {
@@ -262,7 +280,7 @@ describe("GridProdutosSection — edição de produto (draftProdutoId/draftNomeE
     renderGrid([makeItem({ produtoIdEncontrado: null })]);
     fireEvent.focus(produtoInput());
     fireEvent.change(produtoInput(), { target: { value: "Produto Nunca Visto" } });
-    fireEvent.click(screen.getByText('+ usar "Produto Nunca Visto" como novo produto'));
+    fireEvent.click(await screen.findByText('+ usar "Produto Nunca Visto" como novo produto'));
 
     await waitFor(() => expect(editarItemCotacaoMock).toHaveBeenCalledTimes(1));
     expect(editarItemCotacaoMock).toHaveBeenCalledWith("cot-1", "item-1", {
@@ -279,7 +297,7 @@ describe("GridProdutosSection — edição de produto (draftProdutoId/draftNomeE
     // 1) usa nome livre primeiro — cria rascunho produtoId=null, nomeExibido="Zap".
     fireEvent.focus(produtoInput());
     fireEvent.change(produtoInput(), { target: { value: "Zap" } });
-    fireEvent.click(screen.getByText('+ usar "Zap" como novo produto'));
+    fireEvent.click(await screen.findByText('+ usar "Zap" como novo produto'));
 
     await waitFor(() => expect(editarItemCotacaoMock).toHaveBeenCalledTimes(1));
     expect(editarItemCotacaoMock).toHaveBeenLastCalledWith("cot-1", "item-1", {
@@ -294,7 +312,7 @@ describe("GridProdutosSection — edição de produto (draftProdutoId/draftNomeE
     // com overrides explícitos, então o envio deve carregar produtoId (não a sobra
     // do nomeProdutoLivre anterior).
     fireEvent.focus(produtoInput());
-    fireEvent.click(screen.getByText("Feijão Carioca 1kg"));
+    fireEvent.click(await within(tabela()).findByText("Feijão Carioca 1kg"));
 
     await waitFor(() => expect(editarItemCotacaoMock).toHaveBeenCalledTimes(2));
     expect(editarItemCotacaoMock).toHaveBeenLastCalledWith("cot-1", "item-1", {
@@ -310,14 +328,14 @@ describe("GridProdutosSection — edição de produto (draftProdutoId/draftNomeE
 
     // 1) seleciona um produto do catálogo primeiro.
     fireEvent.focus(produtoInput());
-    fireEvent.click(screen.getByText("Feijão Carioca 1kg"));
+    fireEvent.click(await within(tabela()).findByText("Feijão Carioca 1kg"));
     await waitFor(() => expect(editarItemCotacaoMock).toHaveBeenCalledTimes(1));
 
     // 2) troca de ideia e usa nome livre — onUsarNomeLivre limpa produtoId (null) e
     // seta nomeExibido antes de commitar com overrides.
     fireEvent.focus(produtoInput());
     fireEvent.change(produtoInput(), { target: { value: "Produto Totalmente Novo" } });
-    fireEvent.click(screen.getByText('+ usar "Produto Totalmente Novo" como novo produto'));
+    fireEvent.click(await screen.findByText('+ usar "Produto Totalmente Novo" como novo produto'));
 
     await waitFor(() => expect(editarItemCotacaoMock).toHaveBeenCalledTimes(2));
     expect(editarItemCotacaoMock).toHaveBeenLastCalledWith("cot-1", "item-1", {
