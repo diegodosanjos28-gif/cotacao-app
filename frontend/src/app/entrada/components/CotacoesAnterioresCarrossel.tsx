@@ -68,7 +68,13 @@ export default function CotacoesAnterioresCarrossel() {
   const visiveis = (itens ?? []).filter((c) => !estaOculto(c.id));
 
   return (
-    <div className="flex flex-col justify-end">
+    // min-w-0 é necessário porque este componente é item de uma grid-template-columns
+    // (entrada/page.tsx) — sem isso, o "auto" mínimo padrão de item de grid faz a
+    // coluna crescer pra caber a largura intrínseca da track (overflow-x-auto) assim
+    // que carregam cotações suficientes, em vez de deixar o scroll horizontal cuidar
+    // disso; o efeito visível era o cabeçalho (título + setas) sendo empurrado pra
+    // direita junto com a coluna.
+    <div className="flex min-w-0 flex-col justify-end">
       <div className="mb-3.5 flex items-center justify-between">
         <span className="text-sm font-bold uppercase tracking-wide text-t2">Cotações anteriores</span>
         <div className="flex gap-2">
