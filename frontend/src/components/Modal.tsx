@@ -56,7 +56,17 @@ export default function Modal({
         className={className ?? "w-full max-w-lg rounded-lg border border-bdr bg-card p-6 shadow-xl"}
       >
         {title && <h2 className="text-lg font-semibold text-t1">{title}</h2>}
-        <div className={title ? "mt-4" : undefined}>{children}</div>
+        {/* Sem título, o consumidor está montando um layout customizado próprio via
+            `className` (ex.: AprovacaoModal, ConferenciaNotaModal — um flex-col com
+            header/corpo-rolável/rodapé). `display:contents` faz este wrapper sumir da
+            árvore de caixas, deixando os filhos virarem itens flex diretos da caixa do
+            diálogo. Sem isso, o wrapper (um <div> comum, sem display:flex) é um item
+            flex do diálogo com min-height:auto — recusa encolher abaixo da altura
+            natural do próprio conteúdo, então em telas mais baixas o conteúdo real
+            (cabeçalho+corpo+rodapé) ultrapassa o max-height do diálogo e vaza pra fora
+            da caixa (overflow:visible), deixando o rodapé/botão de ação inacessível
+            bem abaixo da viewport — achado do usuário testando num notebook. */}
+        <div className={title ? "mt-4" : "contents"}>{children}</div>
         {footer && <div className="mt-6 flex justify-end gap-2">{footer}</div>}
       </div>
     </div>
