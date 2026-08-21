@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Modal from "@/components/Modal";
-import { buscarRespostaPersistida, cancelarRespostaFornecedor, concluirAjusteLista, enviarResposta, finalizarCotacao } from "@/lib/api";
+import { buscarRespostaPersistida, cancelarRespostaFornecedor, concluirAjusteLista, enviarResposta } from "@/lib/api";
 import { getErrorMessage } from "@/lib/errors";
 import { ConferenciaPatch, Cotacao, CotacaoFornecedorResponse, Fornecedor, ItemListaResponse, Produto } from "@/lib/types";
 import GridProdutosSection from "@/app/cotacoes/[id]/entrada/components/GridProdutosSection";
@@ -53,7 +53,6 @@ export default function AprovacaoModal({
   // mockup (step1Done, variável separada de aprStep).
   const [listaBaseConferida, setListaBaseConferida] = useState(false);
   const [rascunhos, setRascunhos] = useState<Record<string, RascunhoFornecedor>>({});
-  const [lancando, setLancando] = useState(false);
   const [sucesso, setSucesso] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [concluindoAjuste, setConcluindoAjuste] = useState(false);
@@ -165,22 +164,19 @@ export default function AprovacaoModal({
     }
   }
 
-  async function onLancar() {
-    setLancando(true);
+  // "Lançar" só leva o operador pro Comparativo/Mapa de Compra — os dois já leem os
+  // cenários calculados ao vivo sobre uma cotação EM_ANDAMENTO, sem exigir nenhuma
+  // mudança de status. A finalização de verdade (FINALIZADA, snapshot congelado)
+  // continua sendo só do "Concluir Ordem de Compra" no Mapa de Compra — decisão do
+  // usuário: "a finalização deve estar ainda apenas no mapa de compra", corrigindo um
+  // comportamento anterior em que este botão já chamava finalizarCotacao.
+  function onLancar() {
     setErro(null);
-    try {
-      const atualizada = await finalizarCotacao(cotacaoId, "MENOR_PRECO");
-      onCotacaoAtualizada(atualizada);
-      setSucesso(true);
-      setTimeout(() => {
-        onClose();
-        router.push(`/cotacoes/${cotacaoId}/comparativo`);
-      }, 2600);
-    } catch (err) {
-      setErro(getErrorMessage(err, "Não foi possível finalizar a cotação."));
-    } finally {
-      setLancando(false);
-    }
+    setSucesso(true);
+    setTimeout(() => {
+      onClose();
+      router.push(`/cotacoes/${cotacaoId}/comparativo`);
+    }, 2600);
   }
 
   const confirmados = cotacaoFornecedores.filter((cf) => cf.status === "CONFIRMADO").length;
@@ -192,7 +188,11 @@ export default function AprovacaoModal({
       // Mesma caixa (~880px) do estado normal — o mockup só troca o conteúdo de
       // apr-body/esconde header e rodapé, nunca encolhe o modal em si (evita o "salto"
       // de layout de trocar pra uma caixa bem menor no instante do lançamento).
-      <Modal open={open} onClose={onClose} className="flex w-full max-w-[880px] flex-col rounded-[18px] border border-bdr bg-card p-0 shadow-[0_30px_70px_rgba(0,0,0,.4)]">
+      <Modal
+        open={open}
+        onClose={onClose}
+        className="flex w-full max-w-[880px] flex-col rounded-[18px] border border-bdr bg-card p-0 shadow-[0_30px_70px_rgba(0,0,0,.4)] animate-[aprovacao-modal-pop_0.2s_ease]"
+      >
         <div className="flex flex-col items-center gap-3.5 px-8 py-11 text-center">
           <span className="flex h-[74px] w-[74px] items-center justify-center rounded-full bg-ok-d text-ok">
             <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round">
@@ -364,13 +364,13 @@ export default function AprovacaoModal({
               <button
                 type="button"
                 onClick={onLancar}
-                disabled={!podeLancar || lancando}
+                disabled={!podeLancar}
                 className="inline-flex items-center gap-2 rounded-md bg-gradient-to-b from-ok to-eco px-4.5 py-3 text-[13px] font-extrabold text-white shadow-[0_4px_16px_rgba(16,185,129,.32)] hover:enabled:-translate-y-px disabled:opacity-40 disabled:grayscale"
               >
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
                   <path d="M5 12l14-7-7 14-2-5-5-2z" />
                 </svg>
-                {lancando ? "Lançando..." : "Lançar para Comparativo e Mapa de Compra"}
+                Lançar para Comparativo e Mapa de Compra
               </button>
             </div>
           </>

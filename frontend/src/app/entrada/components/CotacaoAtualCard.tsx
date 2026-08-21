@@ -36,23 +36,23 @@ export default function CotacaoAtualCard({
   if (!cotacaoAtual) {
     return (
       <div
-        className="flex min-h-[300px] flex-col items-center justify-center gap-3 rounded-[20px] border border-white/10 px-6 py-8 text-center text-white shadow-[0_12px_36px_rgba(0,0,0,.30)]"
+        className="flex min-h-[380px] flex-col items-center justify-center gap-4 rounded-[26px] border border-white/10 px-8 py-10 text-center text-white shadow-[0_12px_36px_rgba(0,0,0,.30)]"
         style={{
           background:
             "radial-gradient(130% 150% at 100% 0%, rgba(255,255,255,.10), transparent 55%), linear-gradient(158deg, #1C1A18, #121110 55%, #0A0A0A)",
         }}
       >
-        <span className="flex h-[62px] w-[62px] items-center justify-center rounded-full border border-white/10 bg-white/[.06] text-white/55">
+        <span className="flex h-[80px] w-[80px] items-center justify-center rounded-full border border-white/10 bg-white/[.06] text-white/55">
           <InboxIcon />
         </span>
-        <p className="text-xl font-light tracking-tight text-white">Sem cotações no momento</p>
-        <p className="max-w-[290px] text-[12.5px] leading-relaxed text-white/50">
+        <p className="text-2xl font-light tracking-tight text-white">Sem cotações no momento</p>
+        <p className="max-w-[360px] text-sm leading-relaxed text-white/50">
           Assim que uma nova cotação chegar pelo WhatsApp AI, ela aparece aqui para você revisar e aprovar.
         </p>
         <button
           type="button"
           onClick={onCriarCotacao}
-          className="mt-2 rounded-md bg-prx px-4 py-2.5 text-sm font-semibold text-white hover:bg-prx-l"
+          className="mt-2 rounded-md bg-prx px-5 py-3 text-base font-semibold text-white hover:bg-prx-l"
         >
           Criar cotação pela web
         </button>
@@ -68,31 +68,31 @@ export default function CotacaoAtualCard({
 
   return (
     <div
-      className="relative flex flex-col overflow-hidden rounded-[20px] border-[1.5px] px-6 py-6"
+      className="relative flex flex-col overflow-hidden rounded-[26px] border-[1.5px] px-8 py-8"
       style={{
         borderColor: "rgba(245,158,11,.30)",
         animation: "entrada-pulse 2.2s ease-in-out infinite",
       }}
     >
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-wa-txt">
+      <div className="mb-5 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-wa-txt">
           <span
-            className="h-2 w-2 rounded-full bg-wa"
+            className="h-2.5 w-2.5 rounded-full bg-wa"
             style={{ animation: "entrada-ring 1.6s infinite" }}
           />
           Nova cotação · {canalLabel(cotacaoAtual.canalOrigem)}
         </div>
-        <span className="whitespace-nowrap rounded-full border border-wa/30 bg-wa-d px-2.5 py-1 text-[10.5px] font-bold text-wa-txt">
+        <span className="whitespace-nowrap rounded-full border border-wa/30 bg-wa-d px-3 py-1.5 text-xs font-bold text-wa-txt">
           Aguardando aprovação
         </span>
       </div>
 
       {respondidos.length > 0 && (
-        <div className="mb-3.5 flex items-center">
+        <div className="mb-4 flex items-center">
           {avataresVisiveis.map((f) => (
             <span
               key={f.fornecedorId}
-              className="-ml-[9px] flex h-[34px] w-[34px] items-center justify-center rounded-full border-[2.5px] border-white text-xs font-bold text-white shadow-[0_2px_6px_rgba(0,0,0,.12)] first:ml-0"
+              className="-ml-[11px] flex h-[44px] w-[44px] items-center justify-center rounded-full border-[3px] border-white text-sm font-bold text-white shadow-[0_2px_6px_rgba(0,0,0,.12)] first:ml-0"
               style={{ background: avatarCor(f.nome) }}
               title={f.nome}
             >
@@ -100,46 +100,46 @@ export default function CotacaoAtualCard({
             </span>
           ))}
           {avataresRestantes > 0 && (
-            <span className="-ml-[9px] flex h-[34px] w-[34px] items-center justify-center rounded-full border-[2.5px] border-white bg-surf text-[11px] font-bold text-t2 shadow-[0_2px_6px_rgba(0,0,0,.12)]">
+            <span className="-ml-[11px] flex h-[44px] w-[44px] items-center justify-center rounded-full border-[3px] border-white bg-surf text-sm font-bold text-t2 shadow-[0_2px_6px_rgba(0,0,0,.12)]">
               +{avataresRestantes}
             </span>
           )}
-          <span className="ml-3 text-xs text-t2">responderam esta cotação</span>
+          <span className="ml-3.5 text-sm text-t2">responderam esta cotação</span>
         </div>
       )}
 
-      <div className="mb-0.5 text-[12.5px] font-semibold text-t2">Fornecedores que responderam</div>
-      <div className="font-[var(--font-sans)] text-[64px] font-black leading-none tracking-[-3px] text-t1">
+      <div className="mb-1 text-sm font-semibold text-t2">Fornecedores que responderam</div>
+      <div className="font-[var(--font-sans)] text-[84px] font-black leading-none tracking-[-4px] text-t1">
         {respondidos.length}
-        <span className="text-3xl font-bold tracking-tight text-t3"> / {total}</span>
+        <span className="text-4xl font-bold tracking-tight text-t3"> / {total}</span>
       </div>
 
-      <div className="mt-3.5 flex flex-wrap gap-2">
-        <span className="inline-flex items-center gap-1 rounded-full border border-bdr bg-surf px-2.5 py-1 text-[11.5px] font-semibold text-t2">
+      <div className="mt-4 flex flex-wrap gap-2.5">
+        <span className="inline-flex items-center gap-1 rounded-full border border-bdr bg-surf px-3 py-1.5 text-sm font-semibold text-t2">
           {cotacaoAtual.itensListaBase} itens na lista base
         </span>
-        <span className="inline-flex items-center gap-1 rounded-full border border-ok/20 bg-ok-d px-2.5 py-1 text-[11.5px] font-semibold text-ok">
+        <span className="inline-flex items-center gap-1 rounded-full border border-ok/20 bg-ok-d px-3 py-1.5 text-sm font-semibold text-ok">
           {cotacaoAtual.itensCotados} itens cotados
         </span>
       </div>
 
-      <p className="mt-3.5 text-xs text-t3">
+      <p className="mt-4 text-sm text-t3">
         Recebida {formatarTempoRelativo(cotacaoAtual.ultimaAtividadeEm)} · {dataHoraCurta(cotacaoAtual.criadoEm)}
         {faltam > 0 && ` · falta ${faltam} fornecedor${faltam === 1 ? "" : "es"} responder`}
       </p>
 
-      <div className="mt-5 flex gap-2.5">
+      <div className="mt-6 flex gap-3">
         <button
           type="button"
           onClick={onRevisarEAprovar}
           disabled={carregando}
-          className="flex flex-1 items-center justify-center gap-2 rounded-md bg-wa px-4 py-3 text-[13.5px] font-bold text-brown shadow-[0_3px_14px_rgba(245,158,11,.34)] transition-all hover:-translate-y-px hover:shadow-[0_5px_18px_rgba(245,158,11,.46)] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
+          className="flex flex-1 items-center justify-center gap-2 rounded-md bg-wa px-5 py-3.5 text-[15px] font-bold text-brown shadow-[0_3px_14px_rgba(245,158,11,.34)] transition-all hover:-translate-y-px hover:shadow-[0_5px_18px_rgba(245,158,11,.46)] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
         >
           {carregando ? (
             "Carregando..."
           ) : (
             <>
-              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round">
                 <path d="M9 11l3 3L22 4" />
                 <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
               </svg>
@@ -151,7 +151,7 @@ export default function CotacaoAtualCard({
           type="button"
           onClick={onDetalhes}
           disabled={carregando}
-          className="rounded-md border-[1.5px] border-bdr px-4 py-3 text-[13px] font-semibold text-t2 hover:border-bdr-m hover:text-t1 disabled:cursor-not-allowed disabled:opacity-60"
+          className="rounded-md border-[1.5px] border-bdr px-5 py-3.5 text-sm font-semibold text-t2 hover:border-bdr-m hover:text-t1 disabled:cursor-not-allowed disabled:opacity-60"
         >
           Detalhes
         </button>

@@ -223,10 +223,12 @@ describe("AprovacaoModal — gate e fluxo de 'Lançar'", () => {
     expect(botao.disabled).toBe(true);
   });
 
-  it("com todos confirmados, 'Lançar' finaliza a cotação e mostra a tela de sucesso", async () => {
+  it("com todos confirmados, 'Lançar' mostra a tela de sucesso e navega pro Comparativo, SEM finalizar a cotação", async () => {
+    // Decisão do usuário: "a finalização deve estar ainda apenas no mapa de compra" —
+    // "Lançar" não chama finalizarCotacao nem qualquer outro endpoint; só navega.
+    // Comparativo/Mapa de Compra já leem os cenários calculados ao vivo sobre uma
+    // cotação EM_ANDAMENTO, sem exigir mudança de status.
     vi.useFakeTimers();
-    const cotacaoFinalizada = makeCotacao({ status: "FINALIZADA" });
-    finalizarCotacaoMock.mockResolvedValue(cotacaoFinalizada);
     const onCotacaoAtualizada = vi.fn();
     const onClose = vi.fn();
 
@@ -242,14 +244,10 @@ describe("AprovacaoModal — gate e fluxo de 'Lançar'", () => {
     irParaAbaFornecedores();
 
     const botao = screen.getByRole("button", { name: /Lançar para Comparativo e Mapa de Compra/ });
-    await act(async () => {
-      fireEvent.click(botao);
-      await Promise.resolve();
-      await Promise.resolve();
-    });
+    fireEvent.click(botao);
 
-    expect(finalizarCotacaoMock).toHaveBeenCalledWith("cot-1", "MENOR_PRECO");
-    expect(onCotacaoAtualizada).toHaveBeenCalledWith(cotacaoFinalizada);
+    expect(finalizarCotacaoMock).not.toHaveBeenCalled();
+    expect(onCotacaoAtualizada).not.toHaveBeenCalled();
     expect(screen.getByText("Cotação aprovada e lançada!")).toBeTruthy();
 
     // Depois do delay, fecha o modal e navega pro Comparativo.
@@ -260,17 +258,5 @@ describe("AprovacaoModal — gate e fluxo de 'Lançar'", () => {
     expect(pushMock).toHaveBeenCalledWith("/cotacoes/cot-1/comparativo");
 
     vi.useRealTimers();
-  });
-
-  it("erro ao finalizar mostra mensagem e não fecha o modal", async () => {
-    finalizarCotacaoMock.mockRejectedValue(new Error("falhou"));
-
-    render(<AprovacaoModal {...baseProps({ cotacaoFornecedores: [makeCf({ status: "CONFIRMADO" })] })} />);
-    irParaAbaFornecedores();
-
-    fireEvent.click(screen.getByRole("button", { name: /Lançar para Comparativo e Mapa de Compra/ }));
-
-    await waitFor(() => expect(screen.getByText("Não foi possível finalizar a cotação.")).toBeTruthy());
-    expect(screen.queryByText("Cotação aprovada e lançada!")).toBeNull();
   });
 });

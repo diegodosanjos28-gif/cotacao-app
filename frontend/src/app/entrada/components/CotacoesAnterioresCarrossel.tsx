@@ -69,16 +69,16 @@ export default function CotacoesAnterioresCarrossel() {
 
   return (
     <div className="flex flex-col justify-end">
-      <div className="mb-2.5 flex items-center justify-between">
-        <span className="text-[12.5px] font-bold uppercase tracking-wide text-t2">Cotações anteriores</span>
-        <div className="flex gap-1.5">
+      <div className="mb-3.5 flex items-center justify-between">
+        <span className="text-sm font-bold uppercase tracking-wide text-t2">Cotações anteriores</span>
+        <div className="flex gap-2">
           <button
             type="button"
             onClick={() => rolar(-1)}
             aria-label="Ver cotações anteriores no carrossel"
-            className="flex h-[30px] w-[30px] items-center justify-center rounded-lg border border-bdr text-t2 hover:border-prx hover:text-prx"
+            className="flex h-[38px] w-[38px] items-center justify-center rounded-lg border border-bdr text-t2 hover:border-prx hover:text-prx"
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
               <path d="M15 18l-6-6 6-6" />
             </svg>
           </button>
@@ -86,35 +86,35 @@ export default function CotacoesAnterioresCarrossel() {
             type="button"
             onClick={() => rolar(1)}
             aria-label="Ver próximas cotações no carrossel"
-            className="flex h-[30px] w-[30px] items-center justify-center rounded-lg border border-bdr text-t2 hover:border-prx hover:text-prx"
+            className="flex h-[38px] w-[38px] items-center justify-center rounded-lg border border-bdr text-t2 hover:border-prx hover:text-prx"
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
               <path d="M9 18l6-6-6-6" />
             </svg>
           </button>
         </div>
       </div>
 
-      {erro && <p className="mb-2 text-xs text-er">{erro}</p>}
+      {erro && <p className="mb-2.5 text-sm text-er">{erro}</p>}
 
-      {carregandoPrimeira && <p className="py-6 text-center text-sm text-t2">Carregando...</p>}
+      {carregandoPrimeira && <p className="py-8 text-center text-base text-t2">Carregando...</p>}
 
       {!carregandoPrimeira && visiveis.length === 0 && (
-        <p className="py-6 text-center text-sm text-t2">Nenhuma cotação anterior por aqui ainda.</p>
+        <p className="py-8 text-center text-base text-t2">Nenhuma cotação anterior por aqui ainda.</p>
       )}
 
       {!carregandoPrimeira && visiveis.length > 0 && (
         <div
           ref={trackRef}
           onScroll={onScrollTrack}
-          className="flex items-end gap-6 overflow-x-auto px-2.5 pb-4.5 pt-0.5"
+          className="flex items-end gap-7 overflow-x-auto px-3 pb-6 pt-1"
           style={{ scrollSnapType: "x mandatory" }}
         >
           {visiveis.map((c, i) => (
             <MiniCardCotacao key={c.id} cotacao={c} index={i} onFechar={ocultar} />
           ))}
           {carregandoMais && (
-            <div className="flex h-[140px] w-32 flex-none items-center justify-center text-xs text-t3">
+            <div className="flex h-[176px] w-40 flex-none items-center justify-center text-sm text-t3">
               Carregando...
             </div>
           )}

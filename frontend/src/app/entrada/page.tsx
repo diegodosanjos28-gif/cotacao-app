@@ -125,13 +125,13 @@ function EntradaLandingContent() {
   return (
     <>
       <NavBar />
-      <main className="w-full flex-1 px-6 py-8">
-        <div className="mb-2 text-[11px] font-bold uppercase tracking-[1.1px] text-t3">Entrada de Dados</div>
-        <h1 className="mb-5 text-[30px] font-extrabold tracking-tight text-t1">Cotação atual</h1>
+      <main className="w-full flex-1 px-8 py-10">
+        <div className="mb-2.5 text-xs font-bold uppercase tracking-[1.1px] text-t3">Entrada de Dados</div>
+        <h1 className="mb-6 text-[40px] font-extrabold tracking-tight text-t1">Cotação atual</h1>
 
-        {erro && <p className="mb-4 text-sm text-er">{erro}</p>}
+        {erro && <p className="mb-5 text-base text-er">{erro}</p>}
 
-        <div className="grid items-stretch gap-5 md:grid-cols-[minmax(380px,1fr)_2fr]">
+        <div className="grid items-stretch gap-6 md:grid-cols-[minmax(430px,1fr)_2fr]">
           <CotacaoAtualCard
             cotacaoAtual={cotacaoAtual ?? null}
             onRevisarEAprovar={abrirModal}

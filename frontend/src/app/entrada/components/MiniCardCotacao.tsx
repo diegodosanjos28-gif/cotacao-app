@@ -15,7 +15,7 @@ function dataCard(iso: string): { data: string; hora: string } {
 
 function ReabrirIcon() {
   return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
       <path d="M1 4v6h6" />
       <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
     </svg>
@@ -24,7 +24,7 @@ function ReabrirIcon() {
 
 function CheckIcon() {
   return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
       <path d="M20 6L9 17l-5-5" />
     </svg>
   );
@@ -49,7 +49,7 @@ export default function MiniCardCotacao({
 
   return (
     <div
-      className="flex w-40 flex-none flex-col rounded-[14px] border p-3.5 shadow-[0_6px_15px_rgba(37,34,32,.12),0_1px_4px_rgba(37,34,32,.08)] transition-all hover:-translate-y-[3px] hover:shadow-[0_12px_24px_rgba(37,34,32,.16),0_3px_8px_rgba(37,34,32,.10)]"
+      className="flex w-[13.5rem] flex-none flex-col rounded-[18px] border p-[18px] shadow-[0_6px_15px_rgba(37,34,32,.12),0_1px_4px_rgba(37,34,32,.08)] transition-all hover:-translate-y-[3px] hover:shadow-[0_12px_24px_rgba(37,34,32,.16),0_3px_8px_rgba(37,34,32,.10)]"
       style={{
         scrollSnapAlign: "start",
         background: impar
@@ -59,23 +59,23 @@ export default function MiniCardCotacao({
         color: impar ? "#fff" : "var(--color-t1)",
       }}
     >
-      <div className="text-[13.5px] font-extrabold tracking-tight">{data}</div>
-      <div className={`mb-2 text-[9.5px] ${impar ? "text-white/72" : "text-t3"}`}>{hora} · processada</div>
-      <div className="mb-2.5 flex flex-col gap-1">
+      <div className="text-base font-extrabold tracking-tight">{data}</div>
+      <div className={`mb-2.5 text-xs ${impar ? "text-white/72" : "text-t3"}`}>{hora} · processada</div>
+      <div className="mb-3 flex flex-col gap-1.5">
         <div className="flex items-center justify-between gap-2">
-          <span className={`text-[10px] ${impar ? "text-white/78" : "text-t2"}`}>Lista base</span>
-          <span className="text-[11.5px] font-bold">{cotacao.itensListaBase} itens</span>
+          <span className={`text-xs ${impar ? "text-white/78" : "text-t2"}`}>Lista base</span>
+          <span className="text-sm font-bold">{cotacao.itensListaBase} itens</span>
         </div>
         <div className="flex items-center justify-between gap-2">
-          <span className={`text-[10px] ${impar ? "text-white/78" : "text-t2"}`}>Itens cotados</span>
-          <span className="text-[11.5px] font-bold">{cotacao.itensCotados}</span>
+          <span className={`text-xs ${impar ? "text-white/78" : "text-t2"}`}>Itens cotados</span>
+          <span className="text-sm font-bold">{cotacao.itensCotados}</span>
         </div>
       </div>
-      <div className="mt-0.5 flex overflow-hidden rounded-lg shadow-[0_2px_8px_rgba(0,0,0,.16)]">
+      <div className="mt-1 flex overflow-hidden rounded-lg shadow-[0_2px_8px_rgba(0,0,0,.16)]">
         <button
           type="button"
           onClick={() => router.push(`/cotacoes/${cotacao.id}/comparativo`)}
-          className="flex flex-1 items-center justify-center gap-1 bg-[#2E2B28] py-2 text-[10px] font-bold text-white hover:brightness-[1.12]"
+          className="flex flex-1 items-center justify-center gap-1.5 bg-[#2E2B28] py-2.5 text-xs font-bold text-white hover:brightness-[1.12]"
         >
           <span className="text-[#5CB8FF]">
             <ReabrirIcon />
@@ -85,7 +85,7 @@ export default function MiniCardCotacao({
         <button
           type="button"
           onClick={() => onFechar(cotacao.id)}
-          className="flex flex-1 items-center justify-center gap-1 border-l border-white/15 bg-[#2E2B28] py-2 text-[10px] font-bold text-white hover:brightness-[1.12]"
+          className="flex flex-1 items-center justify-center gap-1.5 border-l border-white/15 bg-[#2E2B28] py-2.5 text-xs font-bold text-white hover:brightness-[1.12]"
         >
           <span className="text-[#4ADE80]">
             <CheckIcon />

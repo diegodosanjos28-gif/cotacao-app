@@ -155,3 +155,17 @@ body {
     opacity: 0.25;
   }
 }
+
+/* Entrada em "pop" da caixa de diálogo do AprovacaoModal (mockup: .apr{animation:apop
+   .2s ease}) — Modal.tsx não anima nenhum modal do app por padrão; escopado aqui em
+   vez de mexer no componente compartilhado. */
+@keyframes aprovacao-modal-pop {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
