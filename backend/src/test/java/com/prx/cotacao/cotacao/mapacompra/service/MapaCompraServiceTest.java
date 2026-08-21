@@ -707,4 +707,37 @@ class MapaCompraServiceTest {
             assertTrue(resp.produtosSemFornecedor().isEmpty(), "Item soft-deletado não deve aparecer nem como 'produto sem fornecedor'");
         }
     }
+
+    // Achado em prod (2026-08-21): item_soft_deletado_nao_aparece_em_nenhum_cenario_do_mapa
+    // acima não pegava a regressão real porque, com um único item removido, `itens` fica
+    // vazio e gerar() retorna cedo (linha ~120) antes de chegar no loop que lê as ofertas —
+    // o NPE só acontece com pelo menos um item VIVO na cotação, que mantém o loop rodando
+    // até esbarrar num CotacaoProdutoFornecedor cujo item já foi removido da lista.
+    @Test
+    void gerar_nao_lanca_quando_ha_oferta_de_item_removido_junto_de_item_vivo() {
+        UUID cotacaoId = comoTenant(this::criarCotacao);
+        UUID f = comoTenant(() -> criarFornecedorAtivo("Fornecedor Misto"));
+        UUID itemVivo = comoTenant(() -> criarItem(cotacaoId, "Item Vivo", "1", 1));
+        UUID itemRemovido = comoTenant(() -> criarItem(cotacaoId, "Item Removido", "1", 2));
+
+        comoTenant(() -> {
+            criarOferta(itemVivo, f, "9.00");
+            criarOferta(itemRemovido, f, "5.00");
+            return null;
+        });
+
+        comoTenant(() -> {
+            CotacaoProduto cp = cotacaoProdutoRepository.findById(itemRemovido).orElseThrow();
+            cp.setRemovidoEm(OffsetDateTime.now());
+            return cotacaoProdutoRepository.save(cp);
+        });
+
+        for (CenarioSelecionado cenario : CenarioSelecionado.values()) {
+            MapaCompraResponse resp = comoTenant(() -> mapaCompraService.gerar(cotacaoId, cenario));
+            DistribuicaoFornecedor dist = distDe(resp, f);
+            assertNotNull(dist, "Cenário " + cenario + " deve distribuir o item vivo normalmente");
+            assertNotNull(itemDe(dist, itemVivo));
+            assertNull(itemDe(dist, itemRemovido), "Item removido não deve aparecer na distribuição");
+        }
+    }
 }

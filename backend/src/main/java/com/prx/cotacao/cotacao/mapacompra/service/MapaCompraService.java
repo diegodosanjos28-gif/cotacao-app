@@ -133,9 +133,14 @@ public class MapaCompraService {
         for (CotacaoProduto cp : itens) ofertasPorItem.put(cp.getId(), new ArrayList<>());
         Set<UUID> fornecedoresComOfertaValida = new LinkedHashSet<>();
         for (CotacaoProdutoFornecedor cpf : cpfRepository.findByCotacaoId(cotacaoId)) {
-            if (!ofertaValida(cpf) || !fornecedores.containsKey(cpf.getFornecedorId())) continue;
+            // cpfRepository.findByCotacaoId não filtra por item removido — uma resposta de
+            // fornecedor pode referenciar um CotacaoProduto que já saiu da lista (removidoEm
+            // preenchido) e por isso não tem chave em ofertasPorItem. Sem este guard, .get()
+            // devolve null e o .add() seguinte lança NPE (achado em prod, 2026-08-21).
+            List<Oferta> ofertasDoItem = ofertasPorItem.get(cpf.getCotacaoProdutoId());
+            if (ofertasDoItem == null || !ofertaValida(cpf) || !fornecedores.containsKey(cpf.getFornecedorId())) continue;
             BigDecimal preco = precoDaOferta(cpf);
-            ofertasPorItem.get(cpf.getCotacaoProdutoId()).add(new Oferta(cpf.getFornecedorId(), preco));
+            ofertasDoItem.add(new Oferta(cpf.getFornecedorId(), preco));
             fornecedoresComOfertaValida.add(cpf.getFornecedorId());
         }
 
