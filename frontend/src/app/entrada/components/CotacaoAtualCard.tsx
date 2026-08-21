@@ -22,11 +22,16 @@ export default function CotacaoAtualCard({
   onRevisarEAprovar,
   onDetalhes,
   onCriarCotacao,
+  carregando = false,
 }: {
   cotacaoAtual: CotacaoAtualResponse | null;
   onRevisarEAprovar: () => void;
   onDetalhes: () => void;
   onCriarCotacao: () => void;
+  // true enquanto a landing busca os dados completos da cotação (itens/produtos/
+  // fornecedores) pra abrir o AprovacaoModal — evita disparar a busca 2x com um
+  // duplo-clique em "Revisar e aprovar"/"Detalhes".
+  carregando?: boolean;
 }) {
   if (!cotacaoAtual) {
     return (
@@ -127,18 +132,26 @@ export default function CotacaoAtualCard({
         <button
           type="button"
           onClick={onRevisarEAprovar}
-          className="flex flex-1 items-center justify-center gap-2 rounded-md bg-wa px-4 py-3 text-[13.5px] font-bold text-brown shadow-[0_3px_14px_rgba(245,158,11,.34)] transition-all hover:-translate-y-px hover:shadow-[0_5px_18px_rgba(245,158,11,.46)]"
+          disabled={carregando}
+          className="flex flex-1 items-center justify-center gap-2 rounded-md bg-wa px-4 py-3 text-[13.5px] font-bold text-brown shadow-[0_3px_14px_rgba(245,158,11,.34)] transition-all hover:-translate-y-px hover:shadow-[0_5px_18px_rgba(245,158,11,.46)] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
         >
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round">
-            <path d="M9 11l3 3L22 4" />
-            <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
-          </svg>
-          Revisar e aprovar
+          {carregando ? (
+            "Carregando..."
+          ) : (
+            <>
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 11l3 3L22 4" />
+                <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+              </svg>
+              Revisar e aprovar
+            </>
+          )}
         </button>
         <button
           type="button"
           onClick={onDetalhes}
-          className="rounded-md border-[1.5px] border-bdr px-4 py-3 text-[13px] font-semibold text-t2 hover:border-bdr-m hover:text-t1"
+          disabled={carregando}
+          className="rounded-md border-[1.5px] border-bdr px-4 py-3 text-[13px] font-semibold text-t2 hover:border-bdr-m hover:text-t1 disabled:cursor-not-allowed disabled:opacity-60"
         >
           Detalhes
         </button>

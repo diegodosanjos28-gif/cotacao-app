@@ -3,18 +3,12 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Modal from "@/components/Modal";
-import { buscarRespostaPersistida, cancelarRespostaFornecedor, enviarResposta, finalizarCotacao } from "@/lib/api";
+import { buscarRespostaPersistida, cancelarRespostaFornecedor, concluirAjusteLista, enviarResposta, finalizarCotacao } from "@/lib/api";
 import { getErrorMessage } from "@/lib/errors";
-import { ConferenciaPatch, Cotacao, CotacaoFornecedorResponse, ItemListaResponse, PreviewRespostaResponse, Produto } from "@/lib/types";
-import ConferenciaListaBaseTab from "./aprovacao/ConferenciaListaBaseTab";
+import { ConferenciaPatch, Cotacao, CotacaoFornecedorResponse, Fornecedor, ItemListaResponse, Produto } from "@/lib/types";
+import GridProdutosSection from "@/app/cotacoes/[id]/entrada/components/GridProdutosSection";
 import ConferenciaFornecedoresTab from "./aprovacao/ConferenciaFornecedoresTab";
 import { RascunhoFornecedor, rascunhoVazio } from "./aprovacao/rascunhoFornecedor";
-
-export interface SeedRascunho {
-  cfId: string;
-  texto: string;
-  preview: PreviewRespostaResponse;
-}
 
 interface Props {
   open: boolean;
@@ -24,15 +18,18 @@ interface Props {
   itensLista: ItemListaResponse[];
   produtos: Produto[];
   onListaAtualizada: (itens: ItemListaResponse[]) => void;
+  onProdutosAtualizados: (produtos: Produto[]) => void;
   cotacaoFornecedores: CotacaoFornecedorResponse[];
+  todosFornecedores: Fornecedor[];
+  onFornecedorAtualizado: (fornecedor: Fornecedor) => void;
+  onFornecedorInativado: (id: string) => void;
   onCotacaoFornecedoresAtualizados: () => Promise<void>;
   onCotacaoAtualizada: (cotacao: Cotacao) => void;
-  abaInicial: 1 | 2;
-  fornecedorFocoId?: string | null;
-  seedRascunho?: SeedRascunho | null;
-  onTextoLimpo: (cfId: string) => void;
 }
 
+// Dono de todo o fluxo pós-Lista-de-Produtos (refactor 2026-08-20): fornecedores
+// (cadastro/captura, aba 2) e conferência das duas etapas ficam centralizados aqui —
+// não existe mais nenhum painel próprio atrás do modal além da Lista de Produtos.
 export default function AprovacaoModal({
   open,
   onClose,
@@ -41,13 +38,13 @@ export default function AprovacaoModal({
   itensLista,
   produtos,
   onListaAtualizada,
+  onProdutosAtualizados,
   cotacaoFornecedores,
+  todosFornecedores,
+  onFornecedorAtualizado,
+  onFornecedorInativado,
   onCotacaoFornecedoresAtualizados,
   onCotacaoAtualizada,
-  abaInicial,
-  fornecedorFocoId,
-  seedRascunho,
-  onTextoLimpo,
 }: Props) {
   const router = useRouter();
   const [aprStep, setAprStep] = useState<1 | 2>(1);
@@ -59,14 +56,21 @@ export default function AprovacaoModal({
   const [lancando, setLancando] = useState(false);
   const [sucesso, setSucesso] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  const [concluindoAjuste, setConcluindoAjuste] = useState(false);
 
-  // Reseta pra aba pedida sempre que o modal abre — mesmo idioma do mockup
-  // (openApproval() sempre zera aprStep=1); a Fase D usa abaInicial=2 pro caminho
-  // "processar já entrega pra conferência".
+  // Cotação WhatsApp cujo parse inicial ainda não foi revisado pelo operador — a
+  // Conferência das Cotações (aba 2) fica bloqueada até "Concluir ajuste", mesma regra
+  // de negócio que antes vivia numa seção própria da página, atrás do modal (refactor
+  // 2026-08-20: fluxo Web e WhatsApp passaram a usar o mesmo modal, até na etapa de
+  // produto — não faz sentido ter um gate pré-modal só pra este canal).
+  const precisaAjuste = cotacao.canalOrigem === "WHATSAPP" && !cotacao.listaRevisada;
+
+  // Reseta pra aba 1 sempre que o modal abre — mesmo idioma do mockup (openApproval()
+  // sempre zera aprStep=1).
   useEffect(() => {
     if (!open) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setAprStep(abaInicial);
+    setAprStep(1);
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setListaBaseConferida(false);
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -74,19 +78,7 @@ export default function AprovacaoModal({
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setErro(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, abaInicial]);
-
-  // Seed one-shot: preview já resolvido no Passo 2 (onProcessar) — evita refazer a
-  // chamada de rede que onConferirResposta faria (branch 1, "preview já em memória").
-  useEffect(() => {
-    if (!open || !seedRascunho) return;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setRascunhos((prev) => ({
-      ...prev,
-      [seedRascunho.cfId]: { texto: seedRascunho.texto, preview: seedRascunho.preview, resolucoes: {}, spinOffs: {}, excluidos: {} },
-    }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, seedRascunho]);
+  }, [open]);
 
   function atualizarRascunho(id: string, patch: Partial<RascunhoFornecedor>) {
     setRascunhos((prev) => ({ ...prev, [id]: { ...(prev[id] ?? rascunhoVazio()), ...patch } }));
@@ -127,18 +119,50 @@ export default function AprovacaoModal({
     }
   }
 
-  // Porte verbatim de onCancelarConferencia (entrada/page.tsx) — apaga a resposta do
-  // fornecedor de verdade no backend + limpa o rascunho local. Também limpa o texto
-  // digitado do Passo 2 (onTextoLimpo), que agora vive fora deste componente.
+  // Apaga a resposta do fornecedor de verdade no backend + limpa o rascunho local
+  // (texto+preview+resoluções, tudo vive aqui desde que a captura entrou pro modal).
   async function onCancelarConferencia(cf: CotacaoFornecedorResponse) {
     await cancelarRespostaFornecedor(cotacaoId, cf.fornecedorId);
     atualizarRascunho(cf.id, { texto: "", preview: null, resolucoes: {}, spinOffs: {}, excluidos: {} });
-    onTextoLimpo(cf.id);
     await onCotacaoFornecedoresAtualizados();
   }
 
   function onEstadoResolucaoChange(cfId: string, patch: ConferenciaPatch) {
     atualizarRascunho(cfId, patch);
+  }
+
+  function onTextoChange(cfId: string, texto: string) {
+    atualizarRascunho(cfId, { texto });
+  }
+
+  // Processa o texto colado pra um fornecedor (aba 2, FornecedorCapturaCard — fluxo
+  // Web manual) — nunca lança: mesmo idioma de onConferirResposta, o erro fica no
+  // banner compartilhado da aba em vez de propagar pro chamador.
+  async function onProcessarResposta(cf: CotacaoFornecedorResponse, texto: string) {
+    if (!texto.trim()) return;
+    setErro(null);
+    try {
+      const resultado = await enviarResposta(cotacaoId, cf.fornecedorId, texto);
+      atualizarRascunho(cf.id, { texto, preview: resultado });
+      await onCotacaoFornecedoresAtualizados();
+    } catch (err) {
+      setErro(getErrorMessage(err, "Não foi possível processar a resposta."));
+    }
+  }
+
+  async function onConcluirAjuste() {
+    setConcluindoAjuste(true);
+    setErro(null);
+    try {
+      const atualizada = await concluirAjusteLista(cotacaoId);
+      onCotacaoAtualizada(atualizada);
+      setListaBaseConferida(true);
+      setAprStep(2);
+    } catch (err) {
+      setErro(getErrorMessage(err, "Não foi possível concluir o ajuste."));
+    } finally {
+      setConcluindoAjuste(false);
+    }
   }
 
   async function onLancar() {
@@ -239,9 +263,11 @@ export default function AprovacaoModal({
           </button>
           <button
             type="button"
-            onClick={() => setAprStep(2)}
+            onClick={() => !precisaAjuste && setAprStep(2)}
+            disabled={precisaAjuste}
+            title={precisaAjuste ? "Conclua o ajuste da lista base antes de seguir para os fornecedores." : undefined}
             aria-label="Conferência das Cotações"
-            className={`flex flex-1 items-center gap-2.5 border-b-[3px] px-1.5 pb-3 pt-1 text-left ${aprStep === 2 ? "border-inf" : "border-transparent"}`}
+            className={`flex flex-1 items-center gap-2.5 border-b-[3px] px-1.5 pb-3 pt-1 text-left disabled:cursor-not-allowed disabled:opacity-50 ${aprStep === 2 ? "border-inf" : "border-transparent"}`}
           >
             <span className={`flex h-[27px] w-[27px] shrink-0 items-center justify-center rounded-full border-2 text-xs font-extrabold ${aprStep === 2 ? "border-inf bg-inf/10 text-inf" : "border-bdr text-t3"}`}>
               2
@@ -256,23 +282,38 @@ export default function AprovacaoModal({
 
       <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
         {erro && <p className="mb-3 text-sm text-er">{erro}</p>}
+        {aprStep === 1 && precisaAjuste && (
+          <p className="mb-3 rounded-md border border-wa/30 bg-wa-d px-4 py-3 text-sm text-t2">
+            Revise os itens recebidos por WhatsApp antes de seguir para a aprovação — corrija quantidade, unidade
+            ou o produto identificado.
+          </p>
+        )}
         {aprStep === 1 ? (
-          <ConferenciaListaBaseTab
+          <GridProdutosSection
             cotacaoId={cotacaoId}
             itens={itensLista}
             produtos={produtos}
             onListaAtualizada={onListaAtualizada}
+            onProdutosAtualizados={onProdutosAtualizados}
+            setErro={setErro}
             cotacaoFinalizada={cotacao.status === "FINALIZADA"}
+            podeAdicionarOuColar={cotacao.canalOrigem === "WEB"}
+            scrollProprio={false}
           />
         ) : (
           <ConferenciaFornecedoresTab
             cotacaoId={cotacaoId}
+            cotacao={cotacao}
             cotacaoFornecedores={cotacaoFornecedores}
+            todosFornecedores={todosFornecedores}
+            onFornecedorAtualizado={onFornecedorAtualizado}
+            onFornecedorInativado={onFornecedorInativado}
             onConferirResposta={onConferirResposta}
             onCancelarConferencia={onCancelarConferencia}
             onCotacaoFornecedoresAtualizados={onCotacaoFornecedoresAtualizados}
-            fornecedorFocoId={fornecedorFocoId}
+            onProcessarResposta={onProcessarResposta}
             rascunhos={rascunhos}
+            onTextoChange={onTextoChange}
             onEstadoResolucaoChange={onEstadoResolucaoChange}
           />
         )}
@@ -282,19 +323,30 @@ export default function AprovacaoModal({
         {aprStep === 1 ? (
           <>
             <span className="text-[12.5px] text-t2">Etapa 1 de 2 · confira a lista base</span>
-            <button
-              type="button"
-              onClick={() => {
-                setListaBaseConferida(true);
-                setAprStep(2);
-              }}
-              className="inline-flex items-center gap-2 rounded-md bg-prx px-4.5 py-2.5 text-[13px] font-bold text-white shadow-[0_3px_12px_rgba(255,128,0,.3)] hover:bg-prx-l"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round">
-                <path d="M20 6L9 17l-5-5" />
-              </svg>
-              Lista base conferida
-            </button>
+            {precisaAjuste ? (
+              <button
+                type="button"
+                onClick={onConcluirAjuste}
+                disabled={concluindoAjuste || itensLista.length === 0}
+                className="inline-flex items-center gap-2 rounded-md bg-prx px-4.5 py-2.5 text-[13px] font-bold text-white shadow-[0_3px_12px_rgba(255,128,0,.3)] hover:bg-prx-l disabled:opacity-50"
+              >
+                {concluindoAjuste ? "Concluindo..." : "Concluir ajuste e seguir para aprovação"}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  setListaBaseConferida(true);
+                  setAprStep(2);
+                }}
+                className="inline-flex items-center gap-2 rounded-md bg-prx px-4.5 py-2.5 text-[13px] font-bold text-white shadow-[0_3px_12px_rgba(255,128,0,.3)] hover:bg-prx-l"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M20 6L9 17l-5-5" />
+                </svg>
+                Lista base conferida
+              </button>
+            )}
           </>
         ) : (
           <>

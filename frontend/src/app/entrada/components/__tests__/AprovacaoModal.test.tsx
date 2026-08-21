@@ -1,16 +1,19 @@
-// AprovacaoModal — orquestração do modal de aprovação de 2 abas (Fase C, 2026-08-20).
-// As duas abas (ConferenciaListaBaseTab/ConferenciaFornecedoresTab) já têm cobertura
-// própria; aqui mockamos as duas pra isolar: troca de aba, estado "done" do stepper,
-// seed one-shot do rascunho, gate do "Lançar" e o fluxo de sucesso.
+// AprovacaoModal — orquestração do modal de aprovação de 2 abas. Web e WhatsApp usam
+// o mesmo modal até na etapa de produto (aba 1 = GridProdutosSection completo,
+// 2026-08-20) — as abas já têm cobertura própria (GridProdutosSection.test.tsx,
+// ConferenciaFornecedoresTab.test.tsx); aqui mockamos as duas pra isolar: troca de
+// aba, estado "done" do stepper, o gate "precisaAjuste" (WHATSAPP não revisado), o
+// gate do "Lançar" e o fluxo de sucesso.
 
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 import AprovacaoModal from "../AprovacaoModal";
 import { Cotacao, CotacaoFornecedorResponse, ItemListaResponse } from "@/lib/types";
 
-const { pushMock, finalizarCotacaoMock } = vi.hoisted(() => ({
+const { pushMock, finalizarCotacaoMock, concluirAjusteListaMock } = vi.hoisted(() => ({
   pushMock: vi.fn(),
   finalizarCotacaoMock: vi.fn(),
+  concluirAjusteListaMock: vi.fn(),
 }));
 
 vi.mock("next/navigation", () => ({
@@ -19,21 +22,18 @@ vi.mock("next/navigation", () => ({
 
 vi.mock("@/lib/api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/api")>();
-  return { ...actual, finalizarCotacao: finalizarCotacaoMock };
+  return { ...actual, finalizarCotacao: finalizarCotacaoMock, concluirAjusteLista: concluirAjusteListaMock };
 });
 
-// Mocka as 2 abas pra isolar a orquestração do AprovacaoModal — cada uma expõe só o
-// necessário pra inspecionar as props recebidas (rascunhos/fornecedorFocoId) e
-// disparar callbacks passados (onListaAtualizada não é exercitado aqui).
-vi.mock("../aprovacao/ConferenciaListaBaseTab", () => ({
+// Mocka as 2 abas pra isolar a orquestração do AprovacaoModal.
+vi.mock("@/app/cotacoes/[id]/entrada/components/GridProdutosSection", () => ({
   default: () => <div data-testid="aba-lista-base">Lista Base</div>,
 }));
 vi.mock("../aprovacao/ConferenciaFornecedoresTab", () => ({
-  default: ({ rascunhos, fornecedorFocoId }: { rascunhos: Record<string, unknown>; fornecedorFocoId?: string | null }) => (
+  default: ({ todosFornecedores }: { todosFornecedores: unknown[] }) => (
     <div data-testid="aba-fornecedores">
       Fornecedores
-      <span data-testid="rascunhos-json">{JSON.stringify(rascunhos)}</span>
-      <span data-testid="foco">{fornecedorFocoId ?? ""}</span>
+      <span data-testid="qtd-catalogo">{todosFornecedores.length}</span>
     </div>
   ),
 }));
@@ -68,34 +68,45 @@ function baseProps(overrides: Partial<React.ComponentProps<typeof AprovacaoModal
     itensLista: [] as ItemListaResponse[],
     produtos: [],
     onListaAtualizada: vi.fn(),
+    onProdutosAtualizados: vi.fn(),
     cotacaoFornecedores: [] as CotacaoFornecedorResponse[],
+    todosFornecedores: [],
+    onFornecedorAtualizado: vi.fn(),
+    onFornecedorInativado: vi.fn(),
     onCotacaoFornecedoresAtualizados: vi.fn().mockResolvedValue(undefined),
     onCotacaoAtualizada: vi.fn(),
-    abaInicial: 1 as const,
-    onTextoLimpo: vi.fn(),
     ...overrides,
   };
+}
+
+function irParaAbaFornecedores() {
+  fireEvent.click(screen.getByRole("button", { name: "Conferência das Cotações" }));
 }
 
 beforeEach(() => {
   pushMock.mockReset();
   finalizarCotacaoMock.mockReset();
+  concluirAjusteListaMock.mockReset();
 });
 
 describe("AprovacaoModal — abertura e troca de aba", () => {
-  it("abre na aba pedida por abaInicial", () => {
-    render(<AprovacaoModal {...baseProps({ abaInicial: 2 })} />);
-
-    expect(screen.getByTestId("aba-fornecedores")).toBeTruthy();
-  });
-
-  it("clicar na aba 'Conferência das Cotações' troca pra ela", () => {
-    render(<AprovacaoModal {...baseProps({ abaInicial: 1 })} />);
+  it("abre sempre na aba 1 (Lista Base)", () => {
+    render(<AprovacaoModal {...baseProps()} />);
 
     expect(screen.getByTestId("aba-lista-base")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Conferência das Cotações" }));
+  });
+
+  it("clicar na aba 'Conferência das Cotações' troca pra ela, repassando o catálogo de fornecedores", () => {
+    render(
+      <AprovacaoModal
+        {...baseProps({ todosFornecedores: [{ id: "f-1" }, { id: "f-2" }] as unknown as React.ComponentProps<typeof AprovacaoModal>["todosFornecedores"] })}
+      />,
+    );
+
+    irParaAbaFornecedores();
 
     expect(screen.getByTestId("aba-fornecedores")).toBeTruthy();
+    expect(screen.getByTestId("qtd-catalogo").textContent).toBe("2");
   });
 
   it("chips do header mostram confirmados/total e itens da lista base", () => {
@@ -115,7 +126,7 @@ describe("AprovacaoModal — abertura e troca de aba", () => {
 
 describe("AprovacaoModal — 'Lista base conferida' marca o stepper como done", () => {
   it("clicar em 'Lista base conferida' avança pra aba 2 e o marcador 1 vira check verde mesmo ao voltar", () => {
-    render(<AprovacaoModal {...baseProps({ abaInicial: 1 })} />);
+    render(<AprovacaoModal {...baseProps()} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Lista base conferida" }));
     expect(screen.getByTestId("aba-fornecedores")).toBeTruthy();
@@ -126,52 +137,87 @@ describe("AprovacaoModal — 'Lista base conferida' marca o stepper como done", 
   });
 
   it("reabrir o modal (open muda) reseta listaBaseConferida", () => {
-    const { rerender } = render(<AprovacaoModal {...baseProps({ open: true, abaInicial: 1 })} />);
+    const { rerender } = render(<AprovacaoModal {...baseProps({ open: true })} />);
     fireEvent.click(screen.getByRole("button", { name: "Lista base conferida" }));
     fireEvent.click(screen.getByRole("button", { name: "Conferência da Lista Base" }));
     expect(screen.getByText("✓")).toBeTruthy();
 
-    rerender(<AprovacaoModal {...baseProps({ open: false, abaInicial: 1 })} />);
-    rerender(<AprovacaoModal {...baseProps({ open: true, abaInicial: 1 })} />);
+    rerender(<AprovacaoModal {...baseProps({ open: false })} />);
+    rerender(<AprovacaoModal {...baseProps({ open: true })} />);
 
     expect(screen.queryByText("✓")).toBeNull();
   });
 });
 
-describe("AprovacaoModal — seed one-shot do rascunho", () => {
-  it("seedRascunho popula o mapa de rascunhos passado pra aba de Fornecedores, sem exigir nenhuma chamada de API adicional", () => {
-    const preview = { contadores: { total: 1, ok: 1, atencao: 0, revisar: 0 }, itens: [] };
+describe("AprovacaoModal — precisaAjuste (WHATSAPP com lista ainda não revisada)", () => {
+  function cotacaoPrecisaAjuste(overrides: Partial<Cotacao> = {}) {
+    return makeCotacao({ canalOrigem: "WHATSAPP", listaRevisada: false, ...overrides });
+  }
+
+  it("aba 2 fica desabilitada e mostra o banner de ajuste na aba 1", () => {
+    render(<AprovacaoModal {...baseProps({ cotacao: cotacaoPrecisaAjuste() })} />);
+
+    expect((screen.getByRole("button", { name: "Conferência das Cotações" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByText(/Revise os itens recebidos por WhatsApp/)).toBeTruthy();
+  });
+
+  it("rodapé mostra 'Concluir ajuste e seguir para aprovação' em vez de 'Lista base conferida'", () => {
+    render(<AprovacaoModal {...baseProps({ cotacao: cotacaoPrecisaAjuste() })} />);
+
+    expect(screen.getByRole("button", { name: "Concluir ajuste e seguir para aprovação" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Lista base conferida" })).toBeNull();
+  });
+
+  it("clicar em 'Concluir ajuste...' chama concluirAjusteLista, atualiza a cotação e avança pra aba 2", async () => {
+    const cotacaoAtualizada = makeCotacao({ canalOrigem: "WHATSAPP", listaRevisada: true });
+    concluirAjusteListaMock.mockResolvedValue(cotacaoAtualizada);
+    const onCotacaoAtualizada = vi.fn();
+
     render(
       <AprovacaoModal
         {...baseProps({
-          abaInicial: 2,
-          fornecedorFocoId: "cf-1",
-          seedRascunho: { cfId: "cf-1", texto: "5un item - R$ 10,00", preview },
+          cotacao: cotacaoPrecisaAjuste(),
+          itensLista: [{} as ItemListaResponse],
+          onCotacaoAtualizada,
         })}
       />,
     );
 
-    const rascunhos = JSON.parse(screen.getByTestId("rascunhos-json").textContent ?? "{}");
-    expect(rascunhos["cf-1"].texto).toBe("5un item - R$ 10,00");
-    expect(rascunhos["cf-1"].preview).toEqual(preview);
-    expect(screen.getByTestId("foco").textContent).toBe("cf-1");
+    fireEvent.click(screen.getByRole("button", { name: "Concluir ajuste e seguir para aprovação" }));
+
+    await waitFor(() => expect(concluirAjusteListaMock).toHaveBeenCalledWith("cot-1"));
+    expect(onCotacaoAtualizada).toHaveBeenCalledWith(cotacaoAtualizada);
+    await waitFor(() => expect(screen.getByTestId("aba-fornecedores")).toBeTruthy());
+  });
+
+  it("botão de concluir ajuste fica desabilitado sem nenhum item na lista", () => {
+    render(<AprovacaoModal {...baseProps({ cotacao: cotacaoPrecisaAjuste(), itensLista: [] })} />);
+
+    expect((screen.getByRole("button", { name: "Concluir ajuste e seguir para aprovação" }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("cotação já revisada (listaRevisada=true) não mostra o banner nem desabilita a aba 2", () => {
+    render(<AprovacaoModal {...baseProps({ cotacao: makeCotacao({ canalOrigem: "WHATSAPP", listaRevisada: true }) })} />);
+
+    expect(screen.queryByText(/Revise os itens recebidos por WhatsApp/)).toBeNull();
+    expect((screen.getByRole("button", { name: "Conferência das Cotações" }) as HTMLButtonElement).disabled).toBe(false);
   });
 });
 
 describe("AprovacaoModal — gate e fluxo de 'Lançar'", () => {
   it("botão 'Lançar' fica desabilitado enquanto nem todos os fornecedores estão confirmados", () => {
     render(
-      <AprovacaoModal
-        {...baseProps({ abaInicial: 2, cotacaoFornecedores: [makeCf({ status: "CONFIRMADO" }), makeCf({ id: "cf-2", status: "PROCESSADO" })] })}
-      />,
+      <AprovacaoModal {...baseProps({ cotacaoFornecedores: [makeCf({ status: "CONFIRMADO" }), makeCf({ id: "cf-2", status: "PROCESSADO" })] })} />,
     );
+    irParaAbaFornecedores();
 
     const botao = screen.getByRole("button", { name: /Lançar para Comparativo e Mapa de Compra/ }) as HTMLButtonElement;
     expect(botao.disabled).toBe(true);
   });
 
   it("sem nenhum fornecedor, 'Lançar' também fica desabilitado (total=0 não conta como 'todos confirmados')", () => {
-    render(<AprovacaoModal {...baseProps({ abaInicial: 2, cotacaoFornecedores: [] })} />);
+    render(<AprovacaoModal {...baseProps({ cotacaoFornecedores: [] })} />);
+    irParaAbaFornecedores();
 
     const botao = screen.getByRole("button", { name: /Lançar para Comparativo e Mapa de Compra/ }) as HTMLButtonElement;
     expect(botao.disabled).toBe(true);
@@ -187,13 +233,13 @@ describe("AprovacaoModal — gate e fluxo de 'Lançar'", () => {
     render(
       <AprovacaoModal
         {...baseProps({
-          abaInicial: 2,
           cotacaoFornecedores: [makeCf({ status: "CONFIRMADO" })],
           onCotacaoAtualizada,
           onClose,
         })}
       />,
     );
+    irParaAbaFornecedores();
 
     const botao = screen.getByRole("button", { name: /Lançar para Comparativo e Mapa de Compra/ });
     await act(async () => {
@@ -219,7 +265,8 @@ describe("AprovacaoModal — gate e fluxo de 'Lançar'", () => {
   it("erro ao finalizar mostra mensagem e não fecha o modal", async () => {
     finalizarCotacaoMock.mockRejectedValue(new Error("falhou"));
 
-    render(<AprovacaoModal {...baseProps({ abaInicial: 2, cotacaoFornecedores: [makeCf({ status: "CONFIRMADO" })] })} />);
+    render(<AprovacaoModal {...baseProps({ cotacaoFornecedores: [makeCf({ status: "CONFIRMADO" })] })} />);
+    irParaAbaFornecedores();
 
     fireEvent.click(screen.getByRole("button", { name: /Lançar para Comparativo e Mapa de Compra/ }));
 

@@ -10,6 +10,7 @@ export default function Modal({
   children,
   footer,
   className,
+  semBackdrop,
 }: {
   open: boolean;
   onClose: () => void;
@@ -21,6 +22,11 @@ export default function Modal({
   // Conferência de Nota do Dashboard, min(760px,100%)/max-height:88vh), que também
   // assumem controle total do próprio cabeçalho/corpo rolável via `children`.
   className?: string;
+  // true quando este modal pode abrir por cima de outro já aberto (ex.: confirmação
+  // de exclusão dentro do GridProdutosSection hospedado no AprovacaoModal) — omite o
+  // próprio `bg-black/50` pra não somar dois overlays escurecidos, e sobe o z-index
+  // acima do modal pai. Clique-fora continua fechando normalmente.
+  semBackdrop?: boolean;
 }) {
   const dialogRef = useRef<HTMLDivElement>(null);
   useFocusTrap(dialogRef, open);
@@ -38,7 +44,7 @@ export default function Modal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      className={`fixed inset-0 flex items-center justify-center p-4 ${semBackdrop ? "z-[60]" : "z-50 bg-black/50"}`}
       onClick={onClose}
     >
       <div

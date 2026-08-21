@@ -92,6 +92,8 @@ function renderGrid(
     onProdutosAtualizados: (p: Produto[]) => void;
     produtos: Produto[];
     cotacaoFinalizada: boolean;
+    podeAdicionarOuColar: boolean;
+    scrollProprio: boolean;
   }> = {},
 ) {
   const onListaAtualizada = overrides.onListaAtualizada ?? vi.fn();
@@ -106,6 +108,8 @@ function renderGrid(
       onProdutosAtualizados={onProdutosAtualizados}
       setErro={setErro}
       cotacaoFinalizada={overrides.cotacaoFinalizada}
+      podeAdicionarOuColar={overrides.podeAdicionarOuColar}
+      scrollProprio={overrides.scrollProprio}
     />,
   );
   return { onListaAtualizada, onProdutosAtualizados, setErro };
@@ -634,5 +638,38 @@ describe("GridProdutosSection — estados vazios", () => {
 
     expect(screen.queryByText("Nenhum item bate com o filtro.")).toBeNull();
     expect(screen.getByRole("button", { name: "Salvar" })).toBeTruthy();
+  });
+});
+
+// podeAdicionarOuColar (refactor 2026-08-20, 2ª leva): este grid passou a ser
+// reaproveitado dentro da aba "Conferência da Lista Base" do AprovacaoModal, pros dois
+// canais — cotações WHATSAPP não devem oferecer adicionar/colar manualmente (a AI já
+// populou a lista), só corrigir uma linha.
+describe("GridProdutosSection — podeAdicionarOuColar (gate de canal)", () => {
+  it("por padrão (sem a prop), os botões de adicionar/colar aparecem", () => {
+    renderGrid([makeItem()]);
+
+    expect(screen.getByRole("button", { name: "+ Adicionar Produto" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Colar do WhatsApp" })).toBeTruthy();
+  });
+
+  it("podeAdicionarOuColar=false esconde os dois botões", () => {
+    renderGrid([makeItem()], { podeAdicionarOuColar: false });
+
+    expect(screen.queryByRole("button", { name: "+ Adicionar Produto" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Colar do WhatsApp" })).toBeNull();
+  });
+
+  it("lista vazia com podeAdicionarOuColar=false mostra uma mensagem sem mencionar os botões escondidos", () => {
+    renderGrid([], { podeAdicionarOuColar: false });
+
+    expect(screen.getByText("Nenhum produto identificado ainda nesta lista.")).toBeTruthy();
+    expect(screen.queryByText(/Adicionar Produto/)).toBeNull();
+  });
+
+  it("exclusão de item continua disponível mesmo com podeAdicionarOuColar=false", () => {
+    renderGrid([makeItem()], { podeAdicionarOuColar: false });
+
+    expect(screen.getByRole("button", { name: "Excluir" })).toBeTruthy();
   });
 });

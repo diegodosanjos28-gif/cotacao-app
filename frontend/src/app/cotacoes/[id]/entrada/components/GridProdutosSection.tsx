@@ -26,6 +26,17 @@ interface Props {
   onProdutosAtualizados: (produtos: Produto[]) => void;
   setErro: Dispatch<SetStateAction<string | null>>;
   cotacaoFinalizada?: boolean;
+  // Cotações WHATSAPP têm a lista populada automaticamente pela AI — "+ Adicionar
+  // Produto"/"Colar do WhatsApp" só fazem sentido pro fluxo Web manual (refactor
+  // 2026-08-20: este grid passou a ser usado também dentro da aba "Conferência da
+  // Lista Base" do AprovacaoModal, pros dois canais). Excluir item continua liberado
+  // pros dois — corrigir um item mal-parseado não exige a capacidade de adicionar.
+  podeAdicionarOuColar?: boolean;
+  // true (default) quando este grid é dono da própria altura/scroll (uso histórico:
+  // dentro de uma coluna de altura fixa em page.tsx). false quando hospedado dentro do
+  // corpo já rolável do AprovacaoModal — aí o grid cresce naturalmente e quem rola é o
+  // modal, evitando um scroll aninhado dentro de outro.
+  scrollProprio?: boolean;
 }
 
 const UNIDADES_VALIDAS = new Set<string>(UNIDADES);
@@ -50,6 +61,8 @@ export default function GridProdutosSection({
   onProdutosAtualizados,
   setErro,
   cotacaoFinalizada = false,
+  podeAdicionarOuColar = true,
+  scrollProprio = true,
 }: Props) {
   const [adicionando, setAdicionando] = useState(false);
   const [modalAberto, setModalAberto] = useState(false);
@@ -371,41 +384,49 @@ export default function GridProdutosSection({
     onPaginationChange: setPaginacao,
   });
 
+  // h-full (Prompt 25, feedback 2026-08-16): quando scrollProprio (uso histórico —
+  // a página reserva o resto da viewport pra este Card), ele preenche até o limite
+  // dela em vez de encolher pro tamanho do conteúdo, e só a tabela rola
+  // internamente. Dentro do AprovacaoModal (scrollProprio=false), este conteúdo já
+  // vive dentro de um corpo de modal com seu próprio fundo/borda — um `Card` aqui
+  // dentro criaria uma moldura redundante (mesmo bg-card do modal, achado do
+  // frontend-ux-designer) — usa um wrapper neutro, sem borda/padding próprios.
+  const Wrapper = scrollProprio ? Card : "div";
+  const wrapperClasse = scrollProprio ? "flex h-full flex-col" : "flex flex-col";
+
   return (
-    // h-full (Prompt 25, feedback 2026-08-16): o passo "Lista de produtos" tem uma
-    // altura disponível fixa (page.tsx reserva o resto da viewport pro passo ativo) —
-    // este Card preenche até o limite dela em vez de encolher pro tamanho do
-    // conteúdo e deixar espaço em branco na página abaixo. Só a tabela (ver mais
-    // abaixo) rola internamente quando o conteúdo excede esse limite — o Card em si
-    // nunca cresce além da altura disponível.
-    <Card className="flex h-full flex-col">
+    <Wrapper className={wrapperClasse}>
       <div className="flex items-center justify-between gap-3">
         <div>
           <h2 className="font-semibold text-t1">Lista de produtos</h2>
           <p className="mt-1 text-sm text-t2">
-            Adicione, edite ou exclua produtos individualmente — ou cole uma lista do WhatsApp de uma vez.
+            {podeAdicionarOuColar
+              ? "Adicione, edite ou exclua produtos individualmente — ou cole uma lista do WhatsApp de uma vez."
+              : "Corrija quantidade, unidade ou produto identificado antes de seguir para aprovação."}
           </p>
         </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setModalAberto(true)}
-            disabled={cotacaoFinalizada}
-            title={cotacaoFinalizada ? "Cotação finalizada não aceita novos itens." : undefined}
-            className="rounded-md border border-bdr px-3 py-2 text-sm font-medium hover:bg-hov disabled:opacity-50"
-          >
-            Colar do WhatsApp
-          </button>
-          <button
-            type="button"
-            onClick={() => setAdicionando(true)}
-            disabled={adicionando || cotacaoFinalizada}
-            title={cotacaoFinalizada ? "Cotação finalizada não aceita novos itens." : undefined}
-            className="rounded-md bg-prx px-3 py-2 text-sm font-medium text-white hover:bg-prx-l disabled:opacity-50"
-          >
-            + Adicionar Produto
-          </button>
-        </div>
+        {podeAdicionarOuColar && (
+          <div className="flex shrink-0 items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setModalAberto(true)}
+              disabled={cotacaoFinalizada}
+              title={cotacaoFinalizada ? "Cotação finalizada não aceita novos itens." : undefined}
+              className="rounded-md border border-bdr px-3 py-2 text-sm font-medium hover:bg-hov disabled:opacity-50"
+            >
+              Colar do WhatsApp
+            </button>
+            <button
+              type="button"
+              onClick={() => setAdicionando(true)}
+              disabled={adicionando || cotacaoFinalizada}
+              title={cotacaoFinalizada ? "Cotação finalizada não aceita novos itens." : undefined}
+              className="rounded-md bg-prx px-3 py-2 text-sm font-medium text-white hover:bg-prx-l disabled:opacity-50"
+            >
+              + Adicionar Produto
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Lista nunca teve item: nem o grid carrega — só a mensagem de onboarding. O
@@ -415,7 +436,9 @@ export default function GridProdutosSection({
           porque a linha de cadastro (NovaLinhaGridProdutos) é renderizada dentro
           dele via extraRows — achado do usuário: "no primeiro add o grid carrega". */}
       {itens.length === 0 && !adicionando ? (
-        <div className="mt-4 flex flex-1 flex-col items-center justify-center gap-3 rounded-md border border-dashed border-bdr py-16 text-center text-t2">
+        <div
+          className={`mt-4 flex flex-col items-center justify-center gap-3 rounded-md border border-dashed border-bdr py-16 text-center text-t2 ${scrollProprio ? "flex-1" : ""}`}
+        >
           <svg
             width="40"
             height="40"
@@ -433,7 +456,9 @@ export default function GridProdutosSection({
             <path d="M9 16h6" />
           </svg>
           <p className="text-sm">
-            Nenhum produto adicionado ainda. Use &quot;+ Adicionar Produto&quot; ou &quot;Colar do WhatsApp&quot;.
+            {podeAdicionarOuColar
+              ? 'Nenhum produto adicionado ainda. Use "+ Adicionar Produto" ou "Colar do WhatsApp".'
+              : "Nenhum produto identificado ainda nesta lista."}
           </p>
         </div>
       ) : (
@@ -455,7 +480,7 @@ export default function GridProdutosSection({
               se o conteúdo (linhas da tabela) ultrapassar esse limite, sem nunca
               crescer além dele nem duplicar o scroll da página (achado do usuário,
               2026-08-16). */}
-          <div className="mt-4 min-h-0 flex-1 overflow-y-auto rounded-md border border-bdr">
+          <div className={`mt-4 rounded-md border border-bdr ${scrollProprio ? "min-h-0 flex-1 overflow-y-auto" : ""}`}>
             <DataGrid
               table={table}
               tableClassName="w-full text-sm"
@@ -503,12 +528,14 @@ export default function GridProdutosSection({
         cotacaoId={cotacaoId}
         onClose={() => setModalAberto(false)}
         onImportado={recarregar}
+        semBackdrop={!scrollProprio}
       />
 
       <Modal
         open={itemParaExcluir !== null}
         onClose={() => setItemParaExcluir(null)}
         title="Excluir item"
+        semBackdrop={!scrollProprio}
         footer={
           <>
             <button
@@ -534,6 +561,6 @@ export default function GridProdutosSection({
           Essa ação não pode ser desfeita.
         </p>
       </Modal>
-    </Card>
+    </Wrapper>
   );
 }

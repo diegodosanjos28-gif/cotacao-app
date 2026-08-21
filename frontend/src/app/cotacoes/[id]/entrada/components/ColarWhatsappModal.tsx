@@ -12,6 +12,10 @@ interface Props {
   cotacaoId: string;
   onClose: () => void;
   onImportado: () => void;
+  // true quando hospedado dentro do AprovacaoModal (scrollProprio=false do
+  // GridProdutosSection) — omite o próprio bg-black/50 pra não somar dois overlays
+  // escurecidos por cima do modal pai já aberto. Ver Modal.tsx (mesmo conceito).
+  semBackdrop?: boolean;
 }
 
 const PLACEHOLDER = "15un sazon legumes 60g\n2cx bombom nestle";
@@ -22,7 +26,7 @@ const PLACEHOLDER = "15un sazon legumes 60g\n2cx bombom nestle";
 // estrutura de diálogo bespoke do ConferenciaModal.tsx (header fixo / corpo com
 // scroll / footer fixo) — o Modal genérico (components/Modal.tsx) é estreito demais
 // pra um textarea confortável.
-export default function ColarWhatsappModal({ open, cotacaoId, onClose, onImportado }: Props) {
+export default function ColarWhatsappModal({ open, cotacaoId, onClose, onImportado, semBackdrop }: Props) {
   const [texto, setTexto] = useState("");
   const [importando, setImportando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
@@ -60,7 +64,10 @@ export default function ColarWhatsappModal({ open, cotacaoId, onClose, onImporta
   const duplicados = resultado?.filter((i) => i.duplicado).length ?? 0;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={fechar}>
+    <div
+      className={`fixed inset-0 flex items-center justify-center p-4 ${semBackdrop ? "z-[60]" : "z-50 bg-black/50"}`}
+      onClick={fechar}
+    >
       <div
         role="dialog"
         aria-modal="true"
