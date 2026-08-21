@@ -110,3 +110,48 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
 }
+
+/*
+ * Landing "Entrada de Dados" (/entrada) — card "Cotação atual" pulsando enquanto
+ * aguarda aprovação. Nomes prefixados (não "pulse"/"blink" genéricos) pra não colidir
+ * com nenhuma animação futura de outra tela.
+ */
+@keyframes entrada-pulse {
+  0%,
+  100% {
+    background: #ffffff;
+    border-color: rgba(245, 158, 11, 0.3);
+    box-shadow:
+      0 0 0 0 rgba(245, 158, 11, 0),
+      0 10px 30px rgba(37, 34, 32, 0.08);
+  }
+  50% {
+    background: linear-gradient(180deg, #fffbeb, #ffffff);
+    border-color: rgba(245, 158, 11, 0.65);
+    box-shadow:
+      0 0 0 6px rgba(245, 158, 11, 0.1),
+      0 14px 34px rgba(245, 158, 11, 0.18);
+  }
+}
+
+@keyframes entrada-ring {
+  0% {
+    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.45);
+  }
+  70% {
+    box-shadow: 0 0 0 9px rgba(245, 158, 11, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0);
+  }
+}
+
+@keyframes entrada-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.25;
+  }
+}

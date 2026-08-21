@@ -553,3 +553,63 @@ export interface UsuarioTelefoneRequest {
   numeroWhatsapp: string;
   nomeContato?: string | null;
 }
+
+// ── Landing "Entrada de Dados" (/entrada) — ver CotacaoAtualResponse/
+// CotacaoAnteriorCursorResponse/FornecedorHistoricoResponse no backend (Fase A do
+// refactor, 2026-08-20).
+
+// Um fornecedor dentro do card "Cotação atual" (avatar strip + Hall modo ativa).
+export interface FornecedorRespostaResumo {
+  fornecedorId: string;
+  nome: string;
+  status: CotacaoFornecedorStatus;
+  // Aproximação: atualizadoEm de CotacaoFornecedor quando o status já saiu de
+  // PENDENTE — não existe coluna dedicada de "respondido em" no schema.
+  respondeuEm: string | null;
+  itensCotados: number;
+}
+
+// Card "Cotação atual" da landing — a cotação RASCUNHO/EM_ANDAMENTO mais recente do
+// tenant (tenant-wide, não filtrada por usuário criador). GET /cotacoes/atual, 204
+// quando não há nenhuma.
+export interface CotacaoAtualResponse {
+  id: string;
+  titulo: string;
+  canalOrigem: CanalOrigem;
+  ultimaAtividadeEm: string;
+  criadoEm: string;
+  itensListaBase: number;
+  itensCotados: number;
+  fornecedores: FornecedorRespostaResumo[];
+}
+
+// Um mini card do carrossel "Cotações anteriores" — só cotações FINALIZADA.
+export interface CotacaoAnteriorCursorResponse {
+  id: string;
+  finalizadaEm: string;
+  itensListaBase: number;
+  itensCotados: number;
+  fornecedoresCount: number;
+}
+
+export interface CotacaoAnteriorCursorPage {
+  items: CotacaoAnteriorCursorResponse[];
+  nextCursor: string | null;
+  hasMore: boolean;
+  totalElements: number;
+}
+
+// Selo de confiabilidade do Hall dos Fornecedores (modo histórico) — thresholds
+// portados do rel() do mockup: <60min AGIL, <180min REGULAR, senão ATRASA.
+export type SeloConfiabilidade = "AGIL" | "REGULAR" | "ATRASA";
+
+// Card do Hall dos Fornecedores em modo histórico (sem cotação em andamento) —
+// médias consolidadas de todas as cotações FINALIZADA em que o fornecedor participou.
+export interface FornecedorHistoricoResponse {
+  fornecedorId: string;
+  nome: string;
+  cotacoesParticipadas: number;
+  coberturaMediaPct: number;
+  tempoRespostaMedioMinutos: number;
+  selo: SeloConfiabilidade;
+}

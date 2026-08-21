@@ -5,12 +5,15 @@ import {
   ConcentracaoFornecedoresResponse,
   ConfirmarRespostaRequest,
   Cotacao,
+  CotacaoAnteriorCursorPage,
+  CotacaoAtualResponse,
   CotacaoFinalizadaCursorPage,
   CotacaoFornecedorResponse,
   CotacaoStatus,
   EconomiaResumoResponse,
   EditarItemCotacaoRequest,
   Fornecedor,
+  FornecedorHistoricoResponse,
   FornecedorRequest,
   HistoricoPrecoPageResponse,
   ImportarTextoItemResponse,
@@ -160,6 +163,20 @@ export function selecionarTenant(tenantId: string | null): Promise<TokenResponse
 }
 
 // ── Cotações ──────────────────────────────────────────────────────────────
+
+// Card "Cotação atual" da landing (/entrada) — tenant-wide, 204 quando não há
+// nenhuma cotação RASCUNHO/EM_ANDAMENTO (request<T> já converte 204 em undefined).
+export function buscarCotacaoAtual(): Promise<CotacaoAtualResponse | undefined> {
+  return request<CotacaoAtualResponse | undefined>("/cotacoes/atual");
+}
+
+// Carrossel "Cotações anteriores" da landing — paginação por cursor/keyset, só
+// FINALIZADA, sem filtro de período (ao contrário de economiaCarrossel).
+export function cotacoesAnteriores(cursor: string | null, size = 10): Promise<CotacaoAnteriorCursorPage> {
+  const params = new URLSearchParams({ size: String(size) });
+  if (cursor) params.set("cursor", cursor);
+  return request<CotacaoAnteriorCursorPage>(`/cotacoes/anteriores?${params.toString()}`);
+}
 
 interface ListarCotacoesOpcoes {
   page?: number;
@@ -418,6 +435,12 @@ export function restaurarCenarioMapa(cotacaoId: string): Promise<void> {
 
 export function listarFornecedores(): Promise<Fornecedor[]> {
   return request<Fornecedor[]>("/fornecedores");
+}
+
+// Hall dos Fornecedores em modo histórico (landing /entrada, sem cotação em
+// andamento) — médias consolidadas de todas as cotações FINALIZADA já participadas.
+export function fornecedoresHistorico(): Promise<FornecedorHistoricoResponse[]> {
+  return request<FornecedorHistoricoResponse[]>("/fornecedores/historico");
 }
 
 export function criarFornecedor(dados: FornecedorRequest): Promise<Fornecedor> {

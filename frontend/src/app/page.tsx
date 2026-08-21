@@ -12,6 +12,7 @@ import StatCard from "@/components/StatCard";
 import StatusBadge from "@/components/StatusBadge";
 import { CanalIcon } from "@/components/icons/CanalIcons";
 import { comparativoLote, economiaResumo, listarCotacoes } from "@/lib/api";
+import { canalLabel } from "@/lib/canalLabel";
 import { itensSemCotacao, totalEconomia } from "@/lib/comparativo";
 import { formatarData, formatarMoeda, formatarPercentual } from "@/lib/format";
 import { useAsync } from "@/hooks/useAsync";
@@ -144,7 +145,7 @@ function DashboardContent() {
             <>
               <span className="inline-flex items-center gap-1.5">
                 <CanalIcon canal={c.canalOrigem} />
-                {c.canalOrigem}
+                {canalLabel(c.canalOrigem)}
               </span>
               {precisaAjuste && (
                 <div className="mt-1">

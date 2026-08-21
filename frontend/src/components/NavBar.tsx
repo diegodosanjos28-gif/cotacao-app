@@ -90,8 +90,11 @@ function IconTelefone() {
   );
 }
 
+// "Entrada de Dados" não entra neste array — a partir do refactor da landing
+// (/entrada), o tab aponta sempre para a rota tenant-wide (ver render abaixo), nunca
+// mais para /cotacoes/{id}/entrada nem para o modal de criar cotação. Os 3 tabs
+// abaixo mantêm o comportamento anterior (branching cotacaoId-ou-modal).
 const ABAS = [
-  { segmento: "entrada", label: "Entrada de Dados", Icon: IconEntrada },
   { segmento: "comparativo", label: "Comparativo", Icon: IconComparativo },
   { segmento: "mapa", label: "Mapa de Compra", Icon: IconMapa },
   { segmento: "alertas", label: "Alertas", Icon: IconAlertas },
@@ -175,6 +178,10 @@ export default function NavBar() {
           <Link href="/" className={tabClass(pathname === "/")}>
             <IconDashboard />
             Visão Geral
+          </Link>
+          <Link href="/entrada" className={tabClass(pathname === "/entrada" || segmentoAtivo === "entrada")}>
+            <IconEntrada />
+            Entrada de Dados
           </Link>
           {ABAS.map(({ segmento, label, Icon }) => {
             const ativo = segmento === segmentoAtivo;
