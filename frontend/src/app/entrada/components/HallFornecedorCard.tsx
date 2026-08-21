@@ -31,6 +31,7 @@ export default function HallFornecedorCard(props: Props) {
   if (isAtiva) {
     const { fornecedor, itensListaBase } = props;
     const respondeu = fornecedor.status !== "PENDENTE";
+    const confirmado = fornecedor.status === "CONFIRMADO";
     const pct = itensListaBase > 0 && respondeu ? Math.min(100, (fornecedor.itensCotados / itensListaBase) * 100) : 0;
 
     return (
@@ -58,11 +59,18 @@ export default function HallFornecedorCard(props: Props) {
           </div>
           <span
             className={`ml-auto inline-flex shrink-0 items-center gap-2 self-start whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-medium ${
-              respondeu ? "border border-prx/28 bg-prx/[.12] text-prx-l" : "border border-bdr bg-surf text-t3"
+              confirmado
+                ? "border border-ok/28 bg-ok-d text-ok"
+                : respondeu
+                  ? "border border-prx/28 bg-prx/[.12] text-prx-l"
+                  : "border border-bdr bg-surf text-t3"
             }`}
           >
-            <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${respondeu ? "bg-prx" : "bg-bdr-m"}`} style={respondeu ? { animation: "entrada-blink 1.4s infinite" } : undefined} />
-            {respondeu ? "Aguardando sua aprovação" : "Aguardando resposta"}
+            <span
+              className={`h-1.5 w-1.5 shrink-0 rounded-full ${confirmado ? "bg-ok" : respondeu ? "bg-prx" : "bg-bdr-m"}`}
+              style={respondeu && !confirmado ? { animation: "entrada-blink 1.4s infinite" } : undefined}
+            />
+            {confirmado ? "Confirmado" : respondeu ? "Aguardando sua aprovação" : "Aguardando resposta"}
           </span>
         </div>
         <div className="flex flex-col justify-center gap-2">

@@ -65,6 +65,12 @@ function EntradaLandingContent() {
     } catch (err) {
       setErro(getErrorMessage(err, "Não foi possível atualizar os fornecedores da cotação."));
     }
+    // A Hall (fundo da landing, visível atrás do modal através do backdrop) lê
+    // cotacaoAtual.fornecedores — sem isto ela só refletia o status novo (ex.:
+    // CONFIRMADO após "Confirmar e Processar") ao fechar o modal, deixando a
+    // pill/pulso "Aguardando sua aprovação" visivelmente desatualizada enquanto o
+    // operador continuava trabalhando dentro do modal.
+    carregarCotacaoAtual();
   }
 
   function onFornecedorSalvo(f: Fornecedor) {

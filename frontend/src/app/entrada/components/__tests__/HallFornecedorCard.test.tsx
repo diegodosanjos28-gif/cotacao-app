@@ -54,6 +54,20 @@ describe("HallFornecedorCard — modo ativa", () => {
     expect(screen.getByText("/ 20 itens")).toBeTruthy();
     expect(screen.getByText("Respondeu há 5 min", { exact: false })).toBeTruthy();
   });
+
+  it("fornecedor confirmado mostra 'Confirmado', não 'Aguardando sua aprovação'", () => {
+    const respondeuEm = new Date(Date.now() - 5 * 60_000).toISOString();
+    render(
+      <HallFornecedorCard
+        modo="ativa"
+        fornecedor={makeRespostaResumo({ status: "CONFIRMADO", respondeuEm, itensCotados: 20 })}
+        itensListaBase={20}
+      />,
+    );
+
+    expect(screen.getByText("Confirmado")).toBeTruthy();
+    expect(screen.queryByText("Aguardando sua aprovação")).toBeNull();
+  });
 });
 
 describe("HallFornecedorCard — modo histórico", () => {
