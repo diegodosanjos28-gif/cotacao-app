@@ -188,10 +188,15 @@ export default function AprovacaoModal({
       // Mesma caixa (~880px) do estado normal — o mockup só troca o conteúdo de
       // apr-body/esconde header e rodapé, nunca encolhe o modal em si (evita o "salto"
       // de layout de trocar pra uma caixa bem menor no instante do lançamento).
+      // `key` diferente do <Modal> do estado normal (abaixo) força o React a
+      // desmontar/remontar em vez de só atualizar o className do mesmo nó — só assim a
+      // troca de estado (mesmo `open` continua true) garante que a keyframe toque do
+      // zero; um simples className novo em cima do nó já montado não bastava.
       <Modal
+        key="sucesso"
         open={open}
         onClose={onClose}
-        className="flex w-full max-w-[880px] flex-col rounded-[18px] border border-bdr bg-card p-0 shadow-[0_30px_70px_rgba(0,0,0,.4)] animate-[aprovacao-modal-pop_0.2s_ease]"
+        className="flex w-full max-w-[880px] flex-col rounded-[18px] border border-bdr bg-card p-0 shadow-[0_30px_70px_rgba(0,0,0,.4)] animate-[aprovacao-modal-pop_0.50s_ease]"
       >
         <div className="flex flex-col items-center gap-3.5 px-8 py-11 text-center">
           <span className="flex h-[74px] w-[74px] items-center justify-center rounded-full bg-ok-d text-ok">
@@ -211,6 +216,7 @@ export default function AprovacaoModal({
 
   return (
     <Modal
+      key="conteudo"
       open={open}
       onClose={onClose}
       className="flex max-h-[92vh] w-full max-w-[880px] flex-col rounded-[18px] border border-bdr bg-card shadow-[0_30px_70px_rgba(0,0,0,.4)]"

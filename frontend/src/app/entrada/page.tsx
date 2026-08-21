@@ -33,7 +33,7 @@ interface DadosModal {
 // Landing tenant-wide da Entrada de Dados — único ponto de entrada da aba (ver
 // NavBar.tsx). Refactor 2026-08-20 (última leva): o fluxo de aprovação passou a ser
 // centralizado no AprovacaoModal, hospedado AQUI — não existe mais uma rota separada
-// /cotacoes/{id}/entrada; "Revisar e aprovar"/"Detalhes" abrem o modal direto sobre
+// /cotacoes/{id}/entrada; "Revisar e aprovar" abre o modal direto sobre
 // esta tela, que continua visível (card + carrossel + Hall) atrás dele.
 function EntradaLandingContent() {
   const [criandoNova, setCriandoNova] = useState(false);
@@ -141,7 +141,6 @@ function EntradaLandingContent() {
           <CotacaoAtualCard
             cotacaoAtual={cotacaoAtual ?? null}
             onRevisarEAprovar={abrirModal}
-            onDetalhes={abrirModal}
             onCriarCotacao={() => setCriandoNova(true)}
           />
           <CotacoesAnterioresCarrossel />

@@ -1,7 +1,7 @@
 // Landing tenant-wide (/entrada) — refactor 2026-08-20 (última leva): passou a
 // hospedar o AprovacaoModal diretamente (a pedido do usuário: "a tela de fundo do
 // modal deve ser a tela Entrada de Dados Cotação atual"), removendo a antiga rota
-// separada /cotacoes/{id}/entrada. "Revisar e aprovar"/"Detalhes" buscam os dados
+// separada /cotacoes/{id}/entrada. "Revisar e aprovar" busca os dados
 // completos da cotação (itens/produtos/fornecedores) sob demanda e abrem o modal
 // direto sobre esta tela. AprovacaoModal é mockado aqui pra isolar a lógica própria
 // da landing: fetch lazy ao abrir, refetch da cotação atual ao fechar.
@@ -133,18 +133,6 @@ describe("EntradaLandingPage — abrir o AprovacaoModal sob demanda", () => {
     await waitFor(() => expect(screen.getByRole("dialog", { name: "AprovacaoModal (mock)" })).toBeTruthy());
     // A landing (card/carrossel/Hall) continua visível atrás do modal — não navegou.
     expect(screen.getByText("Cotação atual")).toBeTruthy();
-  });
-
-  it("'Detalhes' abre o mesmo modal", async () => {
-    buscarCotacaoAtualMock.mockResolvedValue(makeCotacaoAtual());
-    buscarCotacaoMock.mockResolvedValue(makeCotacaoDetalhe());
-
-    await renderPage();
-    await waitFor(() => expect(screen.getByRole("button", { name: "Detalhes" })).toBeTruthy());
-
-    fireEvent.click(screen.getByRole("button", { name: "Detalhes" }));
-
-    await waitFor(() => expect(screen.getByRole("dialog", { name: "AprovacaoModal (mock)" })).toBeTruthy());
   });
 
   it("fechar o modal refaz a busca da cotação atual (pra refletir mudanças feitas dentro dele)", async () => {

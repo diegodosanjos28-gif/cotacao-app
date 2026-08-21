@@ -33,9 +33,7 @@ function makeCotacaoAtual(overrides: Partial<CotacaoAtualResponse> = {}): Cotaca
 
 describe("CotacaoAtualCard — estado vazio (cotacaoAtual === null)", () => {
   it("mostra o texto de estado vazio e o botão 'Criar cotação pela web'", () => {
-    render(
-      <CotacaoAtualCard cotacaoAtual={null} onRevisarEAprovar={vi.fn()} onDetalhes={vi.fn()} onCriarCotacao={vi.fn()} />,
-    );
+    render(<CotacaoAtualCard cotacaoAtual={null} onRevisarEAprovar={vi.fn()} onCriarCotacao={vi.fn()} />);
 
     expect(screen.getByText("Sem cotações no momento")).toBeTruthy();
     expect(screen.getByText("Criar cotação pela web")).toBeTruthy();
@@ -43,14 +41,7 @@ describe("CotacaoAtualCard — estado vazio (cotacaoAtual === null)", () => {
 
   it("clicar em 'Criar cotação pela web' chama onCriarCotacao", () => {
     const onCriarCotacao = vi.fn();
-    render(
-      <CotacaoAtualCard
-        cotacaoAtual={null}
-        onRevisarEAprovar={vi.fn()}
-        onDetalhes={vi.fn()}
-        onCriarCotacao={onCriarCotacao}
-      />,
-    );
+    render(<CotacaoAtualCard cotacaoAtual={null} onRevisarEAprovar={vi.fn()} onCriarCotacao={onCriarCotacao} />);
 
     fireEvent.click(screen.getByText("Criar cotação pela web"));
 
@@ -68,9 +59,7 @@ describe("CotacaoAtualCard — com cotação em andamento", () => {
       ],
     });
 
-    render(
-      <CotacaoAtualCard cotacaoAtual={cotacaoAtual} onRevisarEAprovar={vi.fn()} onDetalhes={vi.fn()} onCriarCotacao={vi.fn()} />,
-    );
+    render(<CotacaoAtualCard cotacaoAtual={cotacaoAtual} onRevisarEAprovar={vi.fn()} onCriarCotacao={vi.fn()} />);
 
     // "2" respondidos de "/ 3" total.
     expect(screen.getByText("2")).toBeTruthy();
@@ -83,9 +72,7 @@ describe("CotacaoAtualCard — com cotação em andamento", () => {
       fornecedores: [makeFornecedor({ fornecedorId: "f-1", status: "PENDENTE" })],
     });
 
-    render(
-      <CotacaoAtualCard cotacaoAtual={cotacaoAtual} onRevisarEAprovar={vi.fn()} onDetalhes={vi.fn()} onCriarCotacao={vi.fn()} />,
-    );
+    render(<CotacaoAtualCard cotacaoAtual={cotacaoAtual} onRevisarEAprovar={vi.fn()} onCriarCotacao={vi.fn()} />);
 
     expect(screen.getByText("0")).toBeTruthy();
     expect(screen.queryByText("responderam esta cotação")).toBeNull();
@@ -94,9 +81,7 @@ describe("CotacaoAtualCard — com cotação em andamento", () => {
   it("renderiza os pills de itensListaBase e itensCotados", () => {
     const cotacaoAtual = makeCotacaoAtual({ itensListaBase: 30, itensCotados: 22, fornecedores: [] });
 
-    render(
-      <CotacaoAtualCard cotacaoAtual={cotacaoAtual} onRevisarEAprovar={vi.fn()} onDetalhes={vi.fn()} onCriarCotacao={vi.fn()} />,
-    );
+    render(<CotacaoAtualCard cotacaoAtual={cotacaoAtual} onRevisarEAprovar={vi.fn()} onCriarCotacao={vi.fn()} />);
 
     expect(screen.getByText("30 itens na lista base")).toBeTruthy();
     expect(screen.getByText("22 itens cotados")).toBeTruthy();
@@ -105,12 +90,7 @@ describe("CotacaoAtualCard — com cotação em andamento", () => {
   it("clicar em 'Revisar e aprovar' chama onRevisarEAprovar", () => {
     const onRevisarEAprovar = vi.fn();
     render(
-      <CotacaoAtualCard
-        cotacaoAtual={makeCotacaoAtual()}
-        onRevisarEAprovar={onRevisarEAprovar}
-        onDetalhes={vi.fn()}
-        onCriarCotacao={vi.fn()}
-      />,
+      <CotacaoAtualCard cotacaoAtual={makeCotacaoAtual()} onRevisarEAprovar={onRevisarEAprovar} onCriarCotacao={vi.fn()} />,
     );
 
     fireEvent.click(screen.getByText("Revisar e aprovar"));
@@ -118,42 +98,14 @@ describe("CotacaoAtualCard — com cotação em andamento", () => {
     expect(onRevisarEAprovar).toHaveBeenCalledTimes(1);
   });
 
-  it("clicar em 'Detalhes' chama onDetalhes, sem disparar onRevisarEAprovar", () => {
-    const onDetalhes = vi.fn();
-    const onRevisarEAprovar = vi.fn();
-    render(
-      <CotacaoAtualCard
-        cotacaoAtual={makeCotacaoAtual()}
-        onRevisarEAprovar={onRevisarEAprovar}
-        onDetalhes={onDetalhes}
-        onCriarCotacao={vi.fn()}
-      />,
-    );
-
-    fireEvent.click(screen.getByText("Detalhes"));
-
-    expect(onDetalhes).toHaveBeenCalledTimes(1);
-    expect(onRevisarEAprovar).not.toHaveBeenCalled();
-  });
-
   it("mostra o canal de origem no título (WhatsApp AI vs Web)", () => {
     const { rerender } = render(
-      <CotacaoAtualCard
-        cotacaoAtual={makeCotacaoAtual({ canalOrigem: "WHATSAPP" })}
-        onRevisarEAprovar={vi.fn()}
-        onDetalhes={vi.fn()}
-        onCriarCotacao={vi.fn()}
-      />,
+      <CotacaoAtualCard cotacaoAtual={makeCotacaoAtual({ canalOrigem: "WHATSAPP" })} onRevisarEAprovar={vi.fn()} onCriarCotacao={vi.fn()} />,
     );
     expect(screen.getByText("Nova cotação · WhatsApp AI", { exact: false })).toBeTruthy();
 
     rerender(
-      <CotacaoAtualCard
-        cotacaoAtual={makeCotacaoAtual({ canalOrigem: "WEB" })}
-        onRevisarEAprovar={vi.fn()}
-        onDetalhes={vi.fn()}
-        onCriarCotacao={vi.fn()}
-      />,
+      <CotacaoAtualCard cotacaoAtual={makeCotacaoAtual({ canalOrigem: "WEB" })} onRevisarEAprovar={vi.fn()} onCriarCotacao={vi.fn()} />,
     );
     expect(screen.getByText("Nova cotação · Web", { exact: false })).toBeTruthy();
   });

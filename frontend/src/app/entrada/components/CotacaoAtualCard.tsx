@@ -20,17 +20,15 @@ const MAX_AVATARES = 5;
 export default function CotacaoAtualCard({
   cotacaoAtual,
   onRevisarEAprovar,
-  onDetalhes,
   onCriarCotacao,
   carregando = false,
 }: {
   cotacaoAtual: CotacaoAtualResponse | null;
   onRevisarEAprovar: () => void;
-  onDetalhes: () => void;
   onCriarCotacao: () => void;
   // true enquanto a landing busca os dados completos da cotação (itens/produtos/
   // fornecedores) pra abrir o AprovacaoModal — evita disparar a busca 2x com um
-  // duplo-clique em "Revisar e aprovar"/"Detalhes".
+  // duplo-clique em "Revisar e aprovar".
   carregando?: boolean;
 }) {
   if (!cotacaoAtual) {
@@ -146,14 +144,6 @@ export default function CotacaoAtualCard({
               Revisar e aprovar
             </>
           )}
-        </button>
-        <button
-          type="button"
-          onClick={onDetalhes}
-          disabled={carregando}
-          className="rounded-md border-[1.5px] border-bdr px-5 py-3.5 text-sm font-semibold text-t2 hover:border-bdr-m hover:text-t1 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          Detalhes
         </button>
       </div>
     </div>
