@@ -1,13 +1,6 @@
 "use client";
 
-import { Dispatch, SetStateAction, useState } from "react";
-import { useRouter } from "next/navigation";
-import Modal from "@/components/Modal";
 import StatusBadge from "@/components/StatusBadge";
-import NovaCotacaoForm from "@/components/NovaCotacaoForm";
-import { setCotacaoAtivaId } from "@/lib/cotacaoAtiva";
-import { finalizarCotacao } from "@/lib/api";
-import { getErrorMessage } from "@/lib/errors";
 import { Cotacao } from "@/lib/types";
 import { PassoEntrada } from "./EntradaStepper";
 
@@ -23,18 +16,19 @@ function ClockIcon() {
 interface Props {
   cotacao: Cotacao;
   numFornecedores: number;
-  onCotacaoAtualizada: (cotacao: Cotacao) => void;
-  // Rodapé passa a ter comportamento dinâmico por passo da timeline (Prompt 25 —
-  // feedback de 2026-08-16): no passo 1 (Lista de produtos) é só o botão de avançar
-  // pro próximo passo; nos passos 2/3 (Fornecedores/Conferência) são os botões de
-  // processamento que já existiam.
+  // Rodapé tem comportamento dinâmico por passo da timeline (Prompt 25): no passo 1
+  // (Lista de produtos) é só o botão de avançar pro próximo passo; no passo 2
+  // (Fornecedores) são os botões de processamento + o gatilho do modal de aprovação.
   passoAtivo: PassoEntrada;
   podeAvancarPasso1: boolean;
   onAvancarPasso: () => void;
   onProcessar: () => void;
   processando: boolean;
   podeProcessar: boolean;
-  setErro: Dispatch<SetStateAction<string | null>>;
+  // Abre o AprovacaoModal (Fase C) — finalizar a cotação vive inteiramente dentro
+  // dele agora ("Lançar para Comparativo e Mapa de Compra"), este botão só navega até
+  // lá. Visível sempre que já existe pelo menos 1 fornecedor na cotação.
+  onAbrirAprovacao: () => void;
 }
 
 // Botões e barra de status do fim da tela de Entrada de Dados, espelhando o rodapé
@@ -42,53 +36,21 @@ interface Props {
 // foi removido (achado do usuário, 2026-08-16): ficava sempre desabilitado, sem
 // endpoint pra isso e sem uso real. "Processar Resposta Cotação" (renomeado de
 // "Processar Cotação") envia o texto colado no painel do fornecedor ativo para o
-// parser/matching.
+// parser/matching. "+ Nova Cotação" foi removido (refactor da Entrada de Dados,
+// 2026-08-20) — criar cotação passou a ser só pelo CTA do card vazio da landing
+// (/entrada), único ponto de criação do app.
 export default function EntradaFooter({
   cotacao,
   numFornecedores,
-  onCotacaoAtualizada,
   passoAtivo,
   podeAvancarPasso1,
   onAvancarPasso,
   onProcessar,
   processando,
   podeProcessar,
-  setErro,
+  onAbrirAprovacao,
 }: Props) {
-  const router = useRouter();
-  const [finalizando, setFinalizando] = useState(false);
-  const [criandoNova, setCriandoNova] = useState(false);
-
   const finalizada = cotacao.status === "FINALIZADA";
-
-  async function onFinalizar() {
-    if (
-      !window.confirm(
-        "Finalizar esta cotação? Ela será registrada no histórico de economia e não poderá receber novos itens.",
-      )
-    ) {
-      return;
-    }
-    setFinalizando(true);
-    setErro(null);
-    try {
-      // Atalho de finalização direto da Entrada, sem passar pela seleção de cenário
-      // do Mapa de Compra — grava Menor Preço, mesmo cenário que já era exibido por
-      // padrão aqui antes de cenarioSelecionado passar a ser persistido de verdade.
-      const atualizada = await finalizarCotacao(cotacao.id, "MENOR_PRECO");
-      onCotacaoAtualizada(atualizada);
-    } catch (err) {
-      setErro(getErrorMessage(err, "Não foi possível finalizar a cotação."));
-    } finally {
-      setFinalizando(false);
-    }
-  }
-
-  function onNovaCotacaoCriada(novaId: string) {
-    setCotacaoAtivaId(novaId);
-    setCriandoNova(false);
-    router.push(`/cotacoes/${novaId}/entrada`);
-  }
 
   const iniciadaEm = new Date(cotacao.criadoEm).toLocaleDateString("pt-BR");
   const dataReferencia = cotacao.ultimaAtividadeEm ?? cotacao.atualizadoEm;
@@ -129,7 +91,7 @@ export default function EntradaFooter({
               ) : (
                 <p className="text-xs text-t3">Adicione ao menos um produto à lista para avançar.</p>
               )
-            ) : passoAtivo === 2 ? (
+            ) : (
               <>
                 <button
                   type="button"
@@ -141,24 +103,13 @@ export default function EntradaFooter({
                 </button>
                 <button
                   type="button"
-                  onClick={onFinalizar}
-                  disabled={finalizando}
+                  onClick={onAbrirAprovacao}
+                  disabled={numFornecedores === 0}
                   className="rounded-md border border-prx px-4 py-2 text-sm font-medium text-prx hover:bg-prx/10 disabled:opacity-50"
                 >
-                  {finalizando ? "Finalizando..." : "✓ Finalizar Cotação"}
+                  Revisar e aprovar
                 </button>
               </>
-            ) : (
-              // Passo 3 (Conferência, Prompt 26): não tem mais textarea de colar
-              // resposta — o botão de processar pertence só ao passo 2.
-              <button
-                type="button"
-                onClick={onFinalizar}
-                disabled={finalizando}
-                className="rounded-md border border-prx px-4 py-2 text-sm font-medium text-prx hover:bg-prx/10 disabled:opacity-50"
-              >
-                {finalizando ? "Finalizando..." : "✓ Finalizar Cotação"}
-              </button>
             )}
           </div>
           <div className="flex flex-wrap items-center gap-3 rounded-lg border border-prx/30 bg-prx/5 px-4 py-3 text-sm text-t2">
@@ -175,23 +126,6 @@ export default function EntradaFooter({
           </div>
         </>
       )}
-
-      {/* Antes era sticky ao rodapé da viewport — agora a página inteira não rola
-          (Prompt 25, feedback 2026-08-16: o rodapé já fica sempre visível dentro da
-          altura fixa da tela), então isso basta como divisor no fluxo normal. */}
-      <div className="flex justify-end border-t border-prx pt-3">
-        <button
-          type="button"
-          onClick={() => setCriandoNova(true)}
-          className="inline-flex items-center gap-1.5 rounded-md bg-inf px-4 py-2 text-sm font-medium text-white hover:bg-blue-600"
-        >
-          + Nova Cotação
-        </button>
-      </div>
-
-      <Modal open={criandoNova} onClose={() => setCriandoNova(false)} title="Nova cotação">
-        <NovaCotacaoForm onCriada={onNovaCotacaoCriada} autoFocus />
-      </Modal>
     </div>
   );
 }

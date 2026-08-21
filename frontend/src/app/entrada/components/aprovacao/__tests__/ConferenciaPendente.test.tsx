@@ -13,7 +13,7 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { useState } from "react";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import ConferenciaPendente from "@/app/cotacoes/[id]/entrada/components/ConferenciaPendente";
+import ConferenciaPendente from "@/app/entrada/components/aprovacao/ConferenciaPendente";
 import type { CandidatoResposta, ConferenciaPatch, EstadoResolucao, ItemConferenciaResponse, PreviewRespostaResponse } from "@/lib/types";
 
 const { confirmarRespostaMock } = vi.hoisted(() => ({ confirmarRespostaMock: vi.fn() }));

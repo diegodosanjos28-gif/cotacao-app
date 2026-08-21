@@ -1,6 +1,7 @@
 "use client";
 
 import { SetStateAction, use, useEffect, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import AuthGuard from "@/components/AuthGuard";
 import NavBar from "@/components/NavBar";
 import StatusBadge from "@/components/StatusBadge";
@@ -8,8 +9,6 @@ import {
   buscarCotacao,
   buscarLista,
   buscarProdutosPorIds,
-  buscarRespostaPersistida,
-  cancelarRespostaFornecedor,
   concluirAjusteLista,
   enviarResposta,
   listarFornecedores,
@@ -17,46 +16,26 @@ import {
 } from "@/lib/api";
 import { idsProdutosDosItens } from "@/lib/itensLista";
 import { getErrorMessage } from "@/lib/errors";
-import {
-  Cotacao,
-  CotacaoFornecedorResponse,
-  EstadoResolucao,
-  Fornecedor,
-  ItemListaResponse,
-  PreviewRespostaResponse,
-  Produto,
-  ResolucaoItemRequest,
-} from "@/lib/types";
+import { Cotacao, CotacaoFornecedorResponse, Fornecedor, ItemListaResponse, Produto } from "@/lib/types";
 import GridProdutosSection from "./components/GridProdutosSection";
 import FornecedoresCotacoesSection from "./components/FornecedoresCotacoesSection";
-import ConferenciaPanel from "./components/ConferenciaPanel";
 import EntradaFooter from "./components/EntradaFooter";
 import EntradaStepper, { PassoEntrada, PassoInfo } from "./components/EntradaStepper";
-
-// Rascunho da Conferência de um fornecedor — vive por cotacaoFornecedorId, não como
-// estado único da página, pra que trocar de fornecedor (ou de passo) não perca nem
-// misture texto colado, preview e resoluções em andamento de outro fornecedor.
-interface RascunhoFornecedor {
-  texto: string;
-  preview: PreviewRespostaResponse | null;
-  resolucoes: Record<string, ResolucaoItemRequest>;
-  spinOffs: Record<string, ResolucaoItemRequest[]>;
-  excluidos: Record<string, Set<string>>;
-}
-
-function rascunhoVazio(): RascunhoFornecedor {
-  return { texto: "", preview: null, resolucoes: {}, spinOffs: {}, excluidos: {} };
-}
+import AprovacaoModal, { SeedRascunho } from "@/app/entrada/components/AprovacaoModal";
 
 // Passo inicial da timeline (Prompt 25) — "retoma de onde parou" em vez de sempre
-// abrir no passo 1, calculado só na 1ª carga da cotação (ver carregar()).
+// abrir no passo 1, calculado só na 1ª carga da cotação (ver carregar()). A partir do
+// refactor de 2026-08-20 (Fase D), PROCESSADO não abre mais um passo 3 próprio — a
+// Conferência virou o AprovacaoModal, alcançado via "Revisar e aprovar"/"?revisar=1".
 function calcularPassoInicial(cfs: CotacaoFornecedorResponse[]): PassoEntrada {
-  if (cfs.some((cf) => cf.status === "PROCESSADO")) return 3;
-  if (cfs.length > 0) return 2;
-  return 1;
+  return cfs.length > 0 ? 2 : 1;
 }
 
 function EntradaContent({ cotacaoId }: { cotacaoId: string }) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
   const [cotacao, setCotacao] = useState<Cotacao | null>(null);
   const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
   const [cotacaoFornecedores, setCotacaoFornecedores] = useState<CotacaoFornecedorResponse[]>([]);
@@ -66,31 +45,37 @@ function EntradaContent({ cotacaoId }: { cotacaoId: string }) {
   const [fornecedorAtivo, setFornecedorAtivo] = useState<CotacaoFornecedorResponse | null>(null);
   const [enviando, setEnviando] = useState(false);
   const [concluindoAjuste, setConcluindoAjuste] = useState(false);
-  const [rascunhos, setRascunhos] = useState<Record<string, RascunhoFornecedor>>({});
   const [passoAtivo, setPassoAtivo] = useState<PassoEntrada>(1);
 
-  const rascunhoAtivo = fornecedorAtivo ? (rascunhos[fornecedorAtivo.id] ?? rascunhoVazio()) : rascunhoVazio();
-  const texto = rascunhoAtivo.texto;
-  const preview = rascunhoAtivo.preview;
-
-  function atualizarRascunho(id: string, patch: Partial<RascunhoFornecedor>) {
-    setRascunhos((prev) => ({ ...prev, [id]: { ...(prev[id] ?? rascunhoVazio()), ...patch } }));
-  }
+  // Só o texto sendo digitado/colado por fornecedor no Passo 2 (textarea) — preview,
+  // resoluções e demais estado da Conferência migraram pro AprovacaoModal (Fase C/D
+  // do refactor, 2026-08-20), que agora é quem "possui" esse rascunho.
+  const [textosResposta, setTextosResposta] = useState<Record<string, string>>({});
+  const texto = fornecedorAtivo ? (textosResposta[fornecedorAtivo.id] ?? "") : "";
 
   function setTexto(valor: SetStateAction<string>) {
     if (!fornecedorAtivo) return;
-    const novoTexto = typeof valor === "function" ? valor(rascunhoAtivo.texto) : valor;
-    atualizarRascunho(fornecedorAtivo.id, { texto: novoTexto });
+    setTextosResposta((prev) => {
+      const atual = prev[fornecedorAtivo.id] ?? "";
+      const novo = typeof valor === "function" ? (valor as (prev: string) => string)(atual) : valor;
+      return { ...prev, [fornecedorAtivo.id]: novo };
+    });
   }
 
-  const estadoResolucao: EstadoResolucao = {
-    resolucoes: rascunhoAtivo.resolucoes,
-    spinOffs: rascunhoAtivo.spinOffs,
-    excluidos: rascunhoAtivo.excluidos,
-  };
+  const [modalAberto, setModalAberto] = useState(false);
+  const [modalAbaInicial, setModalAbaInicial] = useState<1 | 2>(1);
+  const [modalFornecedorFoco, setModalFornecedorFoco] = useState<string | null>(null);
+  const [modalSeedRascunho, setModalSeedRascunho] = useState<SeedRascunho | null>(null);
 
-  function onEstadoResolucaoChange(patch: Partial<RascunhoFornecedor>) {
-    if (fornecedorAtivo) atualizarRascunho(fornecedorAtivo.id, patch);
+  function abrirModal(opts: { aba: 1 | 2; fornecedorFocoId?: string | null; seed?: SeedRascunho | null }) {
+    setModalAbaInicial(opts.aba);
+    setModalFornecedorFoco(opts.fornecedorFocoId ?? null);
+    setModalSeedRascunho(opts.seed ?? null);
+    setModalAberto(true);
+  }
+
+  function fecharModal() {
+    setModalAberto(false);
   }
 
   async function carregar() {
@@ -99,7 +84,7 @@ function EntradaContent({ cotacaoId }: { cotacaoId: string }) {
       // Cotação WhatsApp com lista ainda não revisada (Prompt 12): antes redirecionava
       // pra uma rota separada (/ajuste-lista, removida); agora o mesmo grid unificado
       // atende os dois casos nesta página — só o restante da tela (fornecedores/
-      // conferência) fica escondido até "Concluir ajuste" (ver precisaAjuste abaixo).
+      // aprovação) fica escondido até "Concluir ajuste" (ver precisaAjuste abaixo).
       const [f, cf, itens] = await Promise.all([
         listarFornecedores(),
         listarFornecedoresDaCotacao(cotacaoId),
@@ -138,13 +123,16 @@ function EntradaContent({ cotacaoId }: { cotacaoId: string }) {
     setErro(null);
     try {
       const resultado = await enviarResposta(cotacaoId, fornecedorAtivo.fornecedorId, texto);
-      atualizarRascunho(fornecedorAtivo.id, { preview: resultado });
       await recarregarFornecedoresDaCotacao();
-      // Processar já entrega pro passo 3 (achado do usuário, 2026-08-16) — antes o
-      // operador precisava clicar num botão "Conferir resposta do fornecedor" à parte
-      // dentro do passo 2, que foi removido; agora a Conferência do que acabou de ser
-      // processado já aparece na tela ao concluir o processamento.
-      setPassoAtivo(3);
+      // Processar já entrega pra conferência (achado do usuário, 2026-08-16) — antes
+      // isso significava ir pro passo 3; agora abre o AprovacaoModal direto na aba de
+      // Fornecedores, com o preview recém-obtido semeado (sem refazer a chamada de
+      // rede que a aba faria sozinha via onConferirResposta).
+      abrirModal({
+        aba: 2,
+        fornecedorFocoId: fornecedorAtivo.id,
+        seed: { cfId: fornecedorAtivo.id, texto, preview: resultado },
+      });
     } catch (err) {
       setErro(getErrorMessage(err, "Não foi possível processar a resposta."));
     } finally {
@@ -152,84 +140,12 @@ function EntradaContent({ cotacaoId }: { cotacaoId: string }) {
     }
   }
 
-  // Ponto único de abertura da Conferência — unifica os dois fluxos que existiam
-  // separados: "Continuar Conferência" (reusar um preview já em memória, sem rede) e
-  // "Conferir resposta do fornecedor" (reconstruir de texto já persistido, caminho
-  // WhatsApp — WhatsappRespostaFornecedorService persiste direto em
-  // cotacao_produto_fornecedor, sem nunca passar por preview). Recebe o
-  // cotacaoFornecedor alvo explicitamente em vez de depender de fornecedorAtivo — quem
-  // chama (ConferenciaPanel, Prompt 26) pode estar mudando de fornecedor ativo no
-  // mesmo clique, inclusive em cadeia automática após confirmar outro fornecedor.
-  // Retorna true se um preview foi de fato carregado — o chamador usa isso pra decidir
-  // se um encadeamento automático deve parar. Nunca lança: ConferenciaPendente.confirmar()
-  // chama onConfirmado() sem await dentro do próprio try, então uma rejeição vinda
-  // daqui escaparia como unhandled rejection.
-  async function onConferirResposta(cf: CotacaoFornecedorResponse): Promise<boolean> {
-    setErro(null);
-    const rascunho = rascunhos[cf.id];
-
-    // 1) Preview já em memória (aberto e deixado pra depois, sem confirmar) — reabre
-    //    exatamente como foi deixado, sem chamada de rede.
-    if (rascunho?.preview) {
-      return true;
-    }
-
-    try {
-      // 2) Texto colado na tela ainda não processado  →  3) texto já persistido
-      //    (caminho WhatsApp: nunca passou por preview).
-      let textoParaConferir = rascunho?.texto?.trim() ? rascunho.texto : "";
-      if (!textoParaConferir) {
-        const { texto: persistido } = await buscarRespostaPersistida(cotacaoId, cf.fornecedorId);
-        textoParaConferir = persistido;
-      }
-      if (!textoParaConferir.trim()) {
-        setErro(
-          "Não há resposta registrada para conferir deste fornecedor. Cole a resposta no passo 2 e clique em Processar Resposta Cotação.",
-        );
-        return false;
-      }
-      const resultado = await enviarResposta(cotacaoId, cf.fornecedorId, textoParaConferir);
-      atualizarRascunho(cf.id, { texto: textoParaConferir, preview: resultado });
-      await recarregarFornecedoresDaCotacao();
-      return true;
-    } catch (err) {
-      setErro(getErrorMessage(err, "Não foi possível carregar a resposta para conferência."));
-      return false;
-    }
-  }
-
-  // Clique num marcador da timeline (Prompt 25). O passo 3 (Conferência) tem seu
-  // próprio painel a partir do Prompt 26 (ConferenciaPanel) — ele é quem decide sozinho
-  // qual fornecedor abrir (pendente-primeiro) e quando chamar onConferirResposta, não
-  // mais um efeito colateral do clique no marcador.
-  function onSelecionarPasso(passo: PassoEntrada) {
-    setPassoAtivo(passo);
-  }
-
-  // Botão único do passo 1 no rodapé (Prompt 25, feedback 2026-08-16) — só avança a
-  // timeline, mesma navegação de clicar no marcador "2" do EntradaStepper.
-  function onAvancarPasso() {
-    setPassoAtivo(2);
-  }
-
-  // "Cancelar Conferência" (achado do usuário, 2026-08-04): apaga a resposta do
-  // fornecedor de verdade — no backend (DELETE .../resposta, volta
-  // cotacao_fornecedor.status pra PENDENTE) e no rascunho local (texto/preview/
-  // resoluções). Sem o DELETE no backend, "Conferir resposta do fornecedor"
-  // reconstruiria a mesma resposta cancelada no próximo clique (ver onConferirResposta,
-  // branch 3). Propositalmente NÃO captura erro aqui — deixa propagar pra
-  // ConferenciaPendente.confirmarCancelamento(), que mostra o erro dentro do próprio
-  // painel (mesmo padrão de confirmar()), não no banner do topo da página.
-  async function onCancelarConferencia(cf: CotacaoFornecedorResponse) {
-    await cancelarRespostaFornecedor(cotacaoId, cf.fornecedorId);
-    atualizarRascunho(cf.id, {
-      texto: "",
-      preview: null,
-      resolucoes: {},
-      spinOffs: {},
-      excluidos: {},
+  function onTextoLimpo(cfId: string) {
+    setTextosResposta((prev) => {
+      const resto = { ...prev };
+      delete resto[cfId];
+      return resto;
     });
-    await recarregarFornecedoresDaCotacao();
   }
 
   useEffect(() => {
@@ -239,6 +155,20 @@ function EntradaContent({ cotacaoId }: { cotacaoId: string }) {
     // carregar não entra nas deps de propósito (recriada a cada render, entraria em loop).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cotacaoId]);
+
+  // Landing (/entrada) navega pra cá com ?revisar=1 quando o operador clica "Revisar e
+  // aprovar" direto do card da cotação atual — abre o modal já na aba 1 assim que a
+  // cotação carrega, e remove o param da URL (evita reabrir num refresh manual da
+  // página). Ver decisão de design do refactor 2026-08-20: o modal só é hospedado
+  // aqui, não duplicado na landing.
+  useEffect(() => {
+    if (!cotacao) return;
+    if (searchParams.get("revisar") === "1") {
+      abrirModal({ aba: 1 });
+      router.replace(pathname);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cotacao, searchParams]);
 
   function onFornecedorSalvo(f: Fornecedor) {
     setFornecedores((prev) => {
@@ -253,8 +183,8 @@ function EntradaContent({ cotacaoId }: { cotacaoId: string }) {
 
   // Cotação WhatsApp cujo parse inicial ainda não foi revisado pelo operador — gate
   // que antes era a rota separada /ajuste-lista (Prompt 12: dobrado nesta mesma
-  // página). Enquanto precisaAjuste, o restante da tela (Fornecedores/Conferência)
-  // fica escondido: o grid unificado é a única coisa visível, igual ao comportamento
+  // página). Enquanto precisaAjuste, o restante da tela (Fornecedores/Aprovação) fica
+  // escondido: o grid unificado é a única coisa visível, igual ao comportamento
   // anterior, só sem navegação para uma rota própria.
   const precisaAjuste = cotacao != null && cotacao.canalOrigem === "WHATSAPP" && !cotacao.listaRevisada;
 
@@ -284,7 +214,6 @@ function EntradaContent({ cotacaoId }: { cotacaoId: string }) {
   // Labels/marcadores da timeline (Prompt 25) — reaproveita a mesma definição de
   // "pendente pra conferir" já usada em FornecedoresCotacoesSection (status !==
   // CONFIRMADO), sem inventar um segundo critério de pendência.
-  const totalPendentesConferencia = cotacaoFornecedores.filter((cf) => cf.status !== "CONFIRMADO").length;
   const confirmadosCount = cotacaoFornecedores.filter((cf) => cf.status === "CONFIRMADO").length;
   const passos: PassoInfo[] = [
     { numero: 1, label: "Lista de produtos", done: itensLista.length > 0 },
@@ -294,13 +223,7 @@ function EntradaContent({ cotacaoId }: { cotacaoId: string }) {
         cotacaoFornecedores.length === 0
           ? "Fornecedores e cotações"
           : `${confirmadosCount} de ${cotacaoFornecedores.length} fornecedores`,
-      done: cotacaoFornecedores.length > 0,
-    },
-    {
-      numero: 3,
-      label: totalPendentesConferencia > 0 ? `Conferência (${totalPendentesConferencia} pendentes)` : "Conferência",
-      done: cotacaoFornecedores.length > 0 && totalPendentesConferencia === 0,
-      atencao: totalPendentesConferencia > 0,
+      done: cotacaoFornecedores.length > 0 && confirmadosCount === cotacaoFornecedores.length,
     },
   ];
 
@@ -327,7 +250,7 @@ function EntradaContent({ cotacaoId }: { cotacaoId: string }) {
           {precisaAjuste && (
             <p className="rounded-md border border-wa/30 bg-wa-d px-4 py-3 text-sm text-t2">
               Revise os itens recebidos por WhatsApp antes de seguir para a conferência de fornecedores —
-              corrija quantidade, unidade ou o produto identificado. Fornecedores e Conferência ficam
+              corrija quantidade, unidade ou o produto identificado. Fornecedores e Aprovação ficam
               disponíveis depois de concluir este ajuste.
             </p>
           )}
@@ -360,7 +283,7 @@ function EntradaContent({ cotacaoId }: { cotacaoId: string }) {
         ) : (
           <>
             <div className="mt-4 shrink-0">
-              <EntradaStepper passos={passos} passoAtivo={passoAtivo} onSelecionar={onSelecionarPasso} />
+              <EntradaStepper passos={passos} passoAtivo={passoAtivo} onSelecionar={setPassoAtivo} />
             </div>
 
             {/* Única área com scroll interno da tela — o passo ativo (o outro fica
@@ -370,7 +293,7 @@ function EntradaContent({ cotacaoId }: { cotacaoId: string }) {
                   formatação virou um ícone de dica dentro do próprio Card (ver
                   GridProdutosSection), no lugar de uma coluna lateral fixa ou de uma
                   linha própria acima do Card (que desalinhava a altura deste passo com
-                  a do passo 2/3 — achado do usuário, 2026-08-16). Fica sempre montado
+                  a do passo 2 — achado do usuário, 2026-08-16). Fica sempre montado
                   (nunca desmontado condicionalmente) e só escondido via classe:
                   GridProdutosSection guarda rascunho local (ex: modal "Colar do
                   WhatsApp" com texto ainda não importado) que se perderia se o
@@ -389,7 +312,9 @@ function EntradaContent({ cotacaoId }: { cotacaoId: string }) {
 
               {/* Passo 2 — Fornecedores e cotações: dados cadastrais + colar/processar
                   texto. Sempre montado (mesmo motivo do passo 1) — estado local do
-                  painel de fornecedores não pode se perder ao trocar de passo. */}
+                  painel de fornecedores não pode se perder ao trocar de passo. A
+                  Conferência (Prompt 26) deixou de ser um 3º passo — virou o
+                  AprovacaoModal (Fase C/D, 2026-08-20), acionado pelo rodapé. */}
               <div className={passoAtivo === 2 ? "" : "hidden"}>
                 <FornecedoresCotacoesSection
                   cotacao={cotacao}
@@ -406,45 +331,41 @@ function EntradaContent({ cotacaoId }: { cotacaoId: string }) {
                   setErro={setErro}
                 />
               </div>
-
-              {/* Passo 3 — Conferência (Prompt 26): painel dedicado, dono da própria
-                  navegação entre fornecedores pendentes/já confirmados — ver
-                  ConferenciaPanel. Também sempre montado, mesmo motivo dos passos 1/2. */}
-              <div className={passoAtivo === 3 ? "" : "hidden"}>
-                <ConferenciaPanel
-                  cotacaoId={cotacaoId}
-                  cotacaoFornecedores={cotacaoFornecedores}
-                  onConferirResposta={onConferirResposta}
-                  onCancelarConferencia={onCancelarConferencia}
-                  onAtivoAlterado={onAtivoAlterado}
-                  onCotacaoFornecedoresAtualizados={recarregarFornecedoresDaCotacao}
-                  ativo={passoAtivo === 3}
-                  fornecedorFocoId={fornecedorAtivo?.id}
-                  texto={texto}
-                  preview={preview}
-                  estadoResolucao={estadoResolucao}
-                  onEstadoResolucaoChange={onEstadoResolucaoChange}
-                />
-              </div>
             </div>
 
             <div className="shrink-0">
               <EntradaFooter
                 cotacao={cotacao}
                 numFornecedores={cotacaoFornecedores.length}
-                onCotacaoAtualizada={setCotacao}
                 passoAtivo={passoAtivo}
                 podeAvancarPasso1={itensLista.length > 0}
-                onAvancarPasso={onAvancarPasso}
+                onAvancarPasso={() => setPassoAtivo(2)}
                 onProcessar={onProcessar}
                 processando={enviando}
                 podeProcessar={fornecedorAtivo != null && texto.trim() !== ""}
-                setErro={setErro}
+                onAbrirAprovacao={() => abrirModal({ aba: 1 })}
               />
             </div>
           </>
         )}
       </main>
+
+      <AprovacaoModal
+        open={modalAberto}
+        onClose={fecharModal}
+        cotacaoId={cotacaoId}
+        cotacao={cotacao}
+        itensLista={itensLista}
+        produtos={produtos}
+        onListaAtualizada={setItensLista}
+        cotacaoFornecedores={cotacaoFornecedores}
+        onCotacaoFornecedoresAtualizados={recarregarFornecedoresDaCotacao}
+        onCotacaoAtualizada={setCotacao}
+        abaInicial={modalAbaInicial}
+        fornecedorFocoId={modalFornecedorFoco}
+        seedRascunho={modalSeedRascunho}
+        onTextoLimpo={onTextoLimpo}
+      />
     </>
   );
 }

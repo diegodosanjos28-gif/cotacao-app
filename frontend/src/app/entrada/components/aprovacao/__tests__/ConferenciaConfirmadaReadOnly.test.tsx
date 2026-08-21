@@ -5,7 +5,7 @@
 
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
-import ConferenciaConfirmadaReadOnly from "@/app/cotacoes/[id]/entrada/components/ConferenciaConfirmadaReadOnly";
+import ConferenciaConfirmadaReadOnly from "@/app/entrada/components/aprovacao/ConferenciaConfirmadaReadOnly";
 import { ItemRespostaResponse } from "@/lib/types";
 
 const { buscarConferenciaConfirmadaMock } = vi.hoisted(() => ({

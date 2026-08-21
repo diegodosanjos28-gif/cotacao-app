@@ -6,7 +6,7 @@
 // calculados a partir do estado real da cotação — este componente não decide nada de
 // negócio, só desenha o marcador.
 
-export type PassoEntrada = 1 | 2 | 3;
+export type PassoEntrada = 1 | 2;
 
 export interface PassoInfo {
   numero: PassoEntrada;

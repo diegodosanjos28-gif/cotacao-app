@@ -1,29 +1,25 @@
-// Teste de regressão para o bug de "loading eterno" achado pelo usuário em
-// 2026-08-17 (ver comentário em ConferenciaPanel.tsx, useEffect de auto-fetch
-// nas linhas ~108-124).
+// Teste de regressão portado de ConferenciaPanel.test.tsx (removido nesta mesma leva,
+// Fase C do refactor da Entrada de Dados, 2026-08-20) para o bug de "loading eterno"
+// achado pelo usuário em 2026-08-17 (ver comentário no componente, useEffect de
+// auto-fetch). A lógica do efeito não mudou — só a forma como texto/preview chegam
+// (agora via `rascunhos[cfId]`, dono é o AprovacaoModal, não mais texto/preview/
+// estadoResolucao soltos vindos de entrada/page.tsx).
 //
-// Causa raiz: o efeito de auto-fetch (dispara onConferirResposta quando o
-// fornecedor ativo está PROCESSADO e ainda não tem preview em memória) tinha
-// `preview` nas próprias deps. `onConferirResposta` (fornecido pelo pai,
-// entrada/page.tsx) grava o preview resultante no rascunho do pai *antes* de sua
-// própria promise assentar — o que muda o prop `preview` de null pro objeto e
-// re-dispara o próprio efeito no meio do caminho, rodando o cleanup ANTES da
-// promise original terminar. Com um bool `cancelado` capturado por closure no
-// cleanup, esse re-disparo (que na verdade é sucesso, não troca de fornecedor)
-// era mal-interpretado como cancelamento, e `carregando` nunca voltava a false.
-//
-// O fix trocou o bool de closure por um ref (`atualIdRef`) atualizado só quando
-// o fornecedor ativo realmente muda — o `.finally()` da fetch original só ignora
-// o resultado se o fornecedor ativo *de fato* mudou nesse meio-tempo.
+// Causa raiz: o efeito de auto-fetch (dispara onConferirResposta quando o fornecedor
+// ativo está PROCESSADO e ainda não tem preview em memória) tinha `preview` nas
+// próprias deps. `onConferirResposta` (fornecido pelo AprovacaoModal) grava o preview
+// resultante no rascunho *antes* de sua própria promise assentar — o que muda
+// `rascunhos[atual.id].preview` de null pro objeto e re-dispara o próprio efeito no
+// meio do caminho, rodando o cleanup ANTES da promise original terminar. O fix usa um
+// ref (`atualIdRef`) atualizado só quando o fornecedor ativo realmente muda — o
+// `.finally()` da fetch original só ignora o resultado se o fornecedor ativo *de
+// fato* mudou nesse meio-tempo.
 
 import { describe, expect, it, vi } from "vitest";
 import { act, render, screen, waitFor } from "@testing-library/react";
-import ConferenciaPanel from "@/app/cotacoes/[id]/entrada/components/ConferenciaPanel";
-import { CotacaoFornecedorResponse, EstadoResolucao, PreviewRespostaResponse } from "@/lib/types";
-
-vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
-}));
+import ConferenciaFornecedoresTab from "../ConferenciaFornecedoresTab";
+import { CotacaoFornecedorResponse, PreviewRespostaResponse } from "@/lib/types";
+import { RascunhoFornecedor } from "../rascunhoFornecedor";
 
 function makeCotacaoFornecedor(overrides: Partial<CotacaoFornecedorResponse> = {}): CotacaoFornecedorResponse {
   return {
@@ -40,50 +36,66 @@ function makePreview(): PreviewRespostaResponse {
   return { contadores: { total: 0, ok: 0, atencao: 0, revisar: 0 }, itens: [] };
 }
 
-function makeEstadoResolucao(): EstadoResolucao {
-  return { resolucoes: {}, spinOffs: {}, excluidos: {} };
+function makeRascunhos(entries: Record<string, Partial<RascunhoFornecedor>> = {}): Record<string, RascunhoFornecedor> {
+  const out: Record<string, RascunhoFornecedor> = {};
+  for (const [id, r] of Object.entries(entries)) {
+    out[id] = { texto: "", preview: null, resolucoes: {}, spinOffs: {}, excluidos: {}, ...r };
+  }
+  return out;
 }
 
-function renderPanel(overrides: {
+function renderTab(overrides: {
   cotacaoFornecedores: CotacaoFornecedorResponse[];
   onConferirResposta: (cf: CotacaoFornecedorResponse) => Promise<boolean>;
-  preview?: PreviewRespostaResponse | null;
-  ativo?: boolean;
+  rascunhos?: Record<string, RascunhoFornecedor>;
   fornecedorFocoId?: string | null;
 }) {
   return render(
-    <ConferenciaPanel
+    <ConferenciaFornecedoresTab
       cotacaoId="cot-1"
       cotacaoFornecedores={overrides.cotacaoFornecedores}
       onConferirResposta={overrides.onConferirResposta}
       onCancelarConferencia={vi.fn().mockResolvedValue(undefined)}
-      onAtivoAlterado={vi.fn()}
       onCotacaoFornecedoresAtualizados={vi.fn().mockResolvedValue(undefined)}
-      ativo={overrides.ativo ?? true}
       fornecedorFocoId={overrides.fornecedorFocoId ?? null}
-      texto=""
-      preview={overrides.preview ?? null}
-      estadoResolucao={makeEstadoResolucao()}
+      rascunhos={overrides.rascunhos ?? {}}
       onEstadoResolucaoChange={vi.fn()}
     />,
   );
 }
 
-describe("ConferenciaPanel — auto-fetch de fornecedor PROCESSADO sem preview", () => {
+describe("ConferenciaFornecedoresTab — banner de contexto e estado sem fornecedor", () => {
+  it("mostra o banner azul de contexto acima dos chips", () => {
+    renderTab({
+      cotacaoFornecedores: [makeCotacaoFornecedor({ status: "PENDENTE" })],
+      onConferirResposta: vi.fn(),
+    });
+
+    expect(screen.getByText("Conferência das Cotações dos Fornecedores")).toBeTruthy();
+  });
+
+  it("sem nenhum fornecedor, mostra mensagem dedicada", () => {
+    renderTab({ cotacaoFornecedores: [], onConferirResposta: vi.fn() });
+
+    expect(screen.getByText(/Nenhum fornecedor adicionado a esta cotação ainda/)).toBeTruthy();
+  });
+});
+
+describe("ConferenciaFornecedoresTab — auto-fetch de fornecedor PROCESSADO sem preview", () => {
   it("dispara onConferirResposta e mostra 'Carregando...' enquanto a promise está pendente", () => {
     const cf = makeCotacaoFornecedor();
     const onConferirResposta = vi.fn(() => new Promise<boolean>(() => {}));
 
-    renderPanel({ cotacaoFornecedores: [cf], onConferirResposta });
+    renderTab({ cotacaoFornecedores: [cf], onConferirResposta });
 
     expect(onConferirResposta).toHaveBeenCalledWith(expect.objectContaining({ id: "cf-1" }));
     expect(screen.getByText("Carregando...")).toBeTruthy();
   });
 
-  // Reproduz a ordem exata do bug: o prop `preview` muda (via rerender, simulando o
-  // pai gravando o rascunho) ANTES da promise de onConferirResposta resolver — não
-  // depois. Isso re-dispara o efeito (preview está nas deps) e roda o cleanup antes
-  // da promise original assentar.
+  // Reproduz a ordem exata do bug: o `rascunhos` prop muda (via rerender, simulando o
+  // AprovacaoModal gravando o rascunho) ANTES da promise de onConferirResposta
+  // resolver — não depois. Isso re-dispara o efeito (preview está nas deps) e roda o
+  // cleanup antes da promise original assentar.
   it("não trava em 'Carregando...' quando o preview chega (via re-render) antes da promise de onConferirResposta resolver", async () => {
     const cf = makeCotacaoFornecedor();
     let resolverPromise: ((v: boolean) => void) | undefined;
@@ -92,29 +104,25 @@ describe("ConferenciaPanel — auto-fetch de fornecedor PROCESSADO sem preview",
     });
     const onConferirResposta = vi.fn(() => promise);
 
-    const { rerender } = renderPanel({ cotacaoFornecedores: [cf], onConferirResposta, preview: null });
+    const { rerender } = renderTab({ cotacaoFornecedores: [cf], onConferirResposta, rascunhos: {} });
 
     expect(onConferirResposta).toHaveBeenCalledTimes(1);
     expect(screen.getByText("Carregando...")).toBeTruthy();
 
-    // O pai (entrada/page.tsx) grava o preview no rascunho antes da promise original
+    // O AprovacaoModal grava o preview no rascunho antes da promise original
     // assentar — simulado aqui via re-render com preview não-nulo, promise ainda
     // pendente. Isso re-dispara o efeito de auto-fetch (preview está nas deps), mas
     // como preview já não é mais null, o corpo do efeito retorna cedo sem uma nova
     // chamada a onConferirResposta.
     rerender(
-      <ConferenciaPanel
+      <ConferenciaFornecedoresTab
         cotacaoId="cot-1"
         cotacaoFornecedores={[cf]}
         onConferirResposta={onConferirResposta}
         onCancelarConferencia={vi.fn().mockResolvedValue(undefined)}
-        onAtivoAlterado={vi.fn()}
         onCotacaoFornecedoresAtualizados={vi.fn().mockResolvedValue(undefined)}
-        ativo
         fornecedorFocoId={null}
-        texto=""
-        preview={makePreview()}
-        estadoResolucao={makeEstadoResolucao()}
+        rascunhos={makeRascunhos({ "cf-1": { preview: makePreview() } })}
         onEstadoResolucaoChange={vi.fn()}
       />,
     );
@@ -145,21 +153,17 @@ describe("ConferenciaPanel — auto-fetch de fornecedor PROCESSADO sem preview",
     });
     const onConferirResposta = vi.fn(() => promise);
 
-    const { rerender } = renderPanel({ cotacaoFornecedores: [cf], onConferirResposta, preview: null });
+    const { rerender } = renderTab({ cotacaoFornecedores: [cf], onConferirResposta, rascunhos: {} });
 
     rerender(
-      <ConferenciaPanel
+      <ConferenciaFornecedoresTab
         cotacaoId="cot-1"
         cotacaoFornecedores={[cf]}
         onConferirResposta={onConferirResposta}
         onCancelarConferencia={vi.fn().mockResolvedValue(undefined)}
-        onAtivoAlterado={vi.fn()}
         onCotacaoFornecedoresAtualizados={vi.fn().mockResolvedValue(undefined)}
-        ativo
         fornecedorFocoId={null}
-        texto=""
-        preview={makePreview()}
-        estadoResolucao={makeEstadoResolucao()}
+        rascunhos={makeRascunhos({ "cf-1": { preview: makePreview() } })}
         onEstadoResolucaoChange={vi.fn()}
       />,
     );
@@ -173,17 +177,10 @@ describe("ConferenciaPanel — auto-fetch de fornecedor PROCESSADO sem preview",
   });
 });
 
-describe("ConferenciaPanel — proteção do ref contra cancelamento real", () => {
+describe("ConferenciaFornecedoresTab — proteção do ref contra cancelamento real", () => {
   // Este caso cobre a outra metade do fix: quando o fornecedor ativo REALMENTE muda
   // enquanto uma fetch antiga ainda está pendente, o resultado dessa fetch antiga não
   // pode mexer em `carregando` (que agora pertence ao novo fornecedor ativo).
-  //
-  // A troca de fornecedor aqui é feita reordenando `cotacaoFornecedores` (com
-  // `activeId` interno ainda no default `null`, `atual` recai em `sequencia[0]`) em
-  // vez de clicar num chip de navegação — os chips ficam `disabled` enquanto
-  // `carregando=true`, então clicar não é uma forma alcançável de disparar essa troca
-  // enquanto a fetch anterior está pendente; a troca "por fora" (ex.: o pai
-  // recalculando a ordem/lista após um evento em outro passo) é o caminho realista.
   it("resolução tardia da fetch do fornecedor anterior não mexe em `carregando` depois que o fornecedor ativo muda", async () => {
     const cf1 = makeCotacaoFornecedor({ id: "cf-1", nomeFornecedor: "Fornecedor 1", status: "PROCESSADO" });
     const cf2 = makeCotacaoFornecedor({ id: "cf-2", nomeFornecedor: "Fornecedor 2", status: "PENDENTE" });
@@ -194,32 +191,23 @@ describe("ConferenciaPanel — proteção do ref contra cancelamento real", () =
     });
     const onConferirResposta = vi.fn(() => promiseCf1);
 
-    const { rerender } = renderPanel({
-      cotacaoFornecedores: [cf1, cf2],
-      onConferirResposta,
-      preview: null,
-    });
+    const { rerender } = renderTab({ cotacaoFornecedores: [cf1, cf2], onConferirResposta, rascunhos: {} });
 
     expect(onConferirResposta).toHaveBeenCalledWith(expect.objectContaining({ id: "cf-1" }));
-    const botaoFornecedor1 = screen.getByRole("button", { name: "Fornecedor 1" }) as HTMLButtonElement;
+    const botaoFornecedor1 = screen.getByRole("button", { name: /Fornecedor 1/ }) as HTMLButtonElement;
     expect(botaoFornecedor1.disabled).toBe(true);
 
     // Fornecedor 2 passa a vir primeiro na lista — com `activeId` ainda no default
-    // (null), `atual` recai em `sequencia[0]`, que agora é o fornecedor 2. Isso muda
-    // o fornecedor ativo sem passar por clique nem por `ativo`.
+    // (null), `atual` recai em `sequencia[0]`, que agora é o fornecedor 2.
     rerender(
-      <ConferenciaPanel
+      <ConferenciaFornecedoresTab
         cotacaoId="cot-1"
         cotacaoFornecedores={[cf2, cf1]}
         onConferirResposta={onConferirResposta}
         onCancelarConferencia={vi.fn().mockResolvedValue(undefined)}
-        onAtivoAlterado={vi.fn()}
         onCotacaoFornecedoresAtualizados={vi.fn().mockResolvedValue(undefined)}
-        ativo
         fornecedorFocoId={null}
-        texto=""
-        preview={null}
-        estadoResolucao={makeEstadoResolucao()}
+        rascunhos={{}}
         onEstadoResolucaoChange={vi.fn()}
       />,
     );
@@ -239,7 +227,7 @@ describe("ConferenciaPanel — proteção do ref contra cancelamento real", () =
     });
 
     await waitFor(() => {
-      const botao = screen.getByRole("button", { name: "Fornecedor 1" }) as HTMLButtonElement;
+      const botao = screen.getByRole("button", { name: /Fornecedor 1/ }) as HTMLButtonElement;
       expect(botao.disabled).toBe(true);
     });
   });

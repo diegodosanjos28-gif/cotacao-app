@@ -28,6 +28,7 @@ const {
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ replace: replaceMock, push: pushMock }),
   usePathname: () => "/cotacoes/cot-1/entrada",
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 vi.mock("@/lib/api", async (importOriginal) => {

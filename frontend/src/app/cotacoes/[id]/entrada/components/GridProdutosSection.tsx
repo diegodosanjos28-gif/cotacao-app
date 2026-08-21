@@ -6,13 +6,14 @@ import DataGrid from "@/components/grid/DataGrid";
 import Card from "@/components/Card";
 import Modal from "@/components/Modal";
 import Pagination from "@/components/Pagination";
-import { buscarLista, buscarProdutosPorIds, editarItemCotacao, removerItemCotacao } from "@/lib/api";
+import { buscarLista, buscarProdutosPorIds, removerItemCotacao } from "@/lib/api";
 import { getErrorMessage } from "@/lib/errors";
 import { ItemListaResponse, Produto } from "@/lib/types";
 import { idsProdutosDosItens } from "@/lib/itensLista";
 import { normTxt } from "@/lib/normalizacao";
 import { classificarStatusItemGrid } from "@/lib/statusItemGrid";
 import { UNIDADES } from "@/lib/unidades";
+import { useEdicaoItemLista } from "@/hooks/useEdicaoItemLista";
 import ColarWhatsappModal from "./ColarWhatsappModal";
 import NovaLinhaGridProdutos from "./NovaLinhaGridProdutos";
 import ProdutoAutocomplete from "./ProdutoAutocomplete";
@@ -36,19 +37,6 @@ const TH_CLASSE = "whitespace-nowrap px-4 py-3 font-medium";
 // previsível independente de quantos itens a lista tem.
 const TAMANHO_PAGINA = 12;
 
-// Rascunho compartilhado por linha (Prompt 12): quantidade/unidade/produto sempre são
-// enviadas juntas a editarItemCotacao mesmo quando só um campo mudou — precisa de um
-// estado comum por item.id em vez de estado local isolado por célula, senão editar um
-// campo antes do outro terminar de salvar perderia a edição em andamento. produtoId e
-// nomeExibido usam `undefined` pra "sem rascunho" (cai no valor original do item) e
-// `null` é um valor de rascunho válido (produto explicitamente limpo).
-interface RascunhoLinha {
-  quantidade?: string;
-  unidade?: string;
-  produtoId?: string | null;
-  nomeExibido?: string | null;
-}
-
 // Grid unificado de Entrada de Dados (Prompt 12) — generaliza o grid que antes era
 // exclusivo da tela "Ajuste de Lista" (WhatsApp) pra virar a interface PRIMÁRIA de
 // entrada de produtos nos dois canais, substituindo o textarea permanente que existia
@@ -70,24 +58,15 @@ export default function GridProdutosSection({
   // primeiro (erro > aviso > travado > ok); "desc" = inverso.
   const [ordenacaoStatus, setOrdenacaoStatus] = useState<"asc" | "desc" | null>(null);
 
-  const [rascunhos, setRascunhos] = useState<Record<string, RascunhoLinha>>({});
-  const [salvando, setSalvando] = useState<Record<string, boolean>>({});
   const [removendo, setRemovendo] = useState<Record<string, boolean>>({});
-  const [erros, setErros] = useState<Record<string, string>>({});
   const [paginacao, setPaginacao] = useState({ pageIndex: 0, pageSize: TAMANHO_PAGINA });
   const [itemParaExcluir, setItemParaExcluir] = useState<ItemListaResponse | null>(null);
 
-  // Filtrar pode reduzir o total de páginas abaixo da página atual, deixando a
-  // tabela "presa" numa página vazia — volta pra primeira sempre que o termo muda.
-  useEffect(() => {
-    setPaginacao((p) => ({ ...p, pageIndex: 0 }));
-  }, [filtro]);
-
-  function onClicarHeaderStatus() {
-    setOrdenacaoStatus((atual) => (atual === null ? "asc" : atual === "asc" ? "desc" : null));
+  // Cotação finalizada bloqueia toda edição de item no backend (ConflictException) —
+  // desabilitar aqui evita o usuário editar e só descobrir pelo erro depois de salvar.
+  function itemBloqueado(item: ItemListaResponse) {
+    return item.temRespostaFornecedorConfirmada || cotacaoFinalizada;
   }
-
-  const produtoNomePorId = useMemo(() => new Map(produtos.map((p) => [p.id, p.nome])), [produtos]);
 
   // Recarrega lista E catálogo — adicionar manualmente (nomeProdutoLivre) ou colar do
   // WhatsApp pode ter criado um Produto novo no backend (resolver-ou-criar), que o
@@ -105,69 +84,30 @@ export default function GridProdutosSection({
     }
   }
 
-  function draftQuantidade(item: ItemListaResponse) {
-    return rascunhos[item.id]?.quantidade ?? String(item.quantidade);
+  const {
+    rascunhos,
+    salvando,
+    erros,
+    setErros,
+    draftQuantidade,
+    draftUnidade,
+    draftProdutoId,
+    draftNomeExibido,
+    onCellEdit,
+    commitRow,
+  } = useEdicaoItemLista({ cotacaoId, itemBloqueado, onSalvo: recarregar });
+
+  // Filtrar pode reduzir o total de páginas abaixo da página atual, deixando a
+  // tabela "presa" numa página vazia — volta pra primeira sempre que o termo muda.
+  useEffect(() => {
+    setPaginacao((p) => ({ ...p, pageIndex: 0 }));
+  }, [filtro]);
+
+  function onClicarHeaderStatus() {
+    setOrdenacaoStatus((atual) => (atual === null ? "asc" : atual === "asc" ? "desc" : null));
   }
 
-  function draftUnidade(item: ItemListaResponse) {
-    return rascunhos[item.id]?.unidade ?? item.unidade;
-  }
-
-  function draftProdutoId(item: ItemListaResponse) {
-    const rascunho = rascunhos[item.id];
-    return rascunho && "produtoId" in rascunho ? rascunho.produtoId ?? null : item.produtoIdEncontrado;
-  }
-
-  function draftNomeExibido(item: ItemListaResponse) {
-    return rascunhos[item.id]?.nomeExibido ?? null;
-  }
-
-  // Cotação finalizada bloqueia toda edição de item no backend (ConflictException) —
-  // desabilitar aqui evita o usuário editar e só descobrir pelo erro depois de salvar.
-  function itemBloqueado(item: ItemListaResponse) {
-    return item.temRespostaFornecedorConfirmada || cotacaoFinalizada;
-  }
-
-  function onCellEdit(rowId: string, campo: keyof RascunhoLinha, valor: RascunhoLinha[keyof RascunhoLinha]) {
-    setRascunhos((r) => ({ ...r, [rowId]: { ...r[rowId], [campo]: valor } }));
-  }
-
-  async function commitRow(item: ItemListaResponse, overrides?: RascunhoLinha) {
-    if (itemBloqueado(item)) return;
-    const novaQuantidade = overrides?.quantidade ?? draftQuantidade(item);
-    const novaUnidade = overrides?.unidade ?? draftUnidade(item);
-    const novoProdutoId = overrides && "produtoId" in overrides ? (overrides.produtoId ?? null) : draftProdutoId(item);
-    const novoNomeLivre =
-      overrides && "nomeExibido" in overrides ? (overrides.nomeExibido ?? null) : draftNomeExibido(item);
-
-    const qtdNum = Number(novaQuantidade.replace(",", "."));
-    if (!qtdNum || qtdNum <= 0 || !novaUnidade.trim()) return;
-
-    setSalvando((s) => ({ ...s, [item.id]: true }));
-    setErros((e) => {
-      const resto = { ...e };
-      delete resto[item.id];
-      return resto;
-    });
-    try {
-      await editarItemCotacao(cotacaoId, item.id, {
-        quantidade: qtdNum,
-        unidade: novaUnidade.trim(),
-        produtoId: novoProdutoId ?? undefined,
-        nomeProdutoLivre: novoProdutoId ? undefined : (novoNomeLivre ?? undefined),
-      });
-      await recarregar();
-    } catch (err) {
-      setErros((e) => ({ ...e, [item.id]: getErrorMessage(err, "Não foi possível salvar a alteração.") }));
-      setRascunhos((r) => {
-        const resto = { ...r };
-        delete resto[item.id];
-        return resto;
-      });
-    } finally {
-      setSalvando((s) => ({ ...s, [item.id]: false }));
-    }
-  }
+  const produtoNomePorId = useMemo(() => new Map(produtos.map((p) => [p.id, p.nome])), [produtos]);
 
   // Abre o modal de confirmação (substitui window.confirm — achado do usuário: alerta
   // nativo do navegador não combina com o resto da UI). A exclusão de fato só acontece
