@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Modal from "@/components/Modal";
 import { comparativo } from "@/lib/api";
 import { detalhamentoPorFornecedor } from "@/lib/comparativo";
@@ -27,8 +28,14 @@ export default function ConferenciaNotaModal({
     [cotacaoId],
     "Não foi possível carregar o detalhamento por fornecedor.",
   );
+  const [erroExportar, setErroExportar] = useState(false);
 
   const grupos = itens ? detalhamentoPorFornecedor(itens) : [];
+
+  function onExportar() {
+    if (!cotacao || !itens) return;
+    setErroExportar(!exportarConferenciaNota(cotacao, itens));
+  }
 
   return (
     <Modal
@@ -116,10 +123,11 @@ export default function ConferenciaNotaModal({
         </div>
 
         {cotacao && itens && grupos.length > 0 && (
-          <div className="mt-3 flex justify-end">
+          <div className="mt-3 flex items-center justify-end gap-3">
+            {erroExportar && <p className="text-xs text-er">Permita pop-ups para exportar o PDF.</p>}
             <button
               type="button"
-              onClick={() => exportarConferenciaNota(cotacao, itens)}
+              onClick={onExportar}
               className="rounded-md border border-prx/30 bg-prx/10 px-3 py-1.5 text-xs font-medium text-prx hover:bg-prx hover:text-white"
             >
               Exportar PDF

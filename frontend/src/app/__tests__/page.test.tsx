@@ -190,7 +190,10 @@ describe("Dashboard — tabela 'Todas as cotações', coluna Canal", () => {
 });
 
 describe("Dashboard — tabela 'Todas as cotações', link do título", () => {
-  it("o título linka sempre para /cotacoes/{id}/entrada, mesmo em WHATSAPP com ajuste pendente", async () => {
+  // Rota /cotacoes/{id}/entrada não existe mais desde o refactor 2026-08-20 (achado
+  // do usuário, 2026-08-21: clique aqui caía em 404) — a Entrada de Dados é uma
+  // landing única (/entrada) que resolve a cotação atual sozinha.
+  it("o título linka sempre para /entrada, mesmo em WHATSAPP com ajuste pendente", async () => {
     mockListaDaTabela([
       makeCotacao({ id: "cot-9", titulo: "Cotação Whats", canalOrigem: "WHATSAPP", listaRevisada: false }),
     ]);
@@ -200,7 +203,7 @@ describe("Dashboard — tabela 'Todas as cotações', link do título", () => {
     await aguardarEconomiaPotencialCarregada();
 
     const link = screen.getByRole("link", { name: "Cotação Whats" }) as HTMLAnchorElement;
-    expect(link.getAttribute("href")).toBe("/cotacoes/cot-9/entrada");
+    expect(link.getAttribute("href")).toBe("/entrada");
   });
 });
 

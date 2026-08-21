@@ -31,7 +31,7 @@ export default function NovaCotacaoForm({
       if (onCriada) {
         onCriada(nova.id);
       } else {
-        router.push(`/cotacoes/${nova.id}/entrada`);
+        router.push("/entrada");
       }
     } catch (err) {
       setErro(getErrorMessage(err, "Não foi possível criar a cotação."));

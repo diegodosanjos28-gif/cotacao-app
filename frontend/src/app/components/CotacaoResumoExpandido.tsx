@@ -1,25 +1,25 @@
 import Link from "next/link";
 import { fornecedorMaisCompetitivo, itensSemCotacao, totalEconomia } from "@/lib/comparativo";
 import { formatarMoeda } from "@/lib/format";
-import { Cotacao, ComparativoItemResponse } from "@/lib/types";
+import { ComparativoItemResponse } from "@/lib/types";
 
 // Conteúdo da linha expandida de "Todas as cotações" no Dashboard — resumo rápido +
 // atalho pra abrir a cotação. Extraído de CotacaoLinha para ser usado como
 // renderRowDetail do DataGrid, que já provê o <tr>/<td> de expansão.
 export default function CotacaoResumoExpandido({
-  cotacao,
   itens,
 }: {
-  cotacao: Cotacao;
   itens: ComparativoItemResponse[] | undefined;
 }) {
   const semCotacao = itens ? itensSemCotacao(itens) : [];
   const economia = itens ? totalEconomia(itens) : 0;
   const melhorFornecedor = itens ? fornecedorMaisCompetitivo(itens) : null;
-  const destino = `/cotacoes/${cotacao.id}/entrada`;
 
   return (
-    <Link href={destino} className="block rounded-md p-3 transition-colors hover:bg-hov">
+    // Rota /cotacoes/{id}/entrada não existe mais desde o refactor 2026-08-20 — a
+    // Entrada de Dados virou uma landing única (/entrada) que já resolve a cotação
+    // atual sozinha (achado do usuário, 2026-08-21: clique aqui caía em 404).
+    <Link href="/entrada" className="block rounded-md p-3 transition-colors hover:bg-hov">
       {!itens ? (
         <p className="text-sm text-t2">Carregando resumo...</p>
       ) : itens.length === 0 ? (

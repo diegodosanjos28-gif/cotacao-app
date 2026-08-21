@@ -7,24 +7,7 @@
 import { describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
 import CotacaoResumoExpandido from "@/app/components/CotacaoResumoExpandido";
-import { Cotacao, ComparativoItemResponse, PrecoFornecedor } from "@/lib/types";
-
-function makeCotacao(overrides: Partial<Cotacao> = {}): Cotacao {
-  return {
-    id: "cot-1",
-    criadoPor: null,
-    titulo: "Cotação teste",
-    status: "EM_ANDAMENTO",
-    canalOrigem: "WEB",
-    listaRevisada: true,
-    ultimaAtividadeEm: null,
-    cenarioSelecionado: null,
-    finalizadaEm: null,
-    criadoEm: "2026-07-30T10:00:00Z",
-    atualizadoEm: null,
-    ...overrides,
-  };
-}
+import { ComparativoItemResponse, PrecoFornecedor } from "@/lib/types";
 
 function makeOferta(overrides: Partial<PrecoFornecedor> = {}): PrecoFornecedor {
   return {
@@ -53,7 +36,7 @@ function makeItem(overrides: Partial<ComparativoItemResponse> = {}): Comparativo
 
 describe("CotacaoResumoExpandido — carregamento", () => {
   it("mostra 'Carregando resumo...' quando itens ainda é undefined", () => {
-    render(<CotacaoResumoExpandido cotacao={makeCotacao()} itens={undefined} />);
+    render(<CotacaoResumoExpandido itens={undefined} />);
 
     expect(screen.getByText("Carregando resumo...")).toBeTruthy();
   });
@@ -61,7 +44,7 @@ describe("CotacaoResumoExpandido — carregamento", () => {
 
 describe("CotacaoResumoExpandido — cotação sem produtos", () => {
   it("mostra 'Nenhum produto adicionado a esta cotação ainda.' quando itens é []", () => {
-    render(<CotacaoResumoExpandido cotacao={makeCotacao()} itens={[]} />);
+    render(<CotacaoResumoExpandido itens={[]} />);
 
     expect(screen.getByText("Nenhum produto adicionado a esta cotação ainda.")).toBeTruthy();
   });
@@ -79,7 +62,7 @@ describe("CotacaoResumoExpandido — resumo populado", () => {
         ],
       }),
     ];
-    render(<CotacaoResumoExpandido cotacao={makeCotacao()} itens={itens} />);
+    render(<CotacaoResumoExpandido itens={itens} />);
 
     // Economia = (15 - 10) * 2 = R$ 10,00; único item cotado (1/1); vencedor é o menor preço.
     expect(screen.getByText("R$ 10,00")).toBeTruthy();
@@ -93,21 +76,21 @@ describe("CotacaoResumoExpandido — resumo populado", () => {
         precosPorFornecedor: [makeOferta({ semEstoque: true })],
       }),
     ];
-    render(<CotacaoResumoExpandido cotacao={makeCotacao()} itens={itens} />);
+    render(<CotacaoResumoExpandido itens={itens} />);
 
     expect(screen.getByText("—")).toBeTruthy();
   });
 });
 
 describe("CotacaoResumoExpandido — navegação", () => {
-  it("é um link para /cotacoes/{id}/entrada, independente do estado (carregando/vazio/populado)", () => {
-    const { rerender } = render(<CotacaoResumoExpandido cotacao={makeCotacao({ id: "cot-42" })} itens={undefined} />);
-    expect(screen.getByRole("link").getAttribute("href")).toBe("/cotacoes/cot-42/entrada");
+  it("é um link para /entrada, independente do estado (carregando/vazio/populado)", () => {
+    const { rerender } = render(<CotacaoResumoExpandido itens={undefined} />);
+    expect(screen.getByRole("link").getAttribute("href")).toBe("/entrada");
 
-    rerender(<CotacaoResumoExpandido cotacao={makeCotacao({ id: "cot-42" })} itens={[]} />);
-    expect(screen.getByRole("link").getAttribute("href")).toBe("/cotacoes/cot-42/entrada");
+    rerender(<CotacaoResumoExpandido itens={[]} />);
+    expect(screen.getByRole("link").getAttribute("href")).toBe("/entrada");
 
-    rerender(<CotacaoResumoExpandido cotacao={makeCotacao({ id: "cot-42" })} itens={[makeItem()]} />);
-    expect(screen.getByRole("link").getAttribute("href")).toBe("/cotacoes/cot-42/entrada");
+    rerender(<CotacaoResumoExpandido itens={[makeItem()]} />);
+    expect(screen.getByRole("link").getAttribute("href")).toBe("/entrada");
   });
 });

@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { ColumnDef, getCoreRowModel, useReactTable } from "@tanstack/react-table";
 import DataGrid from "@/components/grid/DataGrid";
 import AuthGuard from "@/components/AuthGuard";
+import ConfirmModal from "@/components/ConfirmModal";
 import NavBar from "@/components/NavBar";
 import { listarMeusTelefones, removerMeuTelefone } from "@/lib/api";
 import { formatarData } from "@/lib/format";
@@ -23,14 +24,17 @@ function MeusTelefonesContent() {
 
   const [modalAberto, setModalAberto] = useState(false);
   const [removendo, setRemovendo] = useState<string | null>(null);
+  const [paraRemover, setParaRemover] = useState<UsuarioTelefone | null>(null);
   const [erroRemover, setErroRemover] = useState<string | null>(null);
 
   function onCriado(telefone: UsuarioTelefone) {
     setTelefones((atual) => [telefone, ...(atual ?? [])]);
   }
 
-  async function onRemover(telefone: UsuarioTelefone) {
-    if (!window.confirm(`Remover "${telefone.numeroWhatsapp}"? Ele deixa de poder mandar mensagem em seu nome.`)) return;
+  async function confirmarRemover() {
+    const telefone = paraRemover;
+    if (!telefone) return;
+    setParaRemover(null);
     setRemovendo(telefone.id);
     setErroRemover(null);
     try {
@@ -72,7 +76,7 @@ function MeusTelefonesContent() {
             <button
               type="button"
               disabled={removendo === t.id}
-              onClick={() => onRemover(t)}
+              onClick={() => setParaRemover(t)}
               className="text-er hover:underline disabled:opacity-50"
             >
               {removendo === t.id ? "Removendo..." : "Remover"}
@@ -141,6 +145,15 @@ function MeusTelefonesContent() {
       </main>
 
       <TelefoneFormModal open={modalAberto} onClose={() => setModalAberto(false)} onCriado={onCriado} />
+      <ConfirmModal
+        open={paraRemover !== null}
+        onClose={() => setParaRemover(null)}
+        onConfirm={confirmarRemover}
+        title="Remover telefone"
+        message={`Remover "${paraRemover?.numeroWhatsapp}"? Ele deixa de poder mandar mensagem em seu nome.`}
+        confirmLabel="Remover"
+        confirmando={removendo === paraRemover?.id}
+      />
     </>
   );
 }

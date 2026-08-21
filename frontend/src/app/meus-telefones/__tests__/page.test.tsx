@@ -1,10 +1,11 @@
 // Cobre a tela /meus-telefones migrada para o DataGrid compartilhado: colunas
 // Número/Nome (com fallback "—" quando nomeContato é nulo)/Criado em/Ações, e o botão
-// "Remover" — que passa por window.confirm antes de chamar a API, e mostra
-// "Removendo..." desabilitado enquanto a chamada está em voo.
+// "Remover" — que passa por um ConfirmModal (não mais window.confirm, achado do
+// usuário 2026-08-21) antes de chamar a API, e mostra "Removendo..." desabilitado
+// enquanto a chamada está em voo.
 
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import MeusTelefonesPage from "@/app/meus-telefones/page";
 import { UsuarioTelefone } from "@/lib/types";
 
@@ -96,24 +97,25 @@ describe("MeusTelefonesPage — tabela", () => {
 });
 
 describe("MeusTelefonesPage — remover telefone", () => {
-  it("pede confirmação via window.confirm antes de remover; cancelar não chama a API", async () => {
+  it("pede confirmação via modal antes de remover; cancelar não chama a API", async () => {
     listarMeusTelefonesMock.mockResolvedValue([makeTelefone()]);
-    vi.spyOn(window, "confirm").mockReturnValue(false);
 
     render(<MeusTelefonesPage />);
     await waitFor(() => expect(screen.getByText("+5511987654321")).toBeTruthy());
 
     fireEvent.click(screen.getByText("Remover"));
 
-    expect(window.confirm).toHaveBeenCalledWith(
-      'Remover "+5511987654321"? Ele deixa de poder mandar mensagem em seu nome.',
-    );
+    expect(
+      await screen.findByText('Remover "+5511987654321"? Ele deixa de poder mandar mensagem em seu nome.'),
+    ).toBeTruthy();
+    expect(removerMeuTelefoneMock).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
     expect(removerMeuTelefoneMock).not.toHaveBeenCalled();
   });
 
   it("confirmando, chama a API, mostra 'Removendo...' desabilitado, e remove a linha da lista ao concluir", async () => {
     listarMeusTelefonesMock.mockResolvedValue([makeTelefone({ id: "tel-1" })]);
-    vi.spyOn(window, "confirm").mockReturnValue(true);
     const { promise, resolve } = deferred<void>();
     removerMeuTelefoneMock.mockReturnValue(promise);
 
@@ -121,6 +123,8 @@ describe("MeusTelefonesPage — remover telefone", () => {
     await waitFor(() => expect(screen.getByText("+5511987654321")).toBeTruthy());
 
     fireEvent.click(screen.getByText("Remover"));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Remover" }));
 
     await waitFor(() => expect(screen.getByText("Removendo...")).toBeTruthy());
     expect((screen.getByText("Removendo...") as HTMLButtonElement).disabled).toBe(true);
@@ -135,14 +139,15 @@ describe("MeusTelefonesPage — remover telefone", () => {
 
   it("mostra mensagem de erro quando a remoção falha", async () => {
     listarMeusTelefonesMock.mockResolvedValue([makeTelefone({ id: "tel-1" })]);
-    vi.spyOn(window, "confirm").mockReturnValue(true);
     removerMeuTelefoneMock.mockRejectedValue(new Error("boom"));
 
     render(<MeusTelefonesPage />);
     await waitFor(() => expect(screen.getByText("+5511987654321")).toBeTruthy());
 
+    fireEvent.click(screen.getByText("Remover"));
+    const dialog = await screen.findByRole("dialog");
     await act(async () => {
-      fireEvent.click(screen.getByText("Remover"));
+      fireEvent.click(within(dialog).getByRole("button", { name: "Remover" }));
     });
 
     await waitFor(() => expect(screen.getByText("Não foi possível remover o número.")).toBeTruthy());

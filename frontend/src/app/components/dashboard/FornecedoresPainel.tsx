@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import ConfirmModal from "@/components/ConfirmModal";
 import FornecedorFormModal from "@/app/cotacoes/[id]/entrada/components/FornecedorFormModal";
 import { inativarFornecedor, listarFornecedores } from "@/lib/api";
 import { corFornecedor } from "@/lib/coresFornecedor";
@@ -29,6 +30,7 @@ export default function FornecedoresPainel() {
   const [modalAberto, setModalAberto] = useState(false);
   const [editando, setEditando] = useState<Fornecedor | null>(null);
   const [inativando, setInativando] = useState<string | null>(null);
+  const [paraInativar, setParaInativar] = useState<Fornecedor | null>(null);
   const [erroAcao, setErroAcao] = useState<string | null>(null);
   const [busca, setBusca] = useState("");
   const [pageIndex, setPageIndex] = useState(0);
@@ -46,8 +48,10 @@ export default function FornecedoresPainel() {
   // "Inativar", não excluir — o cadastro de fornecedor só tem soft-delete
   // (DELETE /fornecedores/{id} marca INATIVO). O ícone de lixeira do mockup mapeia
   // pra esse fluxo real, não uma exclusão literal.
-  async function onInativar(f: Fornecedor) {
-    if (!window.confirm(`Inativar "${f.nome}"? Ele deixa de aparecer para novas cotações.`)) return;
+  async function confirmarInativar() {
+    const f = paraInativar;
+    if (!f) return;
+    setParaInativar(null);
     setInativando(f.id);
     setErroAcao(null);
     try {
@@ -196,7 +200,7 @@ export default function FornecedoresPainel() {
                 type="button"
                 title="Inativar"
                 disabled={inativando === f.id || f.status === "INATIVO"}
-                onClick={() => onInativar(f)}
+                onClick={() => setParaInativar(f)}
                 className="flex h-[26px] w-[26px] items-center justify-center rounded-md border border-white/10 text-white/55 hover:border-red-400/30 hover:bg-red-500/15 hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
@@ -249,6 +253,15 @@ export default function FornecedoresPainel() {
         onClose={() => setEditando(null)}
         fornecedor={editando}
         onSalvo={onSalvo}
+      />
+      <ConfirmModal
+        open={paraInativar !== null}
+        onClose={() => setParaInativar(null)}
+        onConfirm={confirmarInativar}
+        title="Inativar fornecedor"
+        message={`Inativar "${paraInativar?.nome}"? Ele deixa de aparecer para novas cotações.`}
+        confirmLabel="Inativar"
+        confirmando={inativando === paraInativar?.id}
       />
     </div>
   );

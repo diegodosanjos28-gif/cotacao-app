@@ -101,15 +101,16 @@ export function montarHtmlConferenciaNota(
   return { html, tituloArquivo };
 }
 
-export function exportarConferenciaNota(cotacao: Pick<Cotacao, "finalizadaEm">, itens: ComparativoItemResponse[]): void {
+// Retorna false quando o navegador bloqueou a janela (pop-up) — quem chama decide
+// como avisar o operador (achado do usuário, 2026-08-21: alert() nativo não combina
+// com o resto da UI; substituído por uma mensagem inline no próprio modal).
+export function exportarConferenciaNota(cotacao: Pick<Cotacao, "finalizadaEm">, itens: ComparativoItemResponse[]): boolean {
   const detalhes = detalhamentoPorFornecedor(itens);
   const { html } = montarHtmlConferenciaNota(cotacao, detalhes);
   const janela = window.open("", "_blank", "width=900,height=700");
-  if (!janela) {
-    alert("Permita pop-ups para exportar o PDF.");
-    return;
-  }
+  if (!janela) return false;
   janela.document.write(html);
   janela.document.close();
   setTimeout(() => janela.print(), 600);
+  return true;
 }

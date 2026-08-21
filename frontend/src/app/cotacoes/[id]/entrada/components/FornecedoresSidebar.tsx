@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import ConfirmModal from "@/components/ConfirmModal";
 import { inativarFornecedor } from "@/lib/api";
 import { corFornecedor } from "@/lib/coresFornecedor";
 import { getErrorMessage } from "@/lib/errors";
@@ -41,6 +42,7 @@ export default function FornecedoresSidebar({
   const [modalAberto, setModalAberto] = useState(false);
   const [editando, setEditando] = useState<Fornecedor | null>(null);
   const [inativando, setInativando] = useState<string | null>(null);
+  const [paraInativar, setParaInativar] = useState<Fornecedor | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [selecionadoId, setSelecionadoId] = useState<string | null>(null);
   const [busca, setBusca] = useState("");
@@ -54,8 +56,10 @@ export default function FornecedoresSidebar({
     if (selecionado && podeAdicionar) onAdicionarCotacao(selecionado);
   }
 
-  async function onInativar(f: Fornecedor) {
-    if (!window.confirm(`Inativar "${f.nome}"? Ele deixa de aparecer para novas cotações.`)) return;
+  async function confirmarInativar() {
+    const f = paraInativar;
+    if (!f) return;
+    setParaInativar(null);
     setInativando(f.id);
     setErro(null);
     try {
@@ -160,7 +164,7 @@ export default function FornecedoresSidebar({
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
-                      onInativar(f);
+                      setParaInativar(f);
                     }}
                     disabled={inativando === f.id}
                     className="text-xs font-medium text-t3 hover:text-er disabled:opacity-50"
@@ -204,6 +208,15 @@ export default function FornecedoresSidebar({
           onFornecedorSalvo(f);
           setEditando(null);
         }}
+      />
+      <ConfirmModal
+        open={paraInativar !== null}
+        onClose={() => setParaInativar(null)}
+        onConfirm={confirmarInativar}
+        title="Inativar fornecedor"
+        message={`Inativar "${paraInativar?.nome}"? Ele deixa de aparecer para novas cotações.`}
+        confirmLabel="Inativar"
+        confirmando={inativando === paraInativar?.id}
       />
     </div>
   );

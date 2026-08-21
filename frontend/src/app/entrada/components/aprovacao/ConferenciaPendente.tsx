@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import Modal from "@/components/Modal";
 import { confirmarResposta } from "@/lib/api";
 import { getErrorMessage } from "@/lib/errors";
@@ -215,14 +215,6 @@ export default function ConferenciaPendente({
   const [cancelando, setCancelando] = useState(false);
   const [filtro, setFiltro] = useState<Filtro>("all");
   const [okExpandido, setOkExpandido] = useState(false);
-
-  // O erro nasce no topo da lista de itens, que pode estar rolada bem abaixo — sem
-  // isto o operador clica "Confirmar e Processar", nada visível acontece e a mensagem
-  // fica fora da tela.
-  const erroRef = useRef<HTMLParagraphElement>(null);
-  useEffect(() => {
-    if (erro) erroRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-  }, [erro]);
 
   const itensRevisarPendentes = useMemo(
     () =>
@@ -532,9 +524,14 @@ export default function ConferenciaPendente({
         </div>
       </div>
 
-      <div className="max-h-[55vh] flex-1 overflow-y-auto px-6 py-4">
+      {/* Sem altura/scroll próprios (achado do usuário, 2026-08-21): este painel só é
+          hospedado dentro do corpo já rolável do AprovacaoModal (aba 2) desde o refactor
+          2026-08-20 — um max-h+overflow-y-auto aqui aninhava um segundo scroll dentro do
+          scroll do modal, dando a impressão de "2 scrolls" na Conferência das Cotações.
+          Quem rola agora é só o modal. */}
+      <div className="px-6 py-4">
         {erro && (
-          <p ref={erroRef} role="alert" className="mb-3 rounded-md border border-er/35 bg-er-d p-3 text-sm font-medium text-er">
+          <p role="alert" className="mb-3 rounded-md border border-er/35 bg-er-d p-3 text-sm font-medium text-er">
             {erro}
           </p>
         )}

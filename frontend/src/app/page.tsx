@@ -121,7 +121,7 @@ function DashboardContent() {
               >
                 <span className={`inline-block transition-transform ${row.getIsExpanded() ? "rotate-90" : ""}`}>›</span>
               </button>
-              <Link href={`/cotacoes/${c.id}/entrada`} className="font-medium text-t1 hover:underline">
+              <Link href="/entrada" className="font-medium text-t1 hover:underline">
                 {c.titulo}
               </Link>
             </>
@@ -350,7 +350,7 @@ function DashboardContent() {
                 {emAndamentoLista.map((c) => (
                   <Link
                     key={c.id}
-                    href={`/cotacoes/${c.id}/entrada`}
+                    href="/entrada"
                     className="rounded-full border border-wa/40 bg-card px-3 py-1 text-xs font-medium text-wa-txt hover:bg-hov"
                   >
                     {c.titulo}
@@ -368,7 +368,7 @@ function DashboardContent() {
             tbodyClassName="divide-y divide-bdr"
             rowClassName="hover:bg-hov"
             renderRowDetail={(row) => (
-              <CotacaoResumoExpandido cotacao={row.original} itens={itensPorCotacaoTabela?.get(row.original.id)} />
+              <CotacaoResumoExpandido itens={itensPorCotacaoTabela?.get(row.original.id)} />
             )}
             rowDetailClassName="bg-surf"
             rowDetailCellClassName="px-4 py-4"

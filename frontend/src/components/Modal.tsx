@@ -40,6 +40,19 @@ export default function Modal({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [open, onClose]);
 
+  // Trava o scroll da página por trás do modal — sem isto o fundo (ex.: a landing de
+  // Entrada de Dados, que continua montada atrás do backdrop) mantém sua própria barra
+  // de rolagem, dando a impressão de "2 scrolls" ao lado do scroll interno do corpo do
+  // modal (achado do usuário, 2026-08-21).
+  useEffect(() => {
+    if (!open) return;
+    const original = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = original;
+    };
+  }, [open]);
+
   if (!open) return null;
 
   return (
